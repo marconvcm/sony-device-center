@@ -3,6 +3,11 @@ project(SonyHeadphonesClient)
 
 set(CMAKE_CXX_STANDARD 20)
 
+include(CTest)
+if(BUILD_TESTING)
+    add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../tests" "${CMAKE_CURRENT_BINARY_DIR}/tests")
+endif()
+
 find_package(Threads REQUIRED)
 
 add_executable(SonyHeadphonesClient)

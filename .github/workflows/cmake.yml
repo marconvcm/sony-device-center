@@ -60,6 +60,12 @@ jobs:
       shell: bash
       # Execute the build.  You can specify a specific target with "--target <NAME>"
       run: cmake --build . --config $BUILD_TYPE
+
+    - name: Protocol regression tests
+      working-directory: ${{github.workspace}}/Client/build
+      shell: bash
+      run: ctest -C "$BUILD_TYPE" --output-on-failure --no-tests=error
+
     - name: Upload a Build Artifact
       uses: actions/upload-artifact@v4
       with:
@@ -68,5 +74,4 @@ jobs:
         # A file, directory or wildcard pattern that describes what to upload
         path: ${{github.workspace}}/${{matrix.binary_path}}
         # The desired behavior if no files are found using the provided path.
-
 

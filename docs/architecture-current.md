@@ -235,6 +235,45 @@ to main/master; the separate Xcode workflow only covers master. CMake does not
 configure the macOS application backend; use the existing Xcode project there.
 No repository linter configuration was found.
 
+### Phase 2 regression boundary
+
+`tests/CMakeLists.txt` adds Catch2/CTest and `sony-protocol-tests`. It can be
+configured on its own without GUI or Bluetooth dependencies, or included from
+the existing application build. It compiles the unchanged serializer,
+byte-conversion helpers and wrapper directly; it does not extract libraries.
+Catch2 is resolved from an installed v3 package or a version/hash-pinned source
+archive. `BUILD_TESTING=OFF` leaves the application-only dependency set intact.
+The existing Linux/Windows and macOS workflows now invoke the tests, without
+changing their branch triggers or application build paths.
+
+| Area | Regression coverage |
+| --- | --- |
+| Encoding | Literal START/END, data type, sequence, big-endian size, payload and checksum; empty ACK; size boundary including escape expansion |
+| Escaping | `3c`, `3d`, `3e` literal pairs; all 256 byte values; header/checksum escaping; malformed escape pairs |
+| Body decoding | Valid and invalid checksum, corrupted payload, every truncated prefix, oversized/undersized declared length, permissive trailing bytes |
+| Stream assembly | Complete frame, every two-part split (including escape pairs), byte-at-a-time reads, two frames per receive, trailing partial frame, ACK plus response, invalid delimiters and body |
+| Command serialization | Separate literal v1/v2 NC/ambient layouts and legacy VPT/positioning payloads |
+
+The wrapper tests use a file-local scripted implementation of the **existing**
+`IBluetoothConnector`, because delimiter parsing does not live in
+`CommandSerializer`. It supplies preset reads, records writes, and throws
+immediately when input runs out instead of sleeping or contacting headphones.
+This is not the Phase 3 abstraction or the general-purpose Phase 4 fake.
+
+The passing baseline contains 31 test cases (183 assertions, including
+sections/generators). It passes GCC Release, standalone Clang Debug with
+ASan/UBSan, and an offline standalone build using the distribution's Catch2
+package. Both Linux application build modes pass; their Release executables
+are byte-identical to the baseline. Native Windows/macOS builds and real
+headphones were not exercised locally.
+
+Tests labeled `baseline` deliberately record existing permissive behavior;
+they are not requirements for a future strict codec. Missing delimiters
+currently cause further reads, so those tests expect the scripted transport
+error rather than inventing an immediate parser rejection. The tests do not
+add expected-failure cases or pretend that the unsafe direct v1 battery-call
+path has been fixed. That boundary remains an explicit risk below.
+
 ## Risks to preserve explicitly during migration
 
 1. **Generation safety:** UI-only v2 gating is not an SDK safety boundary.
