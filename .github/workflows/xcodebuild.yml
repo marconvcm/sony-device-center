@@ -24,6 +24,14 @@ jobs:
       with:
         submodules: true
 
+    - name: Build protocol regression tests
+      run: |
+        cmake -S "${{github.workspace}}/tests" -B "${{runner.temp}}/sony-protocol-tests" -DCMAKE_BUILD_TYPE=Release
+        cmake --build "${{runner.temp}}/sony-protocol-tests" --config Release
+
+    - name: Protocol regression tests
+      run: ctest --test-dir "${{runner.temp}}/sony-protocol-tests" -C Release --output-on-failure --no-tests=error
+
     - name: Create build directory
       working-directory: ${{github.workspace}}/Client
       run: mkdir build
@@ -51,5 +59,4 @@ jobs:
         # A file, directory or wildcard pattern that describes what to upload
         path: ${{github.workspace}}/${{matrix.binary_path}}
         # The desired behavior if no files are found using the provided path.
-
 

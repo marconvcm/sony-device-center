@@ -160,6 +160,34 @@ cmake .. && cmake --build .
 Keep the built binary next to its `resources/` folder (device hero images load from `resources/devices/`).
 </details>
 
+### Protocol regression tests
+
+The hardware-free `sony-protocol-tests` target uses Catch2 3 and CTest. Tests
+require CMake 3.14+ and a C++20 compiler. An installed Catch2 3 package is used
+when available; otherwise CMake downloads a SHA-256-verified Catch2 3.8.1 archive.
+For offline builds, install Catch2 first and use `CMAKE_PREFIX_PATH` or
+`Catch2_DIR` if it is outside the standard package search paths.
+
+Build and test independently of the GUI, Bluetooth libraries, and ImGui
+submodule on Linux, Windows, or macOS (commands from the repository root):
+
+```sh
+cmake -S tests -B build-tests -DCMAKE_BUILD_TYPE=Release
+cmake --build build-tests --config Release
+cmake -E chdir build-tests ctest -C Release --output-on-failure
+```
+
+Linux/Windows application builds also include tests by default; run CTest in
+the application build directory, or configure with `-DBUILD_TESTING=OFF` for
+the original application-only build without a Catch2 dependency. macOS still
+uses Xcode for the application; the standalone CMake project only builds tests.
+
+Coverage includes literal wire frames, escaping, checksum/length errors,
+fragmented and coalesced receives, and existing v1/v2 command serialization.
+These tests preserve current behavior, including explicitly labeled parser
+limitations; they do not certify hardware support or core-level v1/v2 command
+isolation. See [the current architecture and risks](docs/architecture-current.md).
+
 ## 🔬 How it works
 
 Sony headphones expose a vendor RFCOMM/SPP service. Commands are framed as:
