@@ -129,64 +129,97 @@ first time (`brew trust AmitRajput-Dev/tap`).
 
 ## 🚀 Build from source
 
+### Prerequisites
+
+Clone the repository with submodules (required for Dear ImGui on Linux and Windows):
+
+```sh
+git clone --recurse-submodules https://github.com/AmitRajput-Dev/SonyBridge.git
+cd SonyBridge
+# Or if already cloned:
+git submodule update --init --recursive
+```
+
+<details open>
+<summary><b>Linux (Root CMake build)</b></summary>
+
+Install build tools and development libraries:
+
+- **Ubuntu / Debian**:
+  ```sh
+  sudo apt update && sudo apt install -y build-essential cmake git libbluetooth-dev libglfw3-dev libdbus-1-dev libglew-dev
+  ```
+- **Fedora**:
+  ```sh
+  sudo dnf install -y gcc-c++ cmake git bluez-libs-devel glfw-devel dbus-devel glew-devel
+  ```
+
+Build everything (transport library, client, and test suites):
+
+```sh
+cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j$(nproc)
+```
+
+Run the application:
+```sh
+./build/Client/SonyHeadphonesClient
+```
+
+Keep the binary next to its `resources/` directory (hero images load from `resources/devices/`).
+</details>
+
+<details>
+<summary><b>Windows (Dear ImGui UI)</b></summary>
+
+From a **Developer Command Prompt for VS**:
+
+```sh
+cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release
+```
+
+Run the application:
+```sh
+.\build\Client\Release\SonyHeadphonesClient.exe
+```
+
+</details>
+
 <details>
 <summary><b>macOS (native SwiftUI app)</b></summary>
 
 Requires **Xcode 14+**.
 
 ```sh
-git clone --recurse-submodules https://github.com/AmitRajput-Dev/SonyBridge.git
-open SonyBridge/Client/macos/SonyHeadphonesClient.xcodeproj
+open Client/macos/SonyHeadphonesClient.xcodeproj
 ```
 
-Then ⌘R.
+Then press **⌘R** to build and run.
 </details>
 
-<details>
-<summary><b>Windows / Linux (Dear ImGui UI)</b></summary>
+### Automated tests
 
-**Windows** (CMake + MSVC, from a Developer Command Prompt):
-```sh
-cd Client && mkdir build && cd build
-cmake .. && cmake --build . --config Release
-```
+The project includes test suites for protocol framing, serialization, and transport abstraction using Catch2 3 and CTest (no Bluetooth hardware required).
 
-**Linux** (`sudo apt install libbluetooth-dev libglfw3-dev libdbus-1-dev`):
-```sh
-cd Client && mkdir build && cd build
-cmake .. && cmake --build .
-```
-
-Keep the built binary next to its `resources/` folder (device hero images load from `resources/devices/`).
-</details>
-
-### Protocol regression tests
-
-The hardware-free `sony-protocol-tests` target uses Catch2 3 and CTest. Tests
-require CMake 3.14+ and a C++20 compiler. An installed Catch2 3 package is used
-when available; otherwise CMake downloads a SHA-256-verified Catch2 3.8.1 archive.
-For offline builds, install Catch2 first and use `CMAKE_PREFIX_PATH` or
-`Catch2_DIR` if it is outside the standard package search paths.
-
-Build and test independently of the GUI, Bluetooth libraries, and ImGui
-submodule on Linux, Windows, or macOS (commands from the repository root):
+Run all tests after building the root project:
 
 ```sh
-cmake -S tests -B build-tests -DCMAKE_BUILD_TYPE=Release
-cmake --build build-tests --config Release
-cmake -E chdir build-tests ctest -C Release --output-on-failure
+ctest --test-dir build --output-on-failure
 ```
 
-Linux/Windows application builds also include tests by default; run CTest in
-the application build directory, or configure with `-DBUILD_TESTING=OFF` for
-the original application-only build without a Catch2 dependency. macOS still
-uses Xcode for the application; the standalone CMake project only builds tests.
+Or build and run tests independently (headless / without GUI dependencies):
 
-Coverage includes literal wire frames, escaping, checksum/length errors,
-fragmented and coalesced receives, and existing v1/v2 command serialization.
-These tests preserve current behavior, including explicitly labeled parser
-limitations; they do not certify hardware support or core-level v1/v2 command
-isolation. See [the current architecture and risks](docs/architecture-current.md).
+```sh
+cmake -B tests/build -S tests -DCMAKE_BUILD_TYPE=Release
+cmake --build tests/build
+ctest --test-dir tests/build --output-on-failure
+```
+
+Included test suites:
+- **`sony-protocol-tests`**: wire frame format, byte escaping, checksums, truncated frames, fragmentation, and v1/v2 command serialization.
+- **`sony-transport-tests`**: `ITransport` abstraction, `FakeTransport` (deterministic fault injection, timeouts, disconnects, chunked reads, frame recording), bidirectional connector adapters, and `BluetoothWrapper` end-to-end integration.
+See [the current architecture and risks](docs/architecture-current.md).
 
 ## 🔬 How it works
 
