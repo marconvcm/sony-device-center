@@ -26,7 +26,12 @@ endif()
 find_package(Threads REQUIRED)
 include(Catch)
 
+if(NOT TARGET sony-transport)
+    add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../libs/sony-transport" "${CMAKE_CURRENT_BINARY_DIR}/libs/sony-transport")
+endif()
+
 set(SONYBRIDGE_CLIENT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../Client")
+
 add_executable(sony-protocol-tests
     protocol/CommandSerializerTests.cpp
     protocol/BluetoothWrapperTests.cpp
@@ -36,5 +41,17 @@ add_executable(sony-protocol-tests
 )
 target_compile_features(sony-protocol-tests PRIVATE cxx_std_20)
 target_include_directories(sony-protocol-tests PRIVATE "${SONYBRIDGE_CLIENT_DIR}")
-target_link_libraries(sony-protocol-tests PRIVATE Catch2::Catch2WithMain Threads::Threads)
+target_link_libraries(sony-protocol-tests PRIVATE Catch2::Catch2WithMain Threads::Threads sony-transport)
 catch_discover_tests(sony-protocol-tests PROPERTIES TIMEOUT 10)
+
+add_executable(sony-transport-tests
+    transport/FakeTransportTests.cpp
+    transport/TransportAdapterTests.cpp
+    "${SONYBRIDGE_CLIENT_DIR}/CommandSerializer.cpp"
+    "${SONYBRIDGE_CLIENT_DIR}/ByteMagic.cpp"
+    "${SONYBRIDGE_CLIENT_DIR}/BluetoothWrapper.cpp"
+)
+target_compile_features(sony-transport-tests PRIVATE cxx_std_20)
+target_include_directories(sony-transport-tests PRIVATE "${SONYBRIDGE_CLIENT_DIR}")
+target_link_libraries(sony-transport-tests PRIVATE Catch2::Catch2WithMain Threads::Threads sony-transport)
+catch_discover_tests(sony-transport-tests PROPERTIES TIMEOUT 10)
