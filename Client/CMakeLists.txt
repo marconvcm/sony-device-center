@@ -4,11 +4,15 @@ project(SonyHeadphonesClient)
 set(CMAKE_CXX_STANDARD 20)
 
 include(CTest)
-if(BUILD_TESTING)
+if(BUILD_TESTING AND NOT TARGET sony-protocol-tests)
     add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../tests" "${CMAKE_CURRENT_BINARY_DIR}/tests")
 endif()
 
 find_package(Threads REQUIRED)
+
+if(NOT TARGET sony-transport)
+    add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../libs/sony-transport" "${CMAKE_CURRENT_BINARY_DIR}/libs/sony-transport")
+endif()
 
 add_executable(SonyHeadphonesClient)
 
@@ -22,7 +26,7 @@ target_sources(SonyHeadphonesClient
     CrossPlatformGUI.cpp "Headphones.cpp")
 
 target_include_directories (SonyHeadphonesClient
-    PRIVATE ${CMAKE_SOURCE_DIR}
+    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
 if(UNIX AND NOT APPLE)
@@ -44,7 +48,7 @@ if (DEAR_IMGUI)
     )
 
     target_include_directories (SonyHeadphonesClient
-        PRIVATE ${CMAKE_SOURCE_DIR}/imgui
+        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/imgui
     )
 endif ()
 
@@ -58,7 +62,7 @@ if (LINUX)
         imgui/backends/imgui_impl_opengl3.cpp
     )
 
-    set (CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/linux)
+    list (APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/linux")
 
     set (OpenGL_GL_PREFERENCE GLVND)
 	
@@ -106,6 +110,7 @@ endif ()
 
 target_link_libraries(SonyHeadphonesClient
     PRIVATE Threads::Threads
+    sony-transport
 )
 
 if (WIN32 OR LINUX)

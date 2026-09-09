@@ -295,4 +295,78 @@ path has been fixed. That boundary remains an explicit risk below.
 The next bounded refactor is an adapter around the existing connector contract
 plus a deterministic test transport, with discovery kept separate. Keep the
 current platform connectors and command bytes intact; extract framing only
-after these baseline tests are in place. Stop before that refactor in this PR.
+after these baseline tests are in place.
+
+## Phase 3 & 4: Transport Abstraction and Deterministic Fake Transport
+
+As specified in Phase 3 and Phase 4 of the execution plan, the transport layer has been
+formalized into a clean, reusable library (`libs/sony-transport`) that abstracts away
+the underlying Bluetooth connections without depending on Qt or higher-level Sony protocol logic.
+
+### 1. `ITransport` Interface
+
+```text
+       ┌───────────────────────────────┐
+       │          ITransport           │
+       ├───────────────────────────────┤
+       │ + connect(DeviceAddress)      │
+       │ + disconnect() noexcept       │
+       │ + isConnected() const noexcept│
+       │ + send(span<const byte>)      │
+       │ + receive(span<byte>)         │
+       └──────────────▲────────────────┘
+                      │
+       ┌──────────────┴───────────────┬───────────────────────────────┐
+       │                              │                               │
+┌──────────────┐       ┌─────────────────────────────┐       ┌──────────────────┐
+│FakeTransport │       │ BluetoothConnectorTransport │       │ Platform Adapters│
+└──────────────┘       └──────────────┬──────────────┘       └──────────────────┘
+                                      │ (adapts)
+                       ┌──────────────▼──────────────┐
+                       │     IBluetoothConnector     │
+                       │(Linux / Windows / macOS)    │
+                       └─────────────────────────────┘
+```
+
+The `ITransport` interface provides:
+- Clean C++20 standard library types (`std::span`, `std::byte`, `std::size_t`).
+- Pure non-blocking or bounded I/O operations without platform Bluetooth headers.
+- Strong typing for endpoints: `DeviceAddress` wraps device identifiers and MAC strings with comparison and conversion operators.
+
+### 2. Separate Discovery Interface
+
+Bluetooth device discovery is separated from transport transmission via `IDeviceDiscovery`:
+- `discover()` returns `std::vector<DiscoveredDevice>`.
+- `DiscoveredDevice` pairs the user-friendly device name with its strongly-typed `DeviceAddress`.
+
+### 3. Bidirectional Connector Adapters
+
+To preserve existing functionality without breaking legacy code:
+- **`BluetoothConnectorTransport`**: Adapts any existing `IBluetoothConnector` (Linux, Windows, macOS) into an `ITransport`.
+- **`TransportBluetoothConnector`**: Adapts any modern `ITransport` (including `FakeTransport`) into an `IBluetoothConnector`.
+  This allows legacy consumers like `BluetoothWrapper` and `Headphones` to run directly on top of `FakeTransport` in unit and integration tests.
+- Platform aliases (`LinuxBluetoothTransport`, `WindowsBluetoothTransport`, `MacOSBluetoothTransport`) are provided as explicit adapters.
+
+### 4. Typed Sony Error Model
+
+Introduced `SonyErrorCode` and `SonyException` (Phase 13 preview):
+- Error codes: `Timeout`, `Disconnected`, `Unsupported`, `InvalidFrame`, `InvalidChecksum`, `InvalidResponse`, `TransportFailure`, `ProtocolViolation`.
+- Transports throw `SonyException` with typed error codes on disconnection, timeout, or I/O failure.
+
+### 5. Deterministic `FakeTransport`
+
+`FakeTransport` enables complete, deterministic protocol testing without hardware:
+- **Queueing incoming frames**: `queueIncoming(...)` accepts single frames, multiple frames, raw byte spans, and nested byte vectors.
+- **Recording outgoing frames**: `sentFrames()`, `sentCount()`, `lastSentFrame()`, and `allSentBytes()` allow exact verification of sent packets.
+- **Simulating timeouts**: Configurable timeout counts on send and receive via `simulateTimeoutOnReceive()` and `simulateTimeoutOnSend()`.
+- **Simulating disconnects**: `simulateDisconnect()` sets connected status to false and triggers `SonyErrorCode::Disconnected` on I/O.
+- **Simulating fragmented messages**: `setMaxReceiveChunkSize(size)` forces `receive()` to deliver data in constrained slices.
+- **Multiple frames in one read**: Delivers concatenated queued frames when the receive buffer capacity allows.
+- **Thread safety**: Internal mutex protection guarantees safe operation across reader/writer threads.
+
+### 6. Test Coverage and Verification
+
+- 13 new unit and integration tests added in `tests/transport/` (`FakeTransportTests.cpp` and `TransportAdapterTests.cpp`).
+- All 44 tests pass with 100% success rate across `sony-protocol-tests` and `sony-transport-tests`.
+- Both `Client/build` and root `build` configure, build, link, and test cleanly with zero warnings.
+
