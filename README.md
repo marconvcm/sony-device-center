@@ -40,18 +40,36 @@ Sony locks headphone settings and telemetry behind their mobile-only apps (*Sony
 - 🔋 **Live Battery & Charging State** — Real-time telemetry for over-ear models, plus individual Left, Right, and Case battery levels for True Wireless (TWS) earbuds.
 - 🧩 **Advanced Audio Features** — Speak-to-Chat, Adaptive Volume, and Auto Power-Off timeouts (dynamically enabled based on device capability profiles).
 - 🧬 **Dual Protocol Support** — Automatically detects and communicates with both **Protocol V1** (legacy models) and **Protocol V2** (modern models with alternating-bit Stop-and-Wait ARQ).
-- 🔄 **Bidirectional Sync** — Headset hardware button presses (e.g. NC/AMB button) immediately update the daemon and UI state.
 - 💻 **Flexible Architecture** — Run standalone via direct Bluetooth transport, or as a background daemon with CLI and GUI clients.
 
 ---
 
 ## 🎧 Supported Devices
 
-| Status | Model Family | Tested & Supported Models |
-| :--- | :--- | :--- |
-| ✅ **Hardware Verified** | Modern V2 Over-Ear & TWS | **WH-1000XM5**, **WF-1000XM6**, WH-CH720N, Sony ULT WEAR (WH-ULT900N) |
-| 🟢 **Expected / Compatible** | Modern V2 Family | WH-1000XM4 (v2 firmware), WF-1000XM5, WF-1000XM4, WH-XB910N, WH-CH520, LinkBuds S, WF-C700N |
-| 🔵 **Legacy V1** | First-Generation Protocol | WH-1000XM3, WH-1000XM2, MDR-1000X, WH-XB900N, MDR-XB950BT, WI-1000X |
+Status reflects what someone has actually run, not what the protocol suggests
+should work. A device is only **Verified** once a person reports it working on
+real hardware.
+
+| Device | Protocol | Status | Notes |
+| :--- | :---: | :--- | :--- |
+| **WH-1000XM5** | V2 | ✅ Verified | Maintainer's device |
+| **WH-1000XM3** | V1 | ✅ Verified | Maintainer's device |
+| **WH-1000XM6** | V2 | ⚠️ Partially working | Controls work; **equalizer has no effect** ([#10](../../issues/10)), battery intermittent ([#11](../../issues/11)) |
+| **WF-1000XM6** | V2 | ✅ Verified | Community report |
+| **MDR-1000X** | V1 | ❌ Known broken | Shows as disconnected, no controls work ([#12](../../issues/12)) |
+| **WH-1000XM4** | V1 | 🟡 Untested | Expected to behave like the XM3 |
+| WF-1000XM5, WF-1000XM4 | V2 | 🟡 Untested | TWS battery reporting unverified |
+| WH-CH720N, ULT WEAR, LinkBuds S, WF-C700N | V2 | 🟡 Untested | |
+| WH-XB910N, WH-CH520 | V2 | 🟡 Untested | |
+| WH-XB900N, MDR-XB950BT, WI-1000X, WH-1000XM2 | V1 | 🟡 Untested | The V1 path is far less exercised than V2 |
+
+**Known to affect every device:** the app reads state once at startup and does not
+refresh, so changes made on the headset do not appear ([#9](../../issues/9)) and the
+initial noise-control mode can be wrong ([#8](../../issues/8)).
+
+Running something not listed, or listed as untested? Please
+[open a report](../../issues/new) with your model, firmware version and what worked —
+that is the only way this table improves. `sonyctl -v info` output is ideal.
 
 ---
 
@@ -205,9 +223,34 @@ This project builds upon the foundational reverse-engineering work of the open-s
 
 ---
 
+## 🤖 How this was built
+
+This project was written with heavy AI assistance, and it is worth being direct about
+what that means for anyone deciding whether to trust or contribute to it.
+
+What it does **not** mean is that the behaviour is unverified. The protocol layer has
+111 tests that run without any hardware, covering framing, escaping, checksums,
+fragmentation, and the V1/V2 generation boundary — including a regression test proving
+a legacy device is never sent opcode `0x22`, which means POWER OFF there and BATTERY on
+newer models. Sanitizers run in CI on every push.
+
+What it does mean is that breadth outran verification in places. Device support claims
+were, until recently, inferred from protocol similarity rather than tested — the table
+above now says which is which — and the community found real bugs at launch that the
+test suite did not cover. Those are tracked in the open issues rather than papered over.
+
+Judge it on the tests and the issue list, not on the authorship. Bug reports, and
+especially hardware reports, are the most valuable thing you can contribute.
+
+---
+
 ## ⚠️ Disclaimer
 
-This project is **not affiliated with, endorsed by, or connected to Sony Corporation**. All product names, logos, and brands are property of their respective owners. It is an independent, open-source clean-room implementation developed for hardware interoperability.
+Sony Device Center is an **independent open-source project**, free for anyone to use,
+study and modify. It is **not affiliated with, endorsed by, or connected to Sony
+Corporation**. Sony and all product names are trademarks of their respective owners.
+It communicates with the headphones over a reverse-engineered protocol, for
+interoperability.
 
 ---
 

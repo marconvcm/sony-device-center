@@ -1,0 +1,78 @@
+name: Hardware report
+description: Tell us how the app behaves with your headphones
+title: "[HW] <model> — "
+labels: ["hardware report"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        These reports are what move a device from **Untested** to **Verified** in the
+        README, so they are genuinely the most useful thing you can send. Partial
+        reports are welcome — "everything works except the EQ" is exactly the kind of
+        detail the table needs.
+
+  - type: input
+    id: model
+    attributes:
+      label: Model
+      placeholder: WH-1000XM5
+    validations:
+      required: true
+
+  - type: input
+    id: firmware
+    attributes:
+      label: Firmware version
+      description: From the Sony mobile app, if you have it. Leave blank if unknown.
+      placeholder: "2.3.1"
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Linux
+        - Windows
+        - macOS
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: App version
+      description: Shown in Settings, or `sonyctl --help` for the CLI.
+      placeholder: v0.1.3
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: working
+    attributes:
+      label: What works
+      options:
+        - label: Connects and shows the device
+        - label: Battery level
+        - label: Noise cancelling on/off
+        - label: Ambient sound, including the level slider
+        - label: Equalizer presets
+        - label: Equalizer custom bands and Clear Bass
+        - label: DSEE
+        - label: Speak-to-Chat
+        - label: Adaptive Volume
+        - label: Auto Power-Off
+
+  - type: textarea
+    id: broken
+    attributes:
+      label: What does not work
+      description: Please be specific — "the EQ does nothing" is more useful than "buggy".
+
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics
+      description: |
+        Output of `sonyctl -v info` if you can. It shows the detected protocol
+        generation and capability profile, which is usually where the answer is.
+      render: shell
