@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=Sony Device Center
+GenericName=Sony Audio Companion
+Comment=Companion app for Sony WH/WF/LinkBuds audio devices
+Exec=sony-device-center
+Icon=sony-device-center
+Terminal=false
+Type=Application
+Categories=AudioVideo;Audio;Utility;Qt;
+Keywords=sony;headphones;bluetooth;anc;equalizer;wh1000xm5;xm4;xm3;
+StartupNotify=true

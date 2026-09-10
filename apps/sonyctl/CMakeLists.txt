@@ -7,3 +7,5 @@ add_executable(sonyctl
 
 target_compile_features(sonyctl PRIVATE cxx_std_20)
 target_link_libraries(sonyctl PRIVATE sony-core sony-protocol sony-transport Threads::Threads)
+
+install(TARGETS sonyctl RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})

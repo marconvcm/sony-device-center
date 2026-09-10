@@ -530,3 +530,14 @@ Client/imgui.ini
 
 # linux build
 Client/linux/sonyheadphonesclient.build/
+
+# CPack and packaging artifacts
+_CPack_Packages/
+CPackConfig.cmake
+CPackSourceConfig.cmake
+*.deb
+*.rpm
+*.dmg
+*.msi
+*.AppImage
+

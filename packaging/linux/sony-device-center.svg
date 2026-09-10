@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e1e24"/>
+      <stop offset="100%" stop-color="#0f0f13"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#e0a96d"/>
+      <stop offset="100%" stop-color="#c18341"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="56" fill="url(#bg)"/>
+  <!-- Headband -->
+  <path d="M 64 128 C 64 72, 192 72, 192 128" fill="none" stroke="url(#gold)" stroke-width="14" stroke-linecap="round"/>
+  <!-- Ear cups -->
+  <rect x="44" y="116" width="28" height="68" rx="14" fill="#2c2c34" stroke="url(#gold)" stroke-width="6"/>
+  <rect x="184" y="116" width="28" height="68" rx="14" fill="#2c2c34" stroke="url(#gold)" stroke-width="6"/>
+  <!-- Soundwaves / Signals -->
+  <circle cx="128" cy="150" r="12" fill="url(#gold)"/>
+  <path d="M 112 166 A 24 24 0 0 0 144 166" fill="none" stroke="url(#gold)" stroke-width="4" stroke-linecap="round"/>
+  <path d="M 100 178 A 40 40 0 0 0 156 178" fill="none" stroke="url(#gold)" stroke-width="4" stroke-linecap="round"/>
+</svg>

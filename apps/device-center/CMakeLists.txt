@@ -38,3 +38,6 @@ add_custom_command(TARGET sony-device-center POST_BUILD
         "${CMAKE_CURRENT_SOURCE_DIR}/../../Client/resources/devices"
         "$<TARGET_FILE_DIR:sony-device-center>/resources/devices"
     COMMENT "Copying device hero assets for device-center")
+
+install(TARGETS sony-device-center RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+

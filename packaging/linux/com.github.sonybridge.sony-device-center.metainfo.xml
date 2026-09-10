@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.github.sonybridge.sony-device-center</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <name>Sony Device Center</name>
+  <summary>Modern companion application and SDK for Sony audio devices</summary>
+  <description>
+    <p>
+      Sony Device Center provides complete control over Sony Bluetooth headphones and earbuds
+      including the WH-1000XM5, WH-1000XM4, WH-1000XM3, LinkBuds S, and WH-CH720N.
+    </p>
+    <p>Features include:</p>
+    <ul>
+      <li>Active Noise Cancellation and Ambient Sound control</li>
+      <li>Equalizer customization and Clear Bass tuning</li>
+      <li>DSEE Extreme and Speak-to-Chat toggles</li>
+      <li>Auto power-off configuration</li>
+      <li>Background daemon with socket IPC and CLI utility</li>
+    </ul>
+  </description>
+  <launchable type="desktop-id">sony-device-center.desktop</launchable>
+  <provides>
+    <binary>sony-device-center</binary>
+    <binary>sonyd</binary>
+    <binary>sonyctl</binary>
+  </provides>
+  <categories>
+    <category>AudioVideo</category>
+    <category>Audio</category>
+  </categories>
+</component>
