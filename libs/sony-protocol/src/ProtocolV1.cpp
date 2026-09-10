@@ -14,7 +14,7 @@ void ProtocolV1::initDevice() {
             -1,
             std::chrono::milliseconds(500)
         );
-    } catch (...) {}
+    } catch (const SonyException&) {}
 }
 
 BatteryState ProtocolV1::getBattery() {
@@ -34,7 +34,7 @@ NoiseControlState ProtocolV1::getNoiseControl() {
             -1,
             std::chrono::milliseconds(1000)
         );
-    } catch (...) {}
+    } catch (const SonyException&) {}
 
     std::lock_guard lock(_mutex);
     return _noiseControlState;

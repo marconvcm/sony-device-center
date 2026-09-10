@@ -1,4 +1,5 @@
 #include "sony/protocol/CapabilityDiscovery.h"
+#include "sony/protocol/SonyError.h"
 
 namespace sony::protocol {
 
@@ -59,14 +60,14 @@ DeviceCapabilities CapabilityDiscovery::probeDevice(
         if (!firmwareVersion.empty()) {
             caps.firmwareInfo = true;
         }
-    } catch (...) {}
+    } catch (const SonyException&) {}
 
     try {
         auto codec = protocol.getCodec();
         if (!codec.empty()) {
             caps.codecInfo = true;
         }
-    } catch (...) {}
+    } catch (const SonyException&) {}
 
     try {
         auto battery = protocol.getBattery();
@@ -76,40 +77,40 @@ DeviceCapabilities CapabilityDiscovery::probeDevice(
                 caps.dualBattery = true;
             }
         }
-    } catch (...) {}
+    } catch (const SonyException&) {}
 
     try {
         protocol.getNoiseControl();
         caps.noiseCancelling = true;
         caps.ambientSound = true;
         caps.focusOnVoice = true;
-    } catch (...) {}
+    } catch (const SonyException&) {}
 
     try {
         protocol.getEqualizer();
         caps.equalizer = true;
         caps.clearBass = true;
-    } catch (...) {}
+    } catch (const SonyException&) {}
 
     try {
         protocol.getDsee();
         caps.dsee = true;
-    } catch (...) {}
+    } catch (const SonyException&) {}
 
     try {
         protocol.getSpeakToChat();
         caps.speakToChat = true;
-    } catch (...) {}
+    } catch (const SonyException&) {}
 
     try {
         protocol.getAdaptiveVolume();
         caps.adaptiveVolume = true;
-    } catch (...) {}
+    } catch (const SonyException&) {}
 
     try {
         protocol.getAutoPowerOff();
         caps.autoPowerOff = true;
-    } catch (...) {}
+    } catch (const SonyException&) {}
 
     // Save probed capabilities to cache
     std::string cacheKey = CapabilityCache::makeKey(model, firmwareVersion, address);

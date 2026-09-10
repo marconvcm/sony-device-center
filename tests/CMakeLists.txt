@@ -45,6 +45,7 @@ add_executable(sony-protocol-tests
     protocol/CapabilityDiscoveryTests.cpp
     protocol/DeviceStateTests.cpp
     protocol/DeviceEventDispatcherTests.cpp
+    protocol/SonyErrorTests.cpp
     protocol/CommandSerializerTests.cpp
     protocol/BluetoothWrapperTests.cpp
     "${SONYBRIDGE_CLIENT_DIR}/CommandSerializer.cpp"

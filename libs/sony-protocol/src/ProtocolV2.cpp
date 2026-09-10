@@ -48,7 +48,7 @@ void ProtocolV2::initDevice() {
             -1,
             std::chrono::milliseconds(1000)
         );
-    } catch (...) {}
+    } catch (const SonyException&) {}
 }
 
 BatteryState ProtocolV2::getBattery() {
@@ -68,7 +68,7 @@ BatteryState ProtocolV2::getBattery() {
             state.charging = (resp.payload[3] == 1);
             return state;
         }
-    } catch (...) {}
+    } catch (const SonyException&) {}
 
     // 2. Dual L/R battery for TWS earbuds: GET 22 09 -> RET 23 09 <Llvl> <Lchg> <Rlvl> <Rchg>
     try {
@@ -84,7 +84,7 @@ BatteryState ProtocolV2::getBattery() {
             state.main = std::min(*state.left, *state.right);
             state.charging = (resp.payload[3] == 1 || resp.payload[5] == 1);
         }
-    } catch (...) {}
+    } catch (const SonyException&) {}
 
     // 3. Case battery for TWS earbuds: GET 22 0a -> RET 23 0a <level> <chg>
     try {
@@ -97,7 +97,7 @@ BatteryState ProtocolV2::getBattery() {
         if (resp.payload.size() >= 4) {
             state.caseBattery = static_cast<int>(resp.payload[2]);
         }
-    } catch (...) {}
+    } catch (const SonyException&) {}
 
     return state;
 }
