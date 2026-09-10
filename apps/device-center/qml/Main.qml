@@ -1,395 +1,1076 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Shapes
 
 ApplicationWindow {
     id: window
-    width: 1060
-    height: 720
-    minimumWidth: 880
-    minimumHeight: 620
+    width: 1180
+    height: 780
+    minimumWidth: 980
+    minimumHeight: 660
     visible: true
     title: "Sony Device Center — " + controller.deviceName
-    color: "#0f1015"
+    color: bg
 
-    // Modern Palette
-    readonly property color bgDark: "#0f1015"
-    readonly property color bgCard: "#181a24"
-    readonly property color bgCardHover: "#202331"
-    readonly property color borderCard: "#272a38"
-    readonly property color accentPurple: "#8b5cf6"
-    readonly property color accentHover: "#a78bfa"
-    readonly property color textPrimary: "#f8fafc"
-    readonly property color textSecondary: "#94a3b8"
-    readonly property color textMuted: "#64748b"
-    readonly property color greenSuccess: "#10b981"
+    property int navIndex: 0
 
+    // ==========================================================
+    // DESIGN TOKENS
+    // Every color in this file comes from here. No orphan hex.
+    // ==========================================================
+    readonly property color bg:            "#0A0B0F"
+    readonly property color surface:       "#14161E"
+    readonly property color surfaceHi:     "#1B1E29"
+    readonly property color surfaceSunk:   "#0E1016"
+    readonly property color line:          "#22252F"
+    readonly property color lineHi:        "#2F3341"
+
+    readonly property color accent:        "#7C5CFF"
+    readonly property color accentSoft:    "#A78BFA"
+    readonly property color ambientWarm:   "#F2A73B"
+    readonly property color success:       "#2DD4A7"
+    readonly property color danger:        "#FF5A5F"
+
+    readonly property color txt:           "#F4F6FA"
+    readonly property color txtDim:        "#98A1B2"
+    readonly property color txtFaint:      "#5C6473"
+
+    // Motion constants — one place to retune the whole app's feel.
+    readonly property int   tFast:  140
+    readonly property int   tBase:  200
+    readonly property int   tSlow:  340
+
+    // ==========================================================
+    // REUSABLE PIECES
+    // ==========================================================
+
+    // Stroked SVG glyph. One string may hold several subpaths.
+    component Glyph: Item {
+        id: glyph
+        property string path: ""
+        property real size: 18
+        property color color: window.txtDim
+        property real weight: 1.8
+        implicitWidth: size
+        implicitHeight: size
+
+        Shape {
+            anchors.fill: parent
+            antialiasing: true
+            ShapePath {
+                strokeColor: glyph.color
+                // Path.scale scales geometry only — strokeWidth is already in
+                // item pixels, so pre-multiplying it just makes icons look faint.
+                strokeWidth: glyph.weight
+                fillColor: "transparent"
+                capStyle: ShapePath.RoundCap
+                joinStyle: ShapePath.RoundJoin
+                scale: Qt.size(glyph.size / 24, glyph.size / 24)
+                PathSvg { path: glyph.path }
+            }
+        }
+        Behavior on color { ColorAnimation { duration: window.tFast } }
+    }
+
+    // Icon library. Named, not scattered as magic strings.
+    readonly property var icons: ({
+        headphones: "M4 17v-4a8 8 0 0 1 16 0v4 M3.5 15h3.2v6H3.5z M17.3 15h3.2v6h-3.2z",
+        shield:     "M12 3l7.5 3v6.2c0 4.6-3.2 7.6-7.5 9-4.3-1.4-7.5-4.4-7.5-9V6z",
+        mic:        "M12 3.5a3 3 0 0 1 3 3v5.2a3 3 0 0 1-6 0V6.5a3 3 0 0 1 3-3z M5 11a7 7 0 0 0 14 0 M12 18.2V21",
+        sliders:    "M6 21v-6.4 M6 11.2V3 M12 21v-9.6 M12 8V3 M18 21v-4 M18 13.6V3 M3.6 13h4.8 M9.6 10h4.8 M15.6 15h4.8",
+        sparkle:    "M11 3l1.7 4.9L17.6 9.6 12.7 11.3 11 16.2 9.3 11.3 4.4 9.6 9.3 7.9z M18 15.4l.75 2.1 2.1.75-2.1.75-.75 2.1-.75-2.1-2.1-.75 2.1-.75z",
+        swap:       "M4 8.5h13l-3.4-3.4 M20 15.5H7l3.4 3.4",
+        power:      "M12 3.5v8 M6.6 6.6a7.6 7.6 0 1 0 10.8 0",
+        bolt:       "M13.2 2.5L4.8 13.4h6.3l-1.3 8.1 8.4-10.9h-6.3z",
+        bluetooth:  "M7.5 7.5L16.5 13.4 12 17V3.6l4.5 3.6-9 6",
+        chevron:    "M5 9l7 7 7-7"
+    })
+
+    // Elevated card. Gradient fakes a top light source; hairline defines the edge.
+    component Card: Rectangle {
+        id: card
+        property bool active: false
+        property bool hovered: false
+        radius: 18
+        border.width: 1
+        border.color: active ? Qt.rgba(window.accent.r, window.accent.g, window.accent.b, 0.55)
+                    : hovered ? window.lineHi : window.line
+        gradient: Gradient {
+            GradientStop { position: 0.0; color: card.hovered ? window.surfaceHi : window.surface }
+            GradientStop { position: 1.0; color: window.surfaceSunk }
+        }
+        Behavior on border.color { ColorAnimation { duration: window.tBase } }
+    }
+
+    // Soft radial bloom. Atmosphere only — never carries information.
+    component Bloom: Shape {
+        id: bloom
+        property color tint: window.accent
+        property real strength: 0.22
+        antialiasing: true
+        ShapePath {
+            strokeWidth: -1
+            fillGradient: RadialGradient {
+                centerX: bloom.width / 2
+                centerY: bloom.height / 2
+                centerRadius: bloom.width / 2
+                focalX: centerX
+                focalY: centerY
+                GradientStop { position: 0.0; color: Qt.rgba(bloom.tint.r, bloom.tint.g, bloom.tint.b, bloom.strength) }
+                GradientStop { position: 0.55; color: Qt.rgba(bloom.tint.r, bloom.tint.g, bloom.tint.b, bloom.strength * 0.35) }
+                GradientStop { position: 1.0; color: Qt.rgba(bloom.tint.r, bloom.tint.g, bloom.tint.b, 0.0) }
+            }
+            startX: 0; startY: 0
+            PathLine { x: bloom.width; y: 0 }
+            PathLine { x: bloom.width; y: bloom.height }
+            PathLine { x: 0; y: bloom.height }
+        }
+    }
+
+    // Small uppercase label. Letter-spacing is what makes it read as deliberate.
+    component Eyebrow: Text {
+        color: window.txtFaint
+        font.pixelSize: 10
+        font.bold: true
+        font.letterSpacing: 1.4
+        font.capitalization: Font.AllUppercase
+    }
+
+    // The pill button. Press physics live here so every button feels identical.
+    component PillButton: Button {
+        id: pill
+        property color tint: window.accent
+        property bool active: false
+        property string glyphPath: ""
+        property bool compact: false
+
+        implicitHeight: compact ? 40 : 48
+        // Padding is declared, not inherited, so implicitWidth can be derived
+        // from it. Otherwise the control sizes contentItem to availableWidth,
+        // the row is wider than it needs, and the slack lands on the right.
+        topPadding: 0
+        bottomPadding: 0
+        leftPadding: compact ? 16 : 20
+        rightPadding: leftPadding
+        implicitWidth: pillRow.implicitWidth + leftPadding + rightPadding
+        hoverEnabled: true
+        scale: pressed ? 0.955 : (hovered ? 1.035 : 1.0)
+
+        Behavior on scale {
+            NumberAnimation { duration: 220; easing.type: Easing.OutBack; easing.overshoot: 2.2 }
+        }
+
+        background: Rectangle {
+            radius: height / 2
+            color: pill.active ? Qt.rgba(pill.tint.r, pill.tint.g, pill.tint.b, 0.16)
+                 : pill.hovered ? window.surfaceHi : window.surface
+            border.width: 1
+            border.color: pill.active ? Qt.rgba(pill.tint.r, pill.tint.g, pill.tint.b, 0.8)
+                        : pill.hovered ? window.lineHi : window.line
+
+            Behavior on color { ColorAnimation { duration: window.tBase } }
+            Behavior on border.color { ColorAnimation { duration: window.tBase } }
+
+            // Halo ring — the difference between "on" and "on, and you felt it".
+            Rectangle {
+                anchors.fill: parent
+                anchors.margins: -4
+                radius: height / 2
+                color: "transparent"
+                border.width: 1
+                border.color: pill.tint
+                opacity: pill.active ? 0.4 : 0
+                scale: pill.active ? 1.0 : 0.94
+                Behavior on opacity { NumberAnimation { duration: window.tSlow } }
+                Behavior on scale { NumberAnimation { duration: window.tSlow; easing.type: Easing.OutBack } }
+            }
+        }
+
+        contentItem: RowLayout {
+            id: pillRow
+            // The glyph box is 24 units wide but most paths don't fill it, so
+            // the optical gap is always a few px wider than this number.
+            spacing: pill.compact ? 7 : 8
+            Glyph {
+                visible: pill.glyphPath !== ""
+                path: pill.glyphPath
+                size: pill.compact ? 17 : 20
+                weight: 1.9
+                color: pill.active ? pill.tint : window.txtDim
+            }
+            Text {
+                text: pill.text
+                color: pill.active ? window.txt : window.txtDim
+                font.pixelSize: pill.compact ? 12 : 13
+                font.weight: pill.active ? Font.DemiBold : Font.Medium
+                Behavior on color { ColorAnimation { duration: window.tFast } }
+            }
+        }
+    }
+
+    // Custom switch. The stock one belongs to a different app.
+    component NeoSwitch: Switch {
+        id: sw
+        implicitWidth: 50
+        implicitHeight: 28
+        hoverEnabled: true
+
+        indicator: Rectangle {
+            implicitWidth: 50
+            implicitHeight: 28
+            radius: height / 2
+            color: sw.checked ? window.accent : window.surfaceSunk
+            border.width: 1
+            border.color: sw.checked ? window.accent : (sw.hovered ? window.lineHi : window.line)
+            Behavior on color { ColorAnimation { duration: window.tBase } }
+            Behavior on border.color { ColorAnimation { duration: window.tBase } }
+
+            Rectangle {
+                width: 20
+                height: 20
+                radius: 10
+                y: 4
+                x: sw.checked ? parent.width - width - 4 : 4
+                color: sw.checked ? "white" : window.txtFaint
+                Behavior on x { NumberAnimation { duration: 240; easing.type: Easing.OutBack; easing.overshoot: 1.4 } }
+                Behavior on color { ColorAnimation { duration: window.tBase } }
+            }
+        }
+        contentItem: Item {}
+    }
+
+    // Horizontal slider with a gradient fill and a handle that reacts.
+    component NeoSlider: Slider {
+        id: sl
+        implicitHeight: 26
+        hoverEnabled: true
+
+        background: Rectangle {
+            x: sl.leftPadding
+            y: sl.topPadding + sl.availableHeight / 2 - height / 2
+            width: sl.availableWidth
+            height: 6
+            radius: 3
+            color: window.surfaceSunk
+            border.width: 1
+            border.color: window.line
+
+            Rectangle {
+                width: sl.visualPosition * parent.width
+                height: parent.height
+                radius: 3
+                gradient: Gradient {
+                    orientation: Gradient.Horizontal
+                    GradientStop { position: 0.0; color: window.accent }
+                    GradientStop { position: 1.0; color: window.accentSoft }
+                }
+            }
+        }
+
+        handle: Rectangle {
+            x: sl.leftPadding + sl.visualPosition * (sl.availableWidth - width)
+            y: sl.topPadding + sl.availableHeight / 2 - height / 2
+            width: 18
+            height: 18
+            radius: 9
+            color: "white"
+            border.width: 2
+            border.color: window.accent
+            scale: sl.pressed ? 1.25 : (sl.hovered ? 1.12 : 1.0)
+            Behavior on scale {
+                NumberAnimation { duration: 180; easing.type: Easing.OutBack; easing.overshoot: 2.5 }
+            }
+        }
+    }
+
+    // Vertical EQ band. Fills outward from the zero line, because that's what it means.
+    component BandSlider: ColumnLayout {
+        id: band
+        property string label: ""
+        property real value: 0
+        signal moved(real v)
+
+        spacing: 10
+
+        Text {
+            Layout.alignment: Qt.AlignHCenter
+            text: (band.value > 0 ? "+" : "") + Math.round(band.value)
+            color: Math.round(band.value) === 0 ? window.txtFaint : window.accentSoft
+            font.pixelSize: 12
+            font.weight: Font.DemiBold
+            Behavior on color { ColorAnimation { duration: window.tFast } }
+        }
+
+        Slider {
+            id: vs
+            Layout.alignment: Qt.AlignHCenter
+            Layout.fillHeight: true
+            orientation: Qt.Vertical
+            from: -10
+            to: 10
+            stepSize: 1
+            value: band.value
+            implicitWidth: 34
+            hoverEnabled: true
+            onMoved: band.moved(value)
+
+            background: Rectangle {
+                x: vs.leftPadding + vs.availableWidth / 2 - width / 2
+                y: vs.topPadding
+                width: 6
+                height: vs.availableHeight
+                radius: 3
+                color: window.surfaceSunk
+                border.width: 1
+                border.color: window.line
+
+                // The zero line. Small detail, big legibility win.
+                Rectangle {
+                    width: 14
+                    height: 1
+                    x: -4
+                    y: parent.height / 2
+                    color: window.lineHi
+                }
+
+                Rectangle {
+                    readonly property real p: 1 - vs.visualPosition
+                    width: parent.width
+                    y: parent.height * (1 - Math.max(0.5, p))
+                    height: parent.height * Math.abs(p - 0.5)
+                    radius: 3
+                    gradient: Gradient {
+                        GradientStop { position: 0.0; color: window.accentSoft }
+                        GradientStop { position: 1.0; color: window.accent }
+                    }
+                }
+            }
+
+            handle: Rectangle {
+                x: vs.leftPadding + vs.availableWidth / 2 - width / 2
+                y: vs.topPadding + vs.visualPosition * (vs.availableHeight - height)
+                width: 20
+                height: 20
+                radius: 10
+                color: "white"
+                border.width: 2
+                border.color: window.accent
+                scale: vs.pressed ? 1.22 : (vs.hovered ? 1.1 : 1.0)
+                Behavior on scale {
+                    NumberAnimation { duration: 180; easing.type: Easing.OutBack; easing.overshoot: 2.5 }
+                }
+            }
+        }
+
+        Text {
+            Layout.alignment: Qt.AlignHCenter
+            text: band.label
+            color: window.txtFaint
+            font.pixelSize: 10
+            font.letterSpacing: 0.6
+        }
+    }
+
+    // Every view enters the same way. Consistency is the whole point.
+    component ViewPage: Item {
+        id: page
+        default property alias pageData: inner.data
+
+        Item {
+            id: inner
+            width: parent.width
+            height: parent.height
+            opacity: 0
+        }
+
+        ParallelAnimation {
+            id: entrance
+            NumberAnimation { target: inner; property: "opacity"; from: 0; to: 1; duration: window.tBase + 60; easing.type: Easing.OutQuad }
+            NumberAnimation { target: inner; property: "y"; from: 16; to: 0; duration: window.tSlow; easing.type: Easing.OutCubic }
+        }
+
+        onVisibleChanged: if (visible) entrance.restart()
+        Component.onCompleted: if (visible) entrance.restart()
+    }
+
+    // ==========================================================
+    // ATMOSPHERE
+    // ==========================================================
+    Bloom {
+        width: 760; height: 760
+        x: 140; y: -360
+        tint: window.accent
+        strength: 0.13
+    }
+    Bloom {
+        width: 640; height: 640
+        x: window.width - 380
+        y: window.height - 340
+        tint: "#3B82F6"
+        strength: 0.10
+    }
+
+    // ==========================================================
+    // SHELL
+    // ==========================================================
     RowLayout {
         anchors.fill: parent
         spacing: 0
 
-        // ==========================================
-        // LEFT SIDEBAR: Navigation & Device Status
-        // ==========================================
+        // ------------------------------------------------------
+        // SIDEBAR
+        // ------------------------------------------------------
         Rectangle {
             Layout.fillHeight: true
-            Layout.preferredWidth: 240
-            color: "#13141c"
-            border.color: borderCard
-            border.width: 1
+            Layout.preferredWidth: 258
+            color: Qt.rgba(0.05, 0.055, 0.075, 0.72)
+
+            Rectangle {
+                anchors.right: parent.right
+                width: 1
+                height: parent.height
+                color: window.line
+            }
 
             ColumnLayout {
                 anchors.fill: parent
-                anchors.margins: 20
-                spacing: 24
+                anchors.margins: 22
+                spacing: 26
 
-                // App Brand
+                // Brand
                 RowLayout {
                     spacing: 12
                     Rectangle {
-                        width: 36
-                        height: 36
-                        radius: 10
-                        color: accentPurple
-                        Text {
+                        Layout.preferredWidth: 40
+                        Layout.preferredHeight: 40
+                        radius: 13
+                        gradient: Gradient {
+                            GradientStop { position: 0.0; color: window.accentSoft }
+                            GradientStop { position: 1.0; color: window.accent }
+                        }
+                        Glyph {
                             anchors.centerIn: parent
-                            text: "S"
+                            path: window.icons.headphones
+                            size: 22
                             color: "white"
-                            font.pixelSize: 20
-                            font.bold: true
+                            weight: 2
                         }
                     }
                     ColumnLayout {
-                        spacing: 2
+                        spacing: 1
                         Text {
                             text: "Device Center"
-                            color: textPrimary
-                            font.pixelSize: 16
-                            font.bold: true
+                            color: window.txt
+                            font.pixelSize: 15
+                            font.weight: Font.DemiBold
+                            font.letterSpacing: -0.2
                         }
-                        Text {
-                            text: "Sony Audio Companion"
-                            color: textMuted
-                            font.pixelSize: 11
-                        }
+                        Eyebrow { text: "Sony Audio" }
                     }
                 }
 
-                // Active Device Summary Badge
-                Rectangle {
+                // Device badge with a live battery ring
+                Card {
                     Layout.fillWidth: true
-                    height: 70
-                    radius: 12
-                    color: bgCard
-                    border.color: borderCard
-                    border.width: 1
+                    Layout.preferredHeight: 84
+                    active: controller.connected
 
                     RowLayout {
                         anchors.fill: parent
-                        anchors.margins: 12
-                        spacing: 12
+                        anchors.margins: 14
+                        spacing: 13
 
-                        Rectangle {
-                            width: 10
-                            height: 10
-                            radius: 5
-                            color: controller.connected ? greenSuccess : "#ef4444"
+                        Item {
+                            Layout.preferredWidth: 46
+                            Layout.preferredHeight: 46
+
+                            Canvas {
+                                id: ring
+                                anchors.fill: parent
+                                property real level: controller.connected ? controller.batteryLevel : 0
+                                Behavior on level { NumberAnimation { duration: 700; easing.type: Easing.OutCubic } }
+                                onLevelChanged: requestPaint()
+
+                                onPaint: {
+                                    var ctx = getContext("2d")
+                                    ctx.reset()
+                                    var cx = width / 2, cy = height / 2, r = width / 2 - 4
+                                    ctx.lineWidth = 3.5
+                                    ctx.lineCap = "round"
+
+                                    ctx.strokeStyle = "#22252F"
+                                    ctx.beginPath()
+                                    ctx.arc(cx, cy, r, 0, Math.PI * 2)
+                                    ctx.stroke()
+
+                                    if (level > 0) {
+                                        ctx.strokeStyle = level > 20 ? "#2DD4A7" : "#FF5A5F"
+                                        ctx.beginPath()
+                                        ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (level / 100))
+                                        ctx.stroke()
+                                    }
+                                }
+                            }
+
+                            Glyph {
+                                anchors.centerIn: parent
+                                visible: controller.isCharging
+                                path: window.icons.bolt
+                                size: 16
+                                color: window.success
+                                weight: 2
+
+                                SequentialAnimation on opacity {
+                                    running: controller.isCharging
+                                    loops: Animation.Infinite
+                                    NumberAnimation { to: 0.35; duration: 900; easing.type: Easing.InOutQuad }
+                                    NumberAnimation { to: 1.0; duration: 900; easing.type: Easing.InOutQuad }
+                                }
+                            }
+
+                            Text {
+                                anchors.centerIn: parent
+                                visible: !controller.isCharging
+                                text: controller.connected ? controller.batteryLevel : "—"
+                                color: window.txt
+                                font.pixelSize: 13
+                                font.weight: Font.DemiBold
+                            }
                         }
 
                         ColumnLayout {
                             Layout.fillWidth: true
-                            spacing: 2
+                            spacing: 3
                             Text {
+                                Layout.fillWidth: true
                                 text: controller.deviceName
-                                color: textPrimary
-                                font.pixelSize: 14
-                                font.bold: true
+                                color: window.txt
+                                font.pixelSize: 13
+                                font.weight: Font.DemiBold
                                 elide: Text.ElideRight
                             }
-                            Text {
-                                text: controller.connected ? ("Battery " + controller.batteryLevel + "%" + (controller.isCharging ? " ⚡" : "")) : "Disconnected"
-                                color: controller.connected ? textSecondary : textMuted
-                                font.pixelSize: 12
+                            RowLayout {
+                                spacing: 6
+                                Rectangle {
+                                    Layout.preferredWidth: 6
+                                    Layout.preferredHeight: 6
+                                    radius: 3
+                                    color: controller.connected ? window.success : window.danger
+
+                                    SequentialAnimation on opacity {
+                                        running: controller.connected
+                                        loops: Animation.Infinite
+                                        NumberAnimation { to: 0.3; duration: 1100; easing.type: Easing.InOutQuad }
+                                        NumberAnimation { to: 1.0; duration: 1100; easing.type: Easing.InOutQuad }
+                                    }
+                                }
+                                Text {
+                                    text: controller.connected ? "Connected" : "Disconnected"
+                                    color: controller.connected ? window.txtDim : window.txtFaint
+                                    font.pixelSize: 11
+                                }
                             }
                         }
                     }
                 }
 
-                // Nav Links
-                ColumnLayout {
+                // Navigation with a sliding indicator
+                Item {
                     Layout.fillWidth: true
-                    spacing: 6
+                    Layout.preferredHeight: 5 * 44 + 4 * 6
+
+                    // The indicator floats; items don't each carry their own.
+                    Rectangle {
+                        width: parent.width
+                        height: 44
+                        radius: 12
+                        y: window.navIndex * 50
+                        color: Qt.rgba(window.accent.r, window.accent.g, window.accent.b, 0.14)
+                        border.width: 1
+                        border.color: Qt.rgba(window.accent.r, window.accent.g, window.accent.b, 0.45)
+
+                        Behavior on y {
+                            NumberAnimation { duration: 320; easing.type: Easing.OutBack; easing.overshoot: 1.1 }
+                        }
+
+                        Rectangle {
+                            width: 3
+                            height: 18
+                            radius: 2
+                            x: -1
+                            anchors.verticalCenter: parent.verticalCenter
+                            color: window.accent
+                        }
+                    }
 
                     Repeater {
                         model: [
-                            { id: 0, name: "Overview", icon: "🎧" },
-                            { id: 1, name: "Noise Control", icon: "🛡️" },
-                            { id: 2, name: "Equalizer", icon: "🎚️" },
-                            { id: 3, name: "Audio Features", icon: "✨" },
-                            { id: 4, name: "Device Switcher", icon: "🔄" }
+                            { idx: 0, name: "Overview",        glyph: window.icons.headphones },
+                            { idx: 1, name: "Noise Control",   glyph: window.icons.shield },
+                            { idx: 2, name: "Equalizer",       glyph: window.icons.sliders },
+                            { idx: 3, name: "Audio Features",  glyph: window.icons.sparkle },
+                            { idx: 4, name: "Device Switcher", glyph: window.icons.swap }
                         ]
 
-                        delegate: Rectangle {
-                            Layout.fillWidth: true
-                            height: 42
-                            radius: 10
-                            color: navIndex === modelData.id ? accentPurple : (navHover.hovered ? bgCardHover : "transparent")
+                        delegate: Item {
+                            id: navItem
+                            required property var modelData
+                            readonly property bool current: window.navIndex === modelData.idx
 
-                            HoverHandler { id: navHover }
+                            width: parent.width
+                            height: 44
+                            y: modelData.idx * 50
+
+                            Rectangle {
+                                anchors.fill: parent
+                                radius: 12
+                                color: (navHover.hovered && !navItem.current) ? window.surfaceHi : "transparent"
+                                Behavior on color { ColorAnimation { duration: window.tFast } }
+                            }
+
+                            HoverHandler { id: navHover; cursorShape: Qt.PointingHandCursor }
 
                             RowLayout {
                                 anchors.fill: parent
                                 anchors.leftMargin: 14
                                 anchors.rightMargin: 14
-                                spacing: 12
+                                spacing: 13
 
-                                Text {
-                                    text: modelData.icon
-                                    font.pixelSize: 14
+                                Glyph {
+                                    path: navItem.modelData.glyph
+                                    size: 19
+                                    color: navItem.current ? window.accentSoft
+                                         : navHover.hovered ? window.txt : window.txtFaint
                                 }
 
                                 Text {
-                                    text: modelData.name
-                                    color: navIndex === modelData.id ? "white" : (navHover.hovered ? textPrimary : textSecondary)
-                                    font.pixelSize: 13
-                                    font.bold: navIndex === modelData.id
                                     Layout.fillWidth: true
+                                    text: navItem.modelData.name
+                                    color: navItem.current ? window.txt
+                                         : navHover.hovered ? window.txtDim : window.txtFaint
+                                    font.pixelSize: 13
+                                    font.weight: navItem.current ? Font.DemiBold : Font.Normal
+                                    Behavior on color { ColorAnimation { duration: window.tFast } }
                                 }
                             }
 
-                            TapHandler {
-                                onTapped: navIndex = modelData.id
-                            }
+                            TapHandler { onTapped: window.navIndex = navItem.modelData.idx }
                         }
                     }
                 }
 
                 Item { Layout.fillHeight: true }
 
-                // Daemon Status indicator
+                // Transport / daemon status
                 Rectangle {
                     Layout.fillWidth: true
-                    height: 38
-                    radius: 8
-                    color: "#1c1e2b"
+                    Layout.preferredHeight: 44
+                    radius: 12
+                    color: window.surfaceSunk
+                    border.width: 1
+                    border.color: window.line
+
                     RowLayout {
                         anchors.fill: parent
-                        anchors.margins: 10
-                        spacing: 8
-                        Rectangle {
-                            width: 8
-                            height: 8
-                            radius: 4
-                            color: greenSuccess
+                        anchors.leftMargin: 13
+                        anchors.rightMargin: 13
+                        spacing: 9
+
+                        Glyph { path: window.icons.bluetooth; size: 15; color: window.success }
+
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 0
+                            Text {
+                                text: "SDK Core"
+                                color: window.txtDim
+                                font.pixelSize: 11
+                                font.weight: Font.Medium
+                            }
+                            Text {
+                                text: "IPC · RFCOMM V2"
+                                color: window.txtFaint
+                                font.pixelSize: 10
+                            }
                         }
-                        Text {
-                            text: "SDK Core / IPC Connected"
-                            color: textMuted
-                            font.pixelSize: 11
+
+                        Rectangle {
+                            Layout.preferredWidth: 7
+                            Layout.preferredHeight: 7
+                            radius: 3.5
+                            color: window.success
                         }
                     }
                 }
             }
         }
 
-        // ==========================================
-        // MAIN CONTENT AREA
-        // ==========================================
+        // ------------------------------------------------------
+        // CONTENT
+        // ------------------------------------------------------
         StackLayout {
-            id: mainStack
             Layout.fillWidth: true
             Layout.fillHeight: true
-            currentIndex: navIndex
+            currentIndex: window.navIndex
 
-            // ------------------------------------------
-            // 1. OVERVIEW VIEW (Hero visualization)
-            // ------------------------------------------
-            Item {
+            // ==================================================
+            // 1 · OVERVIEW
+            // ==================================================
+            ViewPage {
                 ColumnLayout {
                     anchors.fill: parent
-                    anchors.margins: 40
-                    spacing: 24
+                    anchors.margins: 36
+                    spacing: 22
 
                     // Header
                     RowLayout {
                         Layout.fillWidth: true
+                        spacing: 10
+
                         ColumnLayout {
-                            spacing: 4
+                            spacing: 5
+                            Eyebrow { text: controller.connected ? "Connected Device" : "Offline" }
                             Text {
                                 text: controller.deviceName
-                                color: textPrimary
-                                font.pixelSize: 28
-                                font.bold: true
-                            }
-                            Text {
-                                text: "Bluetooth RFCOMM • Protocol V2 • " + (controller.connected ? "Active" : "Offline")
-                                color: textSecondary
-                                font.pixelSize: 13
+                                color: window.txt
+                                font.pixelSize: 30
+                                font.weight: Font.DemiBold
+                                font.letterSpacing: -0.7
                             }
                         }
+
                         Item { Layout.fillWidth: true }
-                        // Battery Capsule Pill
-                        Rectangle {
-                            height: 36
-                            width: 140
-                            radius: 18
-                            color: bgCard
-                            border.color: borderCard
-                            border.width: 1
-                            RowLayout {
-                                anchors.centerIn: parent
-                                spacing: 8
-                                Text { text: "🔋"; font.pixelSize: 14 }
-                                Text {
-                                    text: controller.batteryLevel + "%"
-                                    color: textPrimary
-                                    font.bold: true
-                                    font.pixelSize: 14
-                                }
-                                Text {
-                                    text: controller.isCharging ? "Charging" : "Ready"
-                                    color: controller.isCharging ? greenSuccess : textSecondary
-                                    font.pixelSize: 11
+
+                        // Compact status chips
+                        Repeater {
+                            model: [
+                                { k: "Codec", v: "LDAC" },
+                                { k: "Battery", v: controller.batteryLevel + "%" },
+                                { k: "Mode", v: controller.noiseControlMode === "cancelling" ? "ANC"
+                                              : controller.noiseControlMode === "ambient" ? "Ambient" : "Off" }
+                            ]
+
+                            delegate: Rectangle {
+                                id: statChip
+                                required property var modelData
+                                implicitWidth: chipCol.implicitWidth + 30
+                                implicitHeight: 54
+                                radius: 14
+                                color: window.surface
+                                border.width: 1
+                                border.color: window.line
+
+                                ColumnLayout {
+                                    id: chipCol
+                                    anchors.centerIn: parent
+                                    spacing: 3
+                                    Eyebrow {
+                                        Layout.alignment: Qt.AlignHCenter
+                                        text: statChip.modelData.k
+                                    }
+                                    Text {
+                                        Layout.alignment: Qt.AlignHCenter
+                                        text: statChip.modelData.v
+                                        color: window.txt
+                                        font.pixelSize: 14
+                                        font.weight: Font.DemiBold
+                                    }
                                 }
                             }
                         }
                     }
 
-                    // Hero Visualization Card
-                    Rectangle {
+                    // Hero
+                    Card {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
-                        radius: 20
-                        color: bgCard
-                        border.color: borderCard
-                        border.width: 1
+                        radius: 24
+                        clip: true
 
                         ColumnLayout {
                             anchors.centerIn: parent
-                            spacing: 20
+                            spacing: 4
 
-                            Image {
-                                id: heroImage
-                                Layout.preferredWidth: 320
-                                Layout.preferredHeight: 320
-                                fillMode: Image.PreserveAspectFit
-                                source: "../" + controller.heroImagePath
-                                opacity: controller.connected ? 1.0 : 0.4
-                                scale: heroHover.hovered ? 1.05 : 1.0
+                            // The aura belongs to the product, not the card.
+                            // Centering it here keeps the rings off the labels.
+                            Item {
+                                id: heroStage
+                                Layout.alignment: Qt.AlignHCenter
+                                Layout.preferredWidth: 290
+                                Layout.preferredHeight: 290
 
-                                Behavior on scale {
-                                    NumberAnimation { duration: 250; easing.type: Easing.OutQuad }
+                                Bloom {
+                                    anchors.centerIn: parent
+                                    z: -1
+                                    width: 470; height: 470
+                                    tint: controller.noiseControlMode === "cancelling" ? window.accent
+                                        : controller.noiseControlMode === "ambient" ? window.ambientWarm
+                                        : window.txtFaint
+                                    strength: controller.noiseControlMode === "off" ? 0.05 : 0.18
+                                    Behavior on strength { NumberAnimation { duration: window.tSlow } }
                                 }
 
-                                HoverHandler { id: heroHover }
+                                // Concentric rings. ANC pulls inward, Ambient opens outward.
+                                Repeater {
+                                    model: 3
+                                    delegate: Rectangle {
+                                        id: auraRing
+                                        required property int index
+                                        readonly property bool inward: controller.noiseControlMode === "cancelling"
+                                        readonly property bool live: controller.noiseControlMode !== "off"
+
+                                        anchors.centerIn: parent
+                                        z: -1
+                                        width: 252 + index * 58
+                                        height: width
+                                        radius: width / 2
+                                        color: "transparent"
+                                        border.width: 1
+                                        border.color: inward ? window.accent : window.ambientWarm
+                                        opacity: 0
+                                        visible: live
+
+                                        SequentialAnimation {
+                                            running: auraRing.live
+                                            loops: Animation.Infinite
+                                            PauseAnimation { duration: auraRing.index * 700 }
+                                            ParallelAnimation {
+                                                NumberAnimation {
+                                                    target: auraRing; property: "opacity"
+                                                    from: 0.0; to: 0.28
+                                                    duration: 900; easing.type: Easing.OutQuad
+                                                }
+                                                NumberAnimation {
+                                                    target: auraRing; property: "scale"
+                                                    from: auraRing.inward ? 1.12 : 0.90
+                                                    to: 1.0
+                                                    duration: 900; easing.type: Easing.OutQuad
+                                                }
+                                            }
+                                            ParallelAnimation {
+                                                NumberAnimation {
+                                                    target: auraRing; property: "opacity"
+                                                    to: 0.0
+                                                    duration: 1200; easing.type: Easing.InQuad
+                                                }
+                                                NumberAnimation {
+                                                    target: auraRing; property: "scale"
+                                                    to: auraRing.inward ? 0.88 : 1.14
+                                                    duration: 1200; easing.type: Easing.InQuad
+                                                }
+                                            }
+                                            PauseAnimation { duration: 400 }
+                                        }
+                                    }
+                                }
+
+                                Image {
+                                    anchors.fill: parent
+                                    fillMode: Image.PreserveAspectFit
+                                    source: "../" + controller.heroImagePath
+                                    opacity: controller.connected ? 1.0 : 0.35
+                                    scale: heroHover.hovered ? 1.06 : 1.0
+
+                                    Behavior on scale { NumberAnimation { duration: 320; easing.type: Easing.OutCubic } }
+                                    Behavior on opacity { NumberAnimation { duration: window.tSlow } }
+
+                                    HoverHandler { id: heroHover }
+                                }
                             }
 
-                            // Quick Action Bar beneath hero
+                            Text {
+                                Layout.alignment: Qt.AlignHCenter
+                                Layout.topMargin: 10
+                                text: controller.noiseControlMode === "cancelling" ? "Noise Cancelling"
+                                    : controller.noiseControlMode === "ambient" ? "Ambient Sound"
+                                    : "Processing Off"
+                                color: window.txt
+                                font.pixelSize: 18
+                                font.weight: Font.DemiBold
+                                font.letterSpacing: -0.2
+                            }
+
+                            Text {
+                                Layout.alignment: Qt.AlignHCenter
+                                Layout.topMargin: 2
+                                text: controller.noiseControlMode === "cancelling" ? "The outside world is sealed out"
+                                    : controller.noiseControlMode === "ambient" ? "Level " + controller.ambientLevel + " · hearing your surroundings"
+                                    : "Straight signal, no processing"
+                                color: window.txtFaint
+                                font.pixelSize: 12
+                            }
+
+                            // Quick actions
                             RowLayout {
                                 Layout.alignment: Qt.AlignHCenter
-                                spacing: 14
+                                Layout.topMargin: 30
+                                spacing: 11
 
-                                Button {
-                                    text: controller.noiseControlMode === "cancelling" ? "ANC: Active" : "Enable ANC"
-                                    highlighted: controller.noiseControlMode === "cancelling"
-                                    onClicked: controller.setAnc(controller.noiseControlMode !== "cancelling")
+                                PillButton {
+                                    text: "Noise Cancelling"
+                                    glyphPath: window.icons.shield
+                                    tint: window.accent
+                                    active: controller.noiseControlMode === "cancelling"
+                                    onClicked: controller.setAnc(!active)
                                 }
 
-                                Button {
-                                    text: controller.noiseControlMode === "ambient" ? "Ambient: Active" : "Ambient Sound"
-                                    highlighted: controller.noiseControlMode === "ambient"
-                                    onClicked: controller.setAmbient(10, false)
+                                PillButton {
+                                    text: "Ambient"
+                                    glyphPath: window.icons.mic
+                                    tint: window.ambientWarm
+                                    active: controller.noiseControlMode === "ambient"
+                                    onClicked: controller.setAmbient(controller.ambientLevel, controller.focusOnVoice)
                                 }
 
-                                Button {
-                                    text: "Equalizer: " + controller.equalizerPresetName
-                                    onClicked: navIndex = 2
+                                PillButton {
+                                    text: "Off"
+                                    glyphPath: window.icons.power
+                                    tint: window.txtDim
+                                    active: controller.noiseControlMode === "off"
+                                    onClicked: controller.setNoiseControlOff()
                                 }
+                            }
+
+                            // Secondary: a link to another screen, not a fourth mode.
+                            PillButton {
+                                Layout.alignment: Qt.AlignHCenter
+                                Layout.topMargin: 12
+                                compact: true
+                                text: "EQ · " + controller.equalizerPresetName
+                                glyphPath: window.icons.sliders
+                                onClicked: window.navIndex = 2
                             }
                         }
                     }
                 }
             }
 
-            // ------------------------------------------
-            // 2. NOISE CONTROL VIEW
-            // ------------------------------------------
-            Item {
+            // ==================================================
+            // 2 · NOISE CONTROL
+            // ==================================================
+            ViewPage {
                 ColumnLayout {
                     anchors.fill: parent
-                    anchors.margins: 40
-                    spacing: 28
+                    anchors.margins: 36
+                    spacing: 24
 
                     ColumnLayout {
-                        spacing: 4
+                        spacing: 5
+                        Eyebrow { text: "Isolation" }
                         Text {
                             text: "Noise Control"
-                            color: textPrimary
-                            font.pixelSize: 26
-                            font.bold: true
+                            color: window.txt
+                            font.pixelSize: 28
+                            font.weight: Font.DemiBold
+                            font.letterSpacing: -0.6
                         }
                         Text {
-                            text: "Tune your sound isolation with active noise cancelling and ambient sound."
-                            color: textSecondary
+                            text: "Choose how much of the world gets through."
+                            color: window.txtDim
                             font.pixelSize: 13
                         }
                     }
 
-                    // Segmented Mode Selector Card
-                    Rectangle {
+                    // Mode cards — big targets, honest states
+                    RowLayout {
                         Layout.fillWidth: true
-                        height: 90
-                        radius: 16
-                        color: bgCard
-                        border.color: borderCard
-                        border.width: 1
+                        Layout.preferredHeight: 132
+                        spacing: 14
 
-                        RowLayout {
-                            anchors.fill: parent
-                            anchors.margins: 14
-                            spacing: 12
+                        Repeater {
+                            model: [
+                                { mode: "cancelling", label: "Noise Cancelling", glyph: window.icons.shield, desc: "Seal out the room", tint: window.accent },
+                                { mode: "ambient",    label: "Ambient Sound",    glyph: window.icons.mic,    desc: "Let the room in",   tint: window.ambientWarm },
+                                { mode: "off",        label: "Off",              glyph: window.icons.power,  desc: "No processing",     tint: window.txtDim }
+                            ]
 
-                            Repeater {
-                                model: [
-                                    { mode: "cancelling", label: "Noise Cancelling", icon: "🛡️", desc: "Block outside ambient noise" },
-                                    { mode: "ambient", label: "Ambient Sound", icon: "🎙️", desc: "Hear your environment" },
-                                    { mode: "off", label: "Off", icon: "⭕", desc: "Disable all sound processing" }
-                                ]
+                            delegate: Card {
+                                id: modeCard
+                                required property var modelData
+                                readonly property bool current: controller.noiseControlMode === modelData.mode
 
-                                delegate: Rectangle {
-                                    Layout.fillWidth: true
-                                    Layout.fillHeight: true
-                                    radius: 12
-                                    color: controller.noiseControlMode === modelData.mode ? accentPurple : (modeHover.hovered ? bgCardHover : "#1c1e2b")
-                                    border.color: controller.noiseControlMode === modelData.mode ? accentPurple : borderCard
+                                Layout.fillWidth: true
+                                Layout.fillHeight: true
+                                active: current
+                                hovered: modeHover.hovered
+                                scale: modeTap.pressed ? 0.975 : (modeHover.hovered ? 1.012 : 1.0)
 
-                                    HoverHandler { id: modeHover }
+                                Behavior on scale {
+                                    NumberAnimation { duration: 220; easing.type: Easing.OutBack; easing.overshoot: 1.8 }
+                                }
+
+                                HoverHandler { id: modeHover; cursorShape: Qt.PointingHandCursor }
+                                TapHandler {
+                                    id: modeTap
+                                    onTapped: {
+                                        if (modeCard.modelData.mode === "cancelling") controller.setAnc(true)
+                                        else if (modeCard.modelData.mode === "ambient") controller.setAmbient(controller.ambientLevel, controller.focusOnVoice)
+                                        else controller.setNoiseControlOff()
+                                    }
+                                }
+
+                                ColumnLayout {
+                                    anchors.left: parent.left
+                                    anchors.right: parent.right
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    anchors.leftMargin: 20
+                                    anchors.rightMargin: 20
+                                    spacing: 12
 
                                     RowLayout {
-                                        anchors.centerIn: parent
+                                        Layout.fillWidth: true
                                         spacing: 10
-                                        Text { text: modelData.icon; font.pixelSize: 18 }
-                                        ColumnLayout {
-                                            spacing: 1
-                                            Text {
-                                                text: modelData.label
-                                                color: textPrimary
-                                                font.pixelSize: 14
-                                                font.bold: true
+
+                                        Rectangle {
+                                            Layout.preferredWidth: 42
+                                            Layout.preferredHeight: 42
+                                            radius: 13
+                                            color: modeCard.current
+                                                 ? Qt.rgba(modeCard.modelData.tint.r, modeCard.modelData.tint.g, modeCard.modelData.tint.b, 0.18)
+                                                 : window.surfaceSunk
+                                            border.width: 1
+                                            border.color: modeCard.current
+                                                 ? Qt.rgba(modeCard.modelData.tint.r, modeCard.modelData.tint.g, modeCard.modelData.tint.b, 0.5)
+                                                 : window.line
+                                            Behavior on color { ColorAnimation { duration: window.tBase } }
+                                            Behavior on border.color { ColorAnimation { duration: window.tBase } }
+
+                                            Glyph {
+                                                anchors.centerIn: parent
+                                                path: modeCard.modelData.glyph
+                                                size: 21
+                                                color: modeCard.current ? modeCard.modelData.tint : window.txtFaint
                                             }
-                                            Text {
-                                                text: modelData.desc
-                                                color: controller.noiseControlMode === modelData.mode ? "#e2e8f0" : textMuted
-                                                font.pixelSize: 11
-                                            }
+                                        }
+
+                                        Item { Layout.fillWidth: true }
+
+                                        // Active dot, animated in
+                                        Rectangle {
+                                            Layout.preferredWidth: 9
+                                            Layout.preferredHeight: 9
+                                            radius: 4.5
+                                            color: modeCard.modelData.tint
+                                            opacity: modeCard.current ? 1 : 0
+                                            scale: modeCard.current ? 1 : 0.4
+                                            Behavior on opacity { NumberAnimation { duration: window.tBase } }
+                                            Behavior on scale { NumberAnimation { duration: 280; easing.type: Easing.OutBack; easing.overshoot: 3 } }
                                         }
                                     }
 
-                                    TapHandler {
-                                        onTapped: {
-                                            if (modelData.mode === "cancelling") controller.setAnc(true)
-                                            else if (modelData.mode === "ambient") controller.setAmbient(controller.ambientLevel, controller.focusOnVoice)
-                                            else controller.setNoiseControlOff()
+                                    ColumnLayout {
+                                        spacing: 2
+                                        Text {
+                                            text: modeCard.modelData.label
+                                            color: window.txt
+                                            font.pixelSize: 15
+                                            font.weight: Font.DemiBold
+                                        }
+                                        Text {
+                                            text: modeCard.modelData.desc
+                                            color: window.txtFaint
+                                            font.pixelSize: 12
                                         }
                                     }
                                 }
@@ -397,66 +1078,81 @@ ApplicationWindow {
                         }
                     }
 
-                    // Ambient Sound Level Card
-                    Rectangle {
+                    // Ambient detail
+                    Card {
+                        id: ambientCard
                         Layout.fillWidth: true
-                        height: 150
-                        radius: 16
-                        color: bgCard
-                        border.color: borderCard
-                        border.width: 1
-                        opacity: controller.noiseControlMode === "ambient" ? 1.0 : 0.4
-                        enabled: controller.noiseControlMode === "ambient"
+                        Layout.preferredHeight: 178
+                        readonly property bool live: controller.noiseControlMode === "ambient"
+                        opacity: live ? 1.0 : 0.42
+                        enabled: live
+                        Behavior on opacity { NumberAnimation { duration: window.tSlow; easing.type: Easing.OutQuad } }
 
                         ColumnLayout {
                             anchors.fill: parent
-                            anchors.margins: 20
-                            spacing: 16
+                            anchors.margins: 22
+                            spacing: 18
 
                             RowLayout {
-                                Text {
-                                    text: "Ambient Sound Level"
-                                    color: textPrimary
-                                    font.pixelSize: 15
-                                    font.bold: true
+                                Layout.fillWidth: true
+                                ColumnLayout {
+                                    spacing: 2
+                                    Eyebrow { text: "Ambient" }
+                                    Text {
+                                        text: "Sound Level"
+                                        color: window.txt
+                                        font.pixelSize: 15
+                                        font.weight: Font.DemiBold
+                                    }
                                 }
                                 Item { Layout.fillWidth: true }
                                 Rectangle {
-                                    width: 48
-                                    height: 28
-                                    radius: 6
-                                    color: accentPurple
+                                    implicitWidth: 56
+                                    implicitHeight: 34
+                                    radius: 11
+                                    color: Qt.rgba(window.ambientWarm.r, window.ambientWarm.g, window.ambientWarm.b, 0.16)
+                                    border.width: 1
+                                    border.color: Qt.rgba(window.ambientWarm.r, window.ambientWarm.g, window.ambientWarm.b, 0.5)
                                     Text {
                                         anchors.centerIn: parent
                                         text: Math.round(ambientSlider.value)
-                                        color: "white"
-                                        font.bold: true
-                                        font.pixelSize: 13
+                                        color: window.ambientWarm
+                                        font.pixelSize: 14
+                                        font.weight: Font.DemiBold
                                     }
                                 }
                             }
 
-                            Slider {
+                            NeoSlider {
                                 id: ambientSlider
                                 Layout.fillWidth: true
-                                from: 1
-                                to: 20
-                                stepSize: 1
+                                from: 1; to: 20; stepSize: 1
                                 value: controller.ambientLevel
                                 onMoved: controller.setAmbient(Math.round(value), voiceSwitch.checked)
                             }
 
                             RowLayout {
-                                spacing: 10
-                                Switch {
+                                Layout.fillWidth: true
+                                spacing: 12
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 2
+                                    Text {
+                                        text: "Focus on Voice"
+                                        color: window.txt
+                                        font.pixelSize: 13
+                                        font.weight: Font.Medium
+                                    }
+                                    Text {
+                                        text: "Lift human speech, filter the low rumble"
+                                        color: window.txtFaint
+                                        font.pixelSize: 11
+                                    }
+                                }
+                                NeoSwitch {
                                     id: voiceSwitch
                                     checked: controller.focusOnVoice
                                     onToggled: controller.setAmbient(controller.ambientLevel, checked)
-                                }
-                                Text {
-                                    text: "Focus on Voice (enhance human speech while filtering low frequencies)"
-                                    color: textSecondary
-                                    font.pixelSize: 12
                                 }
                             }
                         }
@@ -466,342 +1162,509 @@ ApplicationWindow {
                 }
             }
 
-            // ------------------------------------------
-            // 3. EQUALIZER VIEW
-            // ------------------------------------------
-            Item {
+            // ==================================================
+            // 3 · EQUALIZER
+            // ==================================================
+            ViewPage {
                 ColumnLayout {
                     anchors.fill: parent
-                    anchors.margins: 40
-                    spacing: 24
+                    anchors.margins: 36
+                    spacing: 20
 
                     ColumnLayout {
-                        spacing: 4
+                        spacing: 5
+                        Eyebrow { text: "Signature" }
                         Text {
                             text: "Equalizer"
-                            color: textPrimary
-                            font.pixelSize: 26
-                            font.bold: true
+                            color: window.txt
+                            font.pixelSize: 28
+                            font.weight: Font.DemiBold
+                            font.letterSpacing: -0.6
                         }
                         Text {
-                            text: "Sculpt your audio signature across 5 bands and dedicated Clear Bass enhancement."
-                            color: textSecondary
+                            text: "Five bands, plus dedicated Clear Bass."
+                            color: window.txtDim
                             font.pixelSize: 13
                         }
                     }
 
-                    // Preset Chips Flow
-                    Rectangle {
+                    // Presets — wrapping flow, not ten crushed columns
+                    Flow {
                         Layout.fillWidth: true
-                        height: 70
-                        radius: 16
-                        color: bgCard
-                        border.color: borderCard
-                        border.width: 1
+                        spacing: 8
 
-                        RowLayout {
+                        Repeater {
+                            model: [
+                                { id: 0x00, name: "Off" },
+                                { id: 0x16, name: "Bass Boost" },
+                                { id: 0x15, name: "Treble Boost" },
+                                { id: 0x14, name: "Vocal" },
+                                { id: 0x10, name: "Bright" },
+                                { id: 0x11, name: "Excited" },
+                                { id: 0x12, name: "Mellow" },
+                                { id: 0x13, name: "Relaxed" },
+                                { id: 0x17, name: "Speech" },
+                                { id: 0xa0, name: "Custom" }
+                            ]
+
+                            delegate: Rectangle {
+                                id: chip
+                                required property var modelData
+                                readonly property bool current: controller.equalizerPreset === modelData.id
+
+                                width: chipText.implicitWidth + 30
+                                height: 38
+                                radius: 19
+                                color: current ? Qt.rgba(window.accent.r, window.accent.g, window.accent.b, 0.18)
+                                     : chipHover.hovered ? window.surfaceHi : window.surface
+                                border.width: 1
+                                border.color: current ? Qt.rgba(window.accent.r, window.accent.g, window.accent.b, 0.7)
+                                            : chipHover.hovered ? window.lineHi : window.line
+
+                                Behavior on color { ColorAnimation { duration: window.tFast } }
+                                Behavior on border.color { ColorAnimation { duration: window.tFast } }
+
+                                scale: chipTap.pressed ? 0.94 : (chipHover.hovered ? 1.04 : 1.0)
+                                Behavior on scale {
+                                    NumberAnimation { duration: 200; easing.type: Easing.OutBack; easing.overshoot: 2.4 }
+                                }
+
+                                HoverHandler { id: chipHover; cursorShape: Qt.PointingHandCursor }
+                                TapHandler { id: chipTap; onTapped: controller.setEqualizerPreset(chip.modelData.id) }
+
+                                Text {
+                                    id: chipText
+                                    anchors.centerIn: parent
+                                    text: chip.modelData.name
+                                    color: chip.current ? window.txt : window.txtDim
+                                    font.pixelSize: 12
+                                    font.weight: chip.current ? Font.DemiBold : Font.Normal
+                                    Behavior on color { ColorAnimation { duration: window.tFast } }
+                                }
+                            }
+                        }
+                    }
+
+                    // The five bands — the reason anyone opens this screen
+                    Card {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+
+                        ColumnLayout {
                             anchors.fill: parent
-                            anchors.margins: 14
-                            spacing: 8
+                            anchors.margins: 24
+                            spacing: 14
 
-                            Repeater {
-                                model: [
-                                    { id: 0x00, name: "Off" },
-                                    { id: 0x16, name: "Bass Boost" },
-                                    { id: 0x15, name: "Treble Boost" },
-                                    { id: 0x14, name: "Vocal" },
-                                    { id: 0x10, name: "Bright" },
-                                    { id: 0x11, name: "Excited" },
-                                    { id: 0x12, name: "Mellow" },
-                                    { id: 0x13, name: "Relaxed" },
-                                    { id: 0x17, name: "Speech" },
-                                    { id: 0xa0, name: "Custom" }
-                                ]
+                            RowLayout {
+                                Layout.fillWidth: true
+                                Eyebrow { text: "5-Band · ±10 dB" }
+                                Item { Layout.fillWidth: true }
+                                Text {
+                                    text: controller.equalizerPresetName
+                                    color: window.accentSoft
+                                    font.pixelSize: 12
+                                    font.weight: Font.DemiBold
+                                }
+                            }
 
-                                delegate: Rectangle {
-                                    Layout.fillWidth: true
-                                    Layout.fillHeight: true
-                                    radius: 10
-                                    color: controller.equalizerPreset === modelData.id ? accentPurple : (chipHover.hovered ? bgCardHover : "#1c1e2b")
+                            RowLayout {
+                                Layout.fillWidth: true
+                                Layout.fillHeight: true
+                                spacing: 4
 
-                                    HoverHandler { id: chipHover }
+                                Repeater {
+                                    model: ["400", "1k", "2.5k", "6.3k", "16k"]
 
-                                    Text {
-                                        anchors.centerIn: parent
-                                        text: modelData.name
-                                        color: controller.equalizerPreset === modelData.id ? "white" : textSecondary
-                                        font.pixelSize: 12
-                                        font.bold: controller.equalizerPreset === modelData.id
-                                    }
+                                    delegate: BandSlider {
+                                        id: bandItem
+                                        required property int index
+                                        required property var modelData
 
-                                    TapHandler {
-                                        onTapped: controller.setEqualizerPreset(modelData.id)
+                                        Layout.fillWidth: true
+                                        Layout.fillHeight: true
+
+                                        label: modelData
+                                        value: (controller.equalizerBands && controller.equalizerBands[index] !== undefined)
+                                               ? controller.equalizerBands[index] : 0
+
+                                        onMoved: function(v) {
+                                            var next = []
+                                            for (var i = 0; i < 5; ++i) {
+                                                next.push(i === bandItem.index
+                                                    ? Math.round(v)
+                                                    : ((controller.equalizerBands && controller.equalizerBands[i] !== undefined)
+                                                        ? controller.equalizerBands[i] : 0))
+                                            }
+                                            controller.setEqualizerCustom(controller.clearBass, next)
+                                        }
                                     }
                                 }
                             }
                         }
                     }
 
-                    // Clear Bass Card
-                    Rectangle {
+                    // Clear Bass
+                    Card {
                         Layout.fillWidth: true
-                        height: 90
-                        radius: 16
-                        color: bgCard
-                        border.color: borderCard
-                        border.width: 1
+                        Layout.preferredHeight: 96
 
                         RowLayout {
                             anchors.fill: parent
-                            anchors.margins: 20
-                            spacing: 20
+                            anchors.leftMargin: 22
+                            anchors.rightMargin: 22
+                            spacing: 22
 
                             ColumnLayout {
+                                Layout.preferredWidth: 210
                                 spacing: 2
-                                Text { text: "Clear Bass"; color: textPrimary; font.bold: true; font.pixelSize: 15 }
-                                Text { text: "Deep sub-bass response without distortion"; color: textMuted; font.pixelSize: 11 }
+                                Text {
+                                    text: "Clear Bass"
+                                    color: window.txt
+                                    font.pixelSize: 15
+                                    font.weight: Font.DemiBold
+                                }
+                                Text {
+                                    text: "Sub-bass weight, no distortion"
+                                    color: window.txtFaint
+                                    font.pixelSize: 11
+                                }
                             }
 
-                            Slider {
-                                id: clearBassSlider
+                            NeoSlider {
                                 Layout.fillWidth: true
-                                from: -10
-                                to: 10
-                                stepSize: 1
+                                from: -10; to: 10; stepSize: 1
                                 value: controller.clearBass
                                 onMoved: controller.setEqualizerCustom(Math.round(value), controller.equalizerBands)
                             }
 
                             Rectangle {
-                                width: 44
-                                height: 28
-                                radius: 6
-                                color: accentPurple
+                                implicitWidth: 56
+                                implicitHeight: 34
+                                radius: 11
+                                color: Qt.rgba(window.accent.r, window.accent.g, window.accent.b, 0.16)
+                                border.width: 1
+                                border.color: Qt.rgba(window.accent.r, window.accent.g, window.accent.b, 0.5)
                                 Text {
                                     anchors.centerIn: parent
                                     text: (controller.clearBass > 0 ? "+" : "") + controller.clearBass
-                                    color: "white"
-                                    font.bold: true
-                                    font.pixelSize: 12
+                                    color: window.accentSoft
+                                    font.pixelSize: 14
+                                    font.weight: Font.DemiBold
                                 }
                             }
                         }
                     }
-
-                    Item { Layout.fillHeight: true }
                 }
             }
 
-            // ------------------------------------------
-            // 4. AUDIO FEATURES VIEW
-            // ------------------------------------------
-            Item {
+            // ==================================================
+            // 4 · AUDIO FEATURES
+            // ==================================================
+            ViewPage {
                 ColumnLayout {
                     anchors.fill: parent
-                    anchors.margins: 40
-                    spacing: 24
+                    anchors.margins: 36
+                    spacing: 22
 
                     ColumnLayout {
-                        spacing: 4
+                        spacing: 5
+                        Eyebrow { text: "Behaviour" }
                         Text {
                             text: "Sound & Device Features"
-                            color: textPrimary
-                            font.pixelSize: 26
-                            font.bold: true
+                            color: window.txt
+                            font.pixelSize: 28
+                            font.weight: Font.DemiBold
+                            font.letterSpacing: -0.6
                         }
                         Text {
-                            text: "Configure AI audio upscaling, speak-to-chat, and intelligent battery saving."
-                            color: textSecondary
+                            text: "Upscaling, speak-to-chat, and power discipline."
+                            color: window.txtDim
                             font.pixelSize: 13
                         }
                     }
 
-                    // Feature Cards Grid
                     GridLayout {
                         Layout.fillWidth: true
                         columns: 2
-                        rowSpacing: 16
-                        columnSpacing: 16
-
-                        // DSEE Card
-                        Rectangle {
-                            Layout.fillWidth: true
-                            height: 100
-                            radius: 16
-                            color: bgCard
-                            border.color: borderCard
-
-                            RowLayout {
-                                anchors.fill: parent
-                                anchors.margins: 20
-                                spacing: 16
-                                ColumnLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 4
-                                    Text { text: "DSEE Extreme"; color: textPrimary; font.bold: true; font.pixelSize: 15 }
-                                    Text { text: "AI restores high frequencies lost during compression"; color: textMuted; font.pixelSize: 12; wrapMode: Text.WordWrap }
-                                }
-                                Switch {
-                                    checked: controller.dsee
-                                    onToggled: controller.setDsee(checked)
-                                }
-                            }
-                        }
-
-                        // Speak to Chat Card
-                        Rectangle {
-                            Layout.fillWidth: true
-                            height: 100
-                            radius: 16
-                            color: bgCard
-                            border.color: borderCard
-
-                            RowLayout {
-                                anchors.fill: parent
-                                anchors.margins: 20
-                                spacing: 16
-                                ColumnLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 4
-                                    Text { text: "Speak-to-Chat"; color: textPrimary; font.bold: true; font.pixelSize: 15 }
-                                    Text { text: "Pauses music and lets ambient sound in when you speak"; color: textMuted; font.pixelSize: 12; wrapMode: Text.WordWrap }
-                                }
-                                Switch {
-                                    checked: controller.speakToChat
-                                    onToggled: controller.setSpeakToChat(checked)
-                                }
-                            }
-                        }
-
-                        // Adaptive Volume Card
-                        Rectangle {
-                            Layout.fillWidth: true
-                            height: 100
-                            radius: 16
-                            color: bgCard
-                            border.color: borderCard
-
-                            RowLayout {
-                                anchors.fill: parent
-                                anchors.margins: 20
-                                spacing: 16
-                                ColumnLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 4
-                                    Text { text: "Adaptive Volume"; color: textPrimary; font.bold: true; font.pixelSize: 15 }
-                                    Text { text: "Dynamically balances volume matching surroundings"; color: textMuted; font.pixelSize: 12; wrapMode: Text.WordWrap }
-                                }
-                                Switch {
-                                    checked: controller.adaptiveVolume
-                                    onToggled: controller.setAdaptiveVolume(checked)
-                                }
-                            }
-                        }
-
-                        // Auto Power Off Card
-                        Rectangle {
-                            Layout.fillWidth: true
-                            height: 100
-                            radius: 16
-                            color: bgCard
-                            border.color: borderCard
-
-                            RowLayout {
-                                anchors.fill: parent
-                                anchors.margins: 20
-                                spacing: 16
-                                ColumnLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 4
-                                    Text { text: "Auto Power-Off"; color: textPrimary; font.bold: true; font.pixelSize: 15 }
-                                    Text { text: "Turn off automatically when headphones are removed"; color: textMuted; font.pixelSize: 12 }
-                                }
-                                ComboBox {
-                                    model: ["Off", "5 Minutes", "15 Minutes", "30 Minutes", "1 Hour", "3 Hours"]
-                                    currentIndex: controller.autoPowerOff
-                                    onActivated: controller.setAutoPowerOff(index)
-                                }
-                            }
-                        }
-                    }
-
-                    Item { Layout.fillHeight: true }
-                }
-            }
-
-            // ------------------------------------------
-            // 5. DEVICE SWITCHER VIEW (Easy Switch reference)
-            // ------------------------------------------
-            Item {
-                ColumnLayout {
-                    anchors.fill: parent
-                    anchors.margins: 40
-                    spacing: 24
-
-                    ColumnLayout {
-                        spacing: 4
-                        Text {
-                            text: "Paired Sony Devices"
-                            color: textPrimary
-                            font.pixelSize: 26
-                            font.bold: true
-                        }
-                        Text {
-                            text: "Seamlessly switch host connection between paired headphones and earbuds."
-                            color: textSecondary
-                            font.pixelSize: 13
-                        }
-                    }
-
-                    // Device List Repeater
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        spacing: 12
+                        rowSpacing: 14
+                        columnSpacing: 14
 
                         Repeater {
-                            model: controller.pairedDevices
+                            model: [
+                                { key: "dsee",     title: "DSEE Extreme",    desc: "AI restores the highs that compression threw away", glyph: window.icons.sparkle },
+                                { key: "speak",    title: "Speak-to-Chat",   desc: "Pauses playback and opens ambient when you talk",   glyph: window.icons.mic },
+                                { key: "adaptive", title: "Adaptive Volume", desc: "Balances level against your surroundings",          glyph: window.icons.sliders }
+                            ]
 
-                            delegate: Rectangle {
+                            delegate: Card {
+                                id: featCard
+                                required property var modelData
+                                readonly property bool on: modelData.key === "dsee" ? controller.dsee
+                                                         : modelData.key === "speak" ? controller.speakToChat
+                                                         : controller.adaptiveVolume
+
                                 Layout.fillWidth: true
-                                height: 75
-                                radius: 16
-                                color: modelData.name === controller.deviceName ? "#212433" : bgCard
-                                border.color: modelData.name === controller.deviceName ? accentPurple : borderCard
-                                border.width: 1
+                                Layout.preferredHeight: 112
+                                hovered: featHover.hovered
+                                active: on
+                                HoverHandler { id: featHover }
 
                                 RowLayout {
                                     anchors.fill: parent
-                                    anchors.margins: 18
-                                    spacing: 16
+                                    anchors.leftMargin: 20
+                                    anchors.rightMargin: 20
+                                    spacing: 15
 
                                     Rectangle {
-                                        width: 12
-                                        height: 12
-                                        radius: 6
-                                        color: modelData.name === controller.deviceName ? greenSuccess : textMuted
+                                        Layout.preferredWidth: 44
+                                        Layout.preferredHeight: 44
+                                        radius: 14
+                                        color: featCard.on ? Qt.rgba(window.accent.r, window.accent.g, window.accent.b, 0.18) : window.surfaceSunk
+                                        border.width: 1
+                                        border.color: featCard.on ? Qt.rgba(window.accent.r, window.accent.g, window.accent.b, 0.5) : window.line
+                                        Behavior on color { ColorAnimation { duration: window.tBase } }
+                                        Behavior on border.color { ColorAnimation { duration: window.tBase } }
+
+                                        Glyph {
+                                            anchors.centerIn: parent
+                                            path: featCard.modelData.glyph
+                                            size: 21
+                                            color: featCard.on ? window.accentSoft : window.txtFaint
+                                        }
                                     }
 
                                     ColumnLayout {
                                         Layout.fillWidth: true
-                                        spacing: 2
+                                        spacing: 3
                                         Text {
-                                            text: modelData.name
-                                            color: textPrimary
-                                            font.pixelSize: 16
-                                            font.bold: true
+                                            text: featCard.modelData.title
+                                            color: window.txt
+                                            font.pixelSize: 15
+                                            font.weight: Font.DemiBold
                                         }
                                         Text {
-                                            text: modelData.address + (modelData.name === controller.deviceName ? " • Connected" : " • Available")
-                                            color: modelData.name === controller.deviceName ? greenSuccess : textMuted
-                                            font.pixelSize: 12
+                                            Layout.fillWidth: true
+                                            text: featCard.modelData.desc
+                                            color: window.txtFaint
+                                            font.pixelSize: 11
+                                            wrapMode: Text.WordWrap
                                         }
                                     }
 
-                                    Button {
-                                        text: modelData.name === controller.deviceName ? "Active" : "Connect"
-                                        highlighted: modelData.name === controller.deviceName
-                                        enabled: modelData.name !== controller.deviceName
-                                        onClicked: controller.connectDevice(modelData.address, modelData.name)
+                                    NeoSwitch {
+                                        checked: featCard.on
+                                        onToggled: {
+                                            if (featCard.modelData.key === "dsee") controller.setDsee(checked)
+                                            else if (featCard.modelData.key === "speak") controller.setSpeakToChat(checked)
+                                            else controller.setAdaptiveVolume(checked)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Auto power-off — a choice, not a toggle
+                        Card {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 112
+                            hovered: powerHover.hovered
+                            HoverHandler { id: powerHover }
+
+                            RowLayout {
+                                anchors.fill: parent
+                                anchors.leftMargin: 20
+                                anchors.rightMargin: 20
+                                spacing: 15
+
+                                Rectangle {
+                                    Layout.preferredWidth: 44
+                                    Layout.preferredHeight: 44
+                                    radius: 14
+                                    color: window.surfaceSunk
+                                    border.width: 1
+                                    border.color: window.line
+                                    Glyph {
+                                        anchors.centerIn: parent
+                                        path: window.icons.power
+                                        size: 21
+                                        color: window.txtFaint
+                                    }
+                                }
+
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 3
+                                    Text {
+                                        text: "Auto Power-Off"
+                                        color: window.txt
+                                        font.pixelSize: 15
+                                        font.weight: Font.DemiBold
+                                    }
+                                    Text {
+                                        Layout.fillWidth: true
+                                        text: "Shut down after idle or removal"
+                                        color: window.txtFaint
+                                        font.pixelSize: 11
+                                        wrapMode: Text.WordWrap
+                                    }
+                                }
+
+                                ComboBox {
+                                    id: powerCombo
+                                    implicitWidth: 134
+                                    implicitHeight: 38
+                                    model: ["Off", "5 Minutes", "15 Minutes", "30 Minutes", "1 Hour", "3 Hours"]
+                                    currentIndex: controller.autoPowerOff
+                                    onActivated: controller.setAutoPowerOff(index)
+
+                                    background: Rectangle {
+                                        radius: 11
+                                        color: powerCombo.hovered ? window.surfaceHi : window.surfaceSunk
+                                        border.width: 1
+                                        border.color: powerCombo.hovered ? window.lineHi : window.line
+                                        Behavior on color { ColorAnimation { duration: window.tFast } }
+                                    }
+
+                                    contentItem: Text {
+                                        leftPadding: 13
+                                        rightPadding: 28
+                                        text: powerCombo.displayText
+                                        color: window.txt
+                                        font.pixelSize: 12
+                                        verticalAlignment: Text.AlignVCenter
+                                        elide: Text.ElideRight
+                                    }
+
+                                    indicator: Glyph {
+                                        x: powerCombo.width - width - 12
+                                        y: powerCombo.height / 2 - height / 2
+                                        size: 14
+                                        color: window.txtFaint
+                                        path: window.icons.chevron
+                                        rotation: powerCombo.popup.visible ? 180 : 0
+                                        Behavior on rotation { NumberAnimation { duration: window.tBase } }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Item { Layout.fillHeight: true }
+                }
+            }
+
+            // ==================================================
+            // 5 · DEVICE SWITCHER
+            // ==================================================
+            ViewPage {
+                ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: 36
+                    spacing: 22
+
+                    ColumnLayout {
+                        spacing: 5
+                        Eyebrow { text: "Easy Switch" }
+                        Text {
+                            text: "Paired Devices"
+                            color: window.txt
+                            font.pixelSize: 28
+                            font.weight: Font.DemiBold
+                            font.letterSpacing: -0.6
+                        }
+                        Text {
+                            text: "Hand the connection to another set without re-pairing."
+                            color: window.txtDim
+                            font.pixelSize: 13
+                        }
+                    }
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 11
+
+                        Repeater {
+                            model: controller.pairedDevices
+
+                            delegate: Card {
+                                id: devCard
+                                required property var modelData
+                                readonly property bool current: modelData.name === controller.deviceName
+
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: 84
+                                active: current
+                                hovered: devHover.hovered
+                                scale: (devHover.hovered && !current) ? 1.006 : 1.0
+                                Behavior on scale { NumberAnimation { duration: window.tBase } }
+
+                                HoverHandler { id: devHover }
+
+                                RowLayout {
+                                    anchors.fill: parent
+                                    anchors.leftMargin: 20
+                                    anchors.rightMargin: 20
+                                    spacing: 16
+
+                                    Rectangle {
+                                        Layout.preferredWidth: 48
+                                        Layout.preferredHeight: 48
+                                        radius: 15
+                                        color: devCard.current ? Qt.rgba(window.accent.r, window.accent.g, window.accent.b, 0.18) : window.surfaceSunk
+                                        border.width: 1
+                                        border.color: devCard.current ? Qt.rgba(window.accent.r, window.accent.g, window.accent.b, 0.5) : window.line
+
+                                        Glyph {
+                                            anchors.centerIn: parent
+                                            path: window.icons.headphones
+                                            size: 22
+                                            color: devCard.current ? window.accentSoft : window.txtFaint
+                                        }
+                                    }
+
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 3
+                                        Text {
+                                            text: devCard.modelData.name
+                                            color: window.txt
+                                            font.pixelSize: 15
+                                            font.weight: Font.DemiBold
+                                        }
+                                        RowLayout {
+                                            spacing: 7
+                                            Rectangle {
+                                                Layout.preferredWidth: 6
+                                                Layout.preferredHeight: 6
+                                                radius: 3
+                                                color: devCard.current ? window.success : window.txtFaint
+                                            }
+                                            Text {
+                                                text: devCard.current ? "Connected" : "Available"
+                                                color: devCard.current ? window.success : window.txtFaint
+                                                font.pixelSize: 11
+                                                font.weight: Font.Medium
+                                            }
+                                            Text {
+                                                text: "·  " + devCard.modelData.address
+                                                color: window.txtFaint
+                                                font.pixelSize: 11
+                                            }
+                                        }
+                                    }
+
+                                    PillButton {
+                                        // Fixed width so the action column lines
+                                        // up down the list regardless of label.
+                                        Layout.preferredWidth: 132
+                                        Layout.alignment: Qt.AlignVCenter
+                                        implicitHeight: 40
+                                        text: devCard.current ? "Active" : "Connect"
+                                        glyphPath: devCard.current ? "" : window.icons.swap
+                                        active: devCard.current
+                                        enabled: !devCard.current
+                                        opacity: enabled ? 1.0 : 0.8
+                                        onClicked: controller.connectDevice(devCard.modelData.address, devCard.modelData.name)
                                     }
                                 }
                             }
@@ -813,6 +1676,4 @@ ApplicationWindow {
             }
         }
     }
-
-    property int navIndex: 0
 }
