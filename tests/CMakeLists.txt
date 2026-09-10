@@ -38,6 +38,7 @@ set(SONYBRIDGE_CLIENT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../Client")
 
 add_executable(sony-protocol-tests
     protocol/FrameCodecTests.cpp
+    protocol/SonyProtocolSessionTests.cpp
     protocol/CommandSerializerTests.cpp
     protocol/BluetoothWrapperTests.cpp
     "${SONYBRIDGE_CLIENT_DIR}/CommandSerializer.cpp"
