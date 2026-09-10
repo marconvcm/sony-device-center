@@ -1,6 +1,6 @@
 <img src="docs/app-icon.png" width="88" align="right" alt="">
 
-# Sony Device Center (Sony XM Device Bridge)
+# Sony Device Center
 
 **An open-source desktop suite and C++20 SDK for Sony headphones and earbuds — Ambient Sound, Noise Cancelling, Equalizer, Clear Bass, DSEE, battery monitoring, and device control, without needing a mobile phone.**
 
