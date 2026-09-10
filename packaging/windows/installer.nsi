@@ -8,7 +8,7 @@ InstallDirRegKey HKLM "Software\SonyDeviceCenter" "Install_Dir"
 RequestExecutionLevel admin
 
 !define MUI_ABORTWARNING
-!define MUI_ICON "..\linux\sony-device-center.ico"
+!define MUI_ICON "sony-device-center.ico"
 
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_LICENSE "..\..\LICENSE"

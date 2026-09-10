@@ -15,9 +15,9 @@
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>@CPACK_PACKAGE_VERSION@</string>
+    <string>${MACOSX_BUNDLE_SHORT_VERSION_STRING}</string>
     <key>CFBundleVersion</key>
-    <string>@CPACK_PACKAGE_VERSION@</string>
+    <string>${MACOSX_BUNDLE_SHORT_VERSION_STRING}</string>
     <key>NSBluetoothAlwaysUsageDescription</key>
     <string>Sony Device Center needs Bluetooth access to discover, connect, and configure Sony headphones and earbuds.</string>
     <key>NSHighResolutionCapable</key>

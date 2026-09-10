@@ -99,6 +99,94 @@ ApplicationWindow {
         externalLink: "M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6 M15 3h6v6 M10 14L21 3"
     })
 
+    // ==========================================================
+    // BRAND
+    // Geometry is a transcription of assets/mark.svg on its own
+    // 24-unit grid, so the in-app mark and the shipped app icon are
+    // the same drawing at every size. Edit the SVG and this together.
+    // ==========================================================
+
+    // The mark alone. Sealed left earcup (noise cancelling), open
+    // right earcup (ambient) — the product in one glyph.
+    component BrandMark: Item {
+        id: brandMark
+        property real size: 24
+        property color color: "#FFFFFF"
+        // One SVG unit expressed in item pixels. ShapePath.scale only
+        // scales geometry, so stroke widths have to be scaled by hand
+        // or the mark thickens as it shrinks.
+        readonly property real u: size / 24
+        implicitWidth: size
+        implicitHeight: size
+
+        Shape {
+            anchors.fill: parent
+            antialiasing: true
+
+            ShapePath {
+                strokeColor: brandMark.color
+                strokeWidth: 2 * brandMark.u
+                fillColor: "transparent"
+                capStyle: ShapePath.RoundCap
+                scale: Qt.size(brandMark.u, brandMark.u)
+                PathSvg { path: "M4.6 13.2 A7.2 7.2 0 0 1 19 13.2" }
+            }
+
+            ShapePath {
+                strokeColor: "transparent"
+                strokeWidth: -1
+                fillColor: brandMark.color
+                scale: Qt.size(brandMark.u, brandMark.u)
+                PathAngleArc {
+                    centerX: 4.6; centerY: 16
+                    radiusX: 2.6; radiusY: 2.6
+                    startAngle: 0; sweepAngle: 360
+                }
+            }
+
+            ShapePath {
+                strokeColor: brandMark.color
+                strokeWidth: 1.7 * brandMark.u
+                fillColor: "transparent"
+                scale: Qt.size(brandMark.u, brandMark.u)
+                PathAngleArc {
+                    centerX: 19; centerY: 16
+                    radiusX: 2.2; radiusY: 2.2
+                    startAngle: 0; sweepAngle: 360
+                }
+            }
+        }
+
+        Behavior on color { ColorAnimation { duration: window.tFast } }
+    }
+
+    // The mark in its gradient tile. Corner radius and mark inset are
+    // the ratios from assets/lockup.svg (r13 and 26.67 on a 40px tile).
+    component BrandTile: Rectangle {
+        id: brandTile
+        radius: width * 0.325
+        gradient: Gradient {
+            GradientStop { position: 0.0; color: window.accentSoft }
+            GradientStop { position: 1.0; color: window.accent }
+        }
+
+        BrandMark {
+            anchors.centerIn: parent
+            size: brandTile.width * 0.6667
+            color: "#FFFFFF"
+        }
+
+        // Top sheen, matching the app icon's highlight pass.
+        Rectangle {
+            anchors.fill: parent
+            radius: parent.radius
+            gradient: Gradient {
+                GradientStop { position: 0.0;  color: Qt.rgba(1, 1, 1, 0.16) }
+                GradientStop { position: 0.55; color: Qt.rgba(1, 1, 1, 0.0) }
+            }
+        }
+    }
+
     // Elevated card. Gradient fakes a top light source; hairline defines the edge.
     component Card: Rectangle {
         id: card
@@ -453,21 +541,9 @@ ApplicationWindow {
                 // Brand
                 RowLayout {
                     spacing: 12
-                    Rectangle {
+                    BrandTile {
                         Layout.preferredWidth: 40
                         Layout.preferredHeight: 40
-                        radius: 13
-                        gradient: Gradient {
-                            GradientStop { position: 0.0; color: window.accentSoft }
-                            GradientStop { position: 1.0; color: window.accent }
-                        }
-                        Glyph {
-                            anchors.centerIn: parent
-                            path: window.icons.headphones
-                            size: 22
-                            color: "white"
-                            weight: 2
-                        }
                     }
                     ColumnLayout {
                         spacing: 1
@@ -1936,20 +2012,9 @@ ApplicationWindow {
 
                                 RowLayout {
                                     spacing: 14
-                                    Rectangle {
+                                    BrandTile {
                                         Layout.preferredWidth: 42
                                         Layout.preferredHeight: 42
-                                        radius: 12
-                                        color: Qt.rgba(window.accent.r, window.accent.g, window.accent.b, 0.16)
-                                        border.width: 1
-                                        border.color: Qt.rgba(window.accent.r, window.accent.g, window.accent.b, 0.45)
-
-                                        Glyph {
-                                            anchors.centerIn: parent
-                                            path: window.icons.headphones
-                                            size: 20
-                                            color: window.accentSoft
-                                        }
                                     }
 
                                     ColumnLayout {

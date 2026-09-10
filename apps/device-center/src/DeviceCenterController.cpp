@@ -487,7 +487,7 @@ void DeviceCenterController::setAutostart(bool enable) {
 }
 
 QString DeviceCenterController::appVersion() const {
-    return "2.1.0";
+    return QCoreApplication::applicationVersion();
 }
 
 QString DeviceCenterController::currentLanguage() const {

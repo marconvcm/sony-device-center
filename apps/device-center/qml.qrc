@@ -1,6 +1,10 @@
 <RCC>
     <qresource prefix="/">
         <file>qml/Main.qml</file>
+        <file alias="resources/brand/mark.svg">../../assets/mark.svg</file>
+        <file alias="resources/brand/lockup.svg">../../assets/lockup.svg</file>
+        <file alias="resources/brand/app-icon.svg">../../assets/app-icon.svg</file>
+        <file alias="resources/brand/app-icon.png">../../packaging/linux/sony-device-center.png</file>
         <file alias="resources/devices/linkbuds-s.png">../../Client/resources/devices/linkbuds-s.png</file>
         <file alias="resources/devices/mdr-1000x.png">../../Client/resources/devices/mdr-1000x.png</file>
         <file alias="resources/devices/mdr-xb950bt.png">../../Client/resources/devices/mdr-xb950bt.png</file>
