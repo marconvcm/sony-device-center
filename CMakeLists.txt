@@ -37,6 +37,15 @@ endif()
 
 include(GNUInstallDirs)
 
+if(WIN32)
+    # The binaries link the MSVC runtime dynamically. Without these DLLs beside
+    # them the installed .exe dies before main() with "VCRUNTIME140_1.dll was
+    # not found" on any machine lacking the VC++ redistributable.
+    set(CMAKE_INSTALL_SYSTEM_RUNTIME_DESTINATION ${CMAKE_INSTALL_BINDIR})
+    set(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_SKIP FALSE)
+    include(InstallRequiredSystemLibraries)
+endif()
+
 if(UNIX AND NOT APPLE)
     install(FILES packaging/linux/sony-device-center.desktop
             DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)

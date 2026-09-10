@@ -106,6 +106,27 @@ jobs:
         shell: bash
         run: cd build && cpack -C ${BUILD_TYPE} -G "WIX;ZIP"
 
+      # v0.1.0 shipped an app that could not start because the MSVC runtime
+      # was missing. Assert on the produced archive so that fails the build
+      # here instead of on a user's desktop.
+      - name: Verify the package is self-contained
+        shell: pwsh
+        run: |
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $zip = Get-ChildItem build/*.zip | Select-Object -First 1
+          if (-not $zip) { throw 'no ZIP produced' }
+          $archive = [IO.Compression.ZipFile]::OpenRead($zip.FullName)
+          $names = $archive.Entries.Name
+          $required = @(
+            'sony-device-center.exe', 'sonyd.exe', 'sonyctl.exe',
+            'Qt6Core.dll', 'Qt6Quick.dll', 'Qt6QuickControls2.dll',
+            'MSVCP140.dll', 'VCRUNTIME140.dll', 'VCRUNTIME140_1.dll'
+          )
+          $missing = $required | Where-Object { $names -notcontains $_ }
+          $archive.Dispose()
+          if ($missing) { throw "missing from $($zip.Name): $($missing -join ', ')" }
+          Write-Host "$($zip.Name) contains all required binaries and runtime"
+
       - name: Collect
         shell: bash
         run: |

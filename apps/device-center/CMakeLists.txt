@@ -97,6 +97,9 @@ if(WIN32)
     if(WINDEPLOYQT_EXECUTABLE)
         install(CODE "
             execute_process(COMMAND \"${WINDEPLOYQT_EXECUTABLE}\"
+                # The MSVC runtime comes from InstallRequiredSystemLibraries
+                # in the top-level CMakeLists, not from windeployqt, which
+                # would only drop a vc_redist.exe here.
                 --release --no-translations --no-compiler-runtime
                 --qmldir \"${CMAKE_CURRENT_SOURCE_DIR}/qml\"
                 \"\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR}/sony-device-center.exe\")
