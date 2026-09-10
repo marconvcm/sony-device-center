@@ -33,7 +33,10 @@ std::vector<DiscoveredDevice> DeviceService::discoverDevices() {
 void DeviceService::connect(const transport::DeviceAddress& address, std::string_view name) {
     std::lock_guard lock(_mutex);
     if (!_device) {
-        _device = std::make_unique<SonyDevice>(_transport, SonyProtocolVersion::V2);
+        // The version passed here is provisional; SonyDevice::connect() resolves
+        // it from the device profile. Start from V1 so that a failure to resolve
+        // can never leave a legacy device on the V2 command set.
+        _device = std::make_unique<SonyDevice>(_transport, SonyProtocolVersion::V1);
     }
     _device->connect(address, name);
 }

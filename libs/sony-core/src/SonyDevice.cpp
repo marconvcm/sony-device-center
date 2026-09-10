@@ -29,14 +29,25 @@ void SonyDevice::connect(const transport::DeviceAddress& address, std::string_vi
         disconnect();
     }
 
-    if (!deviceName.empty()) {
-        _name = std::string(deviceName);
-        _profile = protocol::DeviceProfileRegistry::getProfileForDevice(deviceName);
-        _capabilities = _profile.capabilities;
-        _version = _profile.protocol;
-    } else {
-        _name = std::string(to_string(_profile.model));
-    }
+    // Resolve the generation on every connect, including when no name is
+    // supplied. An unknown name yields the V1 fallback profile, which is the
+    // safe direction: opcode 0x22 requests the battery on V2 but means POWER
+    // OFF on V1, so a V1 device driven as V2 switches itself off. Carrying a
+    // stale V2 version over from a previously connected device would do the
+    // same, which is why this no longer runs only for a non-empty name.
+    _profile = protocol::DeviceProfileRegistry::getProfileForDevice(deviceName);
+    _capabilities = _profile.capabilities;
+    _version = _profile.protocol;
+    _name = deviceName.empty() ? std::string(to_string(_profile.model))
+                               : std::string(deviceName);
+
+    // Tear the previous session down *before* opening the new connection.
+    // ~SonyProtocolSession disconnects the transport, and assigning over the
+    // unique_ptr in _setupSession() destroys the old session only after the new
+    // one exists — which would drop the link that was just established. This is
+    // what makes reconnecting, or switching to a second device, work at all.
+    _protocol.reset();
+    _session.reset();
 
     _transport->connect(address);
     _setupSession();

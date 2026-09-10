@@ -114,7 +114,7 @@ void printHelp() {
 int main(int argc, char* argv[]) {
     std::string socketPath = defaultSocketPath();
     std::string deviceAddr;
-    std::string deviceName = "WH-1000XM5";
+    std::string deviceName;  // resolved from discovery; never guessed
     bool simulated = false;
     bool verbose = false;
 
@@ -155,6 +155,23 @@ int main(int argc, char* argv[]) {
     }
 
     std::string targetAddress = deviceAddr;
+
+    // An address given with -d still needs its name resolved, because the name
+    // is what selects the protocol generation. Guessing it wrong on a legacy
+    // device powers the headphones off.
+    if (!targetAddress.empty() && discovery) {
+        for (const auto& dev : discovery->discover()) {
+            if (dev.address.str() == targetAddress) {
+                deviceName = dev.name;
+                break;
+            }
+        }
+        if (deviceName.empty()) {
+            std::cout << "[sonyd] " << targetAddress << " is not among the paired Sony devices; "
+                      << "treating it as a legacy (V1) device.\n";
+        }
+    }
+
     if (targetAddress.empty() && discovery) {
         auto devs = discovery->discover();
         if (!devs.empty()) {

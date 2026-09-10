@@ -20,7 +20,7 @@ class SonyDevice {
 public:
     explicit SonyDevice(
         std::shared_ptr<transport::ITransport> transport,
-        SonyProtocolVersion version = SonyProtocolVersion::V2);
+        SonyProtocolVersion version = SonyProtocolVersion::V1);
     ~SonyDevice();
 
     SonyDevice(const SonyDevice&) = delete;
