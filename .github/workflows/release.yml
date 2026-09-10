@@ -81,12 +81,16 @@ jobs:
 
       # qtdeclarative ships inside the Qt 6 desktop base archive; naming it as
       # an optional module makes aqtinstall fail with "not available".
-      # Floor, not a wildcard: 6.8.3 shipped in v0.1.1/v0.1.2 and is affected by
-      # CVE-2025-12385 (fixed 6.8.6) and CVE-2025-10729 (fixed 6.8.5).
+      # v0.1.1 and v0.1.2 shipped Qt 6.8.3, affected by CVE-2025-12385 and
+      # CVE-2025-10729. Those are fixed in 6.8.5/6.8.6 — but 6.8 is an LTS and
+      # the open-source mirror stops at 6.8.3, so the fixes are unreachable on
+      # that line. Hence 6.10.x, which is current and post-dates them.
+      # `aqt list-qt windows desktop` is the way to check what is actually
+      # published before changing this.
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
         with:
-          version: '>=6.8.6,<6.9.0'
+          version: '6.10.*'
           arch: 'win64_msvc2022_64'
 
       # CPack's WIX generator drives candle.exe/light.exe, which only exist in
