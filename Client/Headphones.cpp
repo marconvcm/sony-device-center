@@ -529,3 +529,55 @@ std::shared_ptr<const sony::protocol::DeviceState> Headphones::snapshot() const
 	std::lock_guard guard(this->_propertyMtx);
 	return std::make_shared<const sony::protocol::DeviceState>(this->_deviceState);
 }
+
+uint64_t Headphones::onStateChanged(StateCallback callback)
+{
+	return this->_eventDispatcher.onStateChanged(std::move(callback));
+}
+
+uint64_t Headphones::onBatteryChanged(BatteryCallback callback)
+{
+	return this->_eventDispatcher.onBatteryChanged(std::move(callback));
+}
+
+uint64_t Headphones::onNoiseControlChanged(NoiseControlCallback callback)
+{
+	return this->_eventDispatcher.onNoiseControlChanged(std::move(callback));
+}
+
+uint64_t Headphones::onEqualizerChanged(EqualizerCallback callback)
+{
+	return this->_eventDispatcher.onEqualizerChanged(std::move(callback));
+}
+
+uint64_t Headphones::onConnectionChanged(ConnectionCallback callback)
+{
+	return this->_eventDispatcher.onConnectionChanged(std::move(callback));
+}
+
+void Headphones::removeEventListener(uint64_t subscriptionId)
+{
+	this->_eventDispatcher.removeListener(subscriptionId);
+}
+
+bool Headphones::handleNotification(const std::vector<uint8_t>& payload)
+{
+	std::lock_guard guard(this->_propertyMtx);
+	bool handled = this->_eventDispatcher.parseNotificationPayload(payload, this->_deviceState);
+	if (handled)
+	{
+		if (this->_deviceState.noiseControl.mode != sony::protocol::NoiseControlMode::Off)
+		{
+			this->_ambientSoundControl.current = this->_ambientSoundControl.desired = true;
+			this->_asmLevel.current = this->_asmLevel.desired = this->_deviceState.noiseControl.ambientLevel;
+			this->_focusOnVoice.current = this->_focusOnVoice.desired = this->_deviceState.noiseControl.focusOnVoice;
+		}
+		else
+		{
+			this->_ambientSoundControl.current = this->_ambientSoundControl.desired = false;
+			this->_asmLevel.current = this->_asmLevel.desired = 0;
+			this->_focusOnVoice.current = this->_focusOnVoice.desired = false;
+		}
+	}
+	return handled;
+}

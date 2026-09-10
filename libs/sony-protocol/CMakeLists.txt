@@ -9,6 +9,7 @@ add_library(sony-protocol
     src/DeviceProfileRegistry.cpp
     src/CapabilityCache.cpp
     src/CapabilityDiscovery.cpp
+    src/DeviceEventDispatcher.cpp
 )
 
 target_compile_features(sony-protocol PUBLIC cxx_std_20)

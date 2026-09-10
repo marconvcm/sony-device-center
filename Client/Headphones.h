@@ -4,9 +4,11 @@
 #include "BluetoothWrapper.h"
 #include "Constants.h"
 #include "sony/protocol/DeviceState.h"
+#include "sony/protocol/DeviceEventDispatcher.h"
 
 #include <mutex>
 #include <memory>
+#include <functional>
 
 template <class T>
 struct Property {
@@ -97,6 +99,23 @@ public:
 	[[nodiscard]] sony::protocol::DeviceState state() const;
 	[[nodiscard]] std::shared_ptr<const sony::protocol::DeviceState> snapshot() const;
 
+	// Phase 12: Event-driven updates
+	using StateCallback = std::function<void(const sony::protocol::DeviceStateChanged&)>;
+	using BatteryCallback = std::function<void(const sony::protocol::BatteryChanged&)>;
+	using NoiseControlCallback = std::function<void(const sony::protocol::NoiseControlChanged&)>;
+	using EqualizerCallback = std::function<void(const sony::protocol::EqualizerChanged&)>;
+	using ConnectionCallback = std::function<void(const sony::protocol::ConnectionChanged&)>;
+
+	uint64_t onStateChanged(StateCallback callback);
+	uint64_t onBatteryChanged(BatteryCallback callback);
+	uint64_t onNoiseControlChanged(NoiseControlCallback callback);
+	uint64_t onEqualizerChanged(EqualizerCallback callback);
+	uint64_t onConnectionChanged(ConnectionCallback callback);
+	void removeEventListener(uint64_t subscriptionId);
+
+	// Process unsolicited notifications
+	bool handleNotification(const std::vector<uint8_t>& payload);
+
 private:
 	Property<bool> _ambientSoundControl = { 0 };
 	Property<bool> _focusOnVoice = { 0 };
@@ -106,6 +125,7 @@ private:
 
 	// Structured device state replacing scattered primitive fields
 	sony::protocol::DeviceState _deviceState;
+	sony::protocol::DeviceEventDispatcher _eventDispatcher;
 
 	bool _hasAutoPowerOff = false;
 	bool _hasFirmware = false;
@@ -113,7 +133,7 @@ private:
 	bool _hasSpeakToChat = false;
 	bool _hasAdaptiveVolume = false;
 
-	mutable std::mutex _propertyMtx;
+	mutable std::recursive_mutex _propertyMtx;
 
 	BluetoothWrapper& _conn;
 };
