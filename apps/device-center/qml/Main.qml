@@ -2189,7 +2189,7 @@ ApplicationWindow {
                         Layout.fillWidth: true
                         text: window.tr("disclaimer")
                         color: window.txtFaint
-                        font.pixelSize: 11.5
+                        font.pixelSize: 12
                         lineHeight: 1.4
                         wrapMode: Text.WordWrap
                     }
