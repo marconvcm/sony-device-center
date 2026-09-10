@@ -3,17 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>SonyBridge — Control your Sony headphones from your desktop</title>
+<title>Sony Device Center — Control your Sony headphones from your desktop</title>
 <link rel="icon" type="image/svg+xml" href="app-icon.svg">
 <link rel="alternate icon" type="image/png" href="app-icon.png">
-<meta name="description" content="Open-source desktop app for Sony headphones. Noise cancelling, ambient sound, EQ, DSEE and battery on macOS, Windows and Linux — no phone needed.">
+<meta name="description" content="Independent open-source desktop app for Sony headphones. Noise cancelling, ambient sound, EQ, DSEE and battery on Linux and Windows — no phone, no Sony account.">
 <meta name="theme-color" content="#0A0A0C">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='10' fill='%23111119'/%3E%3Cpath d='M8 22a12 12 0 0 1 24 0' stroke='%234C8DFF' stroke-width='2.6' fill='none' stroke-linecap='round'/%3E%3Crect x='6' y='20' width='6.5' height='12' rx='3.2' fill='%234C8DFF'/%3E%3Crect x='27.5' y='20' width='6.5' height='12' rx='3.2' fill='%237DB0FF'/%3E%3C/svg%3E">
 <meta property="og:type" content="website">
-<meta property="og:title" content="SonyBridge — Sony headphones on your desktop">
-<meta property="og:description" content="Noise cancelling, ambient sound, EQ, DSEE and battery on macOS, Windows and Linux. Open-source, no phone needed.">
-<meta property="og:image" content="https://amitrajput-dev.github.io/SonyBridge/connected.png">
-<meta property="og:url" content="https://amitrajput-dev.github.io/SonyBridge/">
+<meta property="og:title" content="Sony Device Center — Sony headphones on your desktop">
+<meta property="og:description" content="Noise cancelling, ambient sound, EQ, DSEE and battery on Linux and Windows. Independent, open-source, no phone needed.">
+<meta property="og:image" content="https://marconvcm.github.io/sony-device-center/screenshots/overview.png">
+<meta property="og:url" content="https://marconvcm.github.io/sony-device-center/">
 <meta name="twitter:card" content="summary_large_image">
 <style>*{margin:0}html,body{background:#0A0A0C}</style>
 </head>
@@ -150,6 +149,13 @@
   .support p{color:var(--muted);max-width:46ch;margin:14px auto 0}
   .support .cta{justify-content:center}
 
+  /* screenshot gallery */
+  .gal{display:grid;grid-template-columns:repeat(2,1fr);gap:22px;margin-top:34px}
+  .gal figure{margin:0;border:1px solid var(--border);border-radius:14px;overflow:hidden;background:var(--panel)}
+  .gal img{display:block;width:100%;height:auto;border-bottom:1px solid var(--border)}
+  .gal figcaption{padding:13px 16px;font-size:13.5px;color:var(--muted)}
+  @media (max-width:760px){.gal{grid-template-columns:1fr}}
+
   /* footer */
   footer{border-top:1px solid var(--border);padding:52px 0 64px;color:var(--faint);font-size:14px}
   footer .top{display:flex;flex-wrap:wrap;gap:24px;justify-content:space-between;align-items:flex-start}
@@ -179,17 +185,18 @@
 <div class="sb-root">
 <nav class="nav" id="nav"><div class="wrap"><div class="row">
   <a class="brand" href="#top">
-    <svg class="mk" viewBox="0 0 40 40" fill="none" aria-hidden="true"><rect width="40" height="40" rx="10" fill="#111119"/><path d="M8 22a12 12 0 0 1 24 0" stroke="#4C8DFF" stroke-width="2.6" stroke-linecap="round"/><rect x="6" y="20" width="6.5" height="12" rx="3.2" fill="#4C8DFF"/><rect x="27.5" y="20" width="6.5" height="12" rx="3.2" fill="#7DB0FF"/></svg>
-    Sony<span style="color:var(--accent2)">Bridge</span>
+    <img class="mk" src="app-icon.svg" width="40" height="40" alt="" aria-hidden="true">
+    Device<span style="color:var(--accent2)">&nbsp;Center</span>
   </a>
   <div class="links">
     <a href="#features">Features</a>
+    <a href="#screenshots">Screenshots</a>
     <a href="#protocol">Protocol</a>
     <a href="#devices">Devices</a>
     <a href="#install">Install</a>
   </div>
   <div class="right">
-    <a class="ghpill" href="https://github.com/AmitRajput-Dev/SonyBridge" target="_blank" rel="noopener">
+    <a class="ghpill" href="https://github.com/marconvcm/sony-device-center" target="_blank" rel="noopener">
       <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
       Star
     </a>
@@ -203,28 +210,28 @@
   <canvas id="wave" aria-hidden="true"></canvas>
   <div class="wrap"><div class="grid">
     <div>
-      <span class="eyebrow">Open-source · macOS · Windows · Linux</span>
+      <span class="eyebrow">Independent open source · Linux · Windows</span>
       <h1 class="h1">Your Sony headphones,<br><span class="g">finally on your desktop.</span></h1>
-      <p class="lede">Noise cancelling, ambient sound, EQ, DSEE and battery — controlled straight from your Mac or PC. No phone, no Sony account.</p>
+      <p class="lede">Noise cancelling, ambient sound, EQ, DSEE and battery — controlled straight from your desktop. No phone, no Sony account.</p>
       <div class="cta">
         <a class="btn btn-primary" href="#install">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M11.18 8.52c-.02-1.6 1.3-2.37 1.36-2.4-.74-1.08-1.9-1.23-2.3-1.25-.98-.1-1.9.57-2.4.57-.5 0-1.26-.56-2.07-.54-1.06.02-2.05.62-2.6 1.57-1.11 1.92-.28 4.76.8 6.32.53.76 1.16 1.62 1.98 1.59.8-.03 1.1-.51 2.06-.51.96 0 1.24.51 2.07.5.86-.01 1.4-.78 1.92-1.55.6-.88.85-1.74.86-1.78-.02-.01-1.65-.63-1.68-2.51Zm-1.6-4.6c.44-.53.74-1.27.66-2.01-.64.03-1.4.43-1.86.96-.41.47-.77 1.22-.67 1.94.71.06 1.43-.36 1.87-.89Z"/></svg>
-          Download for macOS
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 3v12"/><path d="M7 12l5 5 5-5"/><path d="M4 20h16"/></svg>
+          Download for Linux
         </a>
-        <a class="btn btn-ghost" href="https://github.com/AmitRajput-Dev/SonyBridge/releases/tag/v0.4.0-beta1" target="_blank" rel="noopener">
+        <a class="btn btn-ghost" href="https://github.com/marconvcm/sony-device-center/releases/latest" target="_blank" rel="noopener">
           <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M0 2.3 6.5 1.4v6.1H0V2.3ZM7.3 1.3 16 0v7.5H7.3V1.3ZM0 8.5h6.5v6.1L0 13.7V8.5Zm7.3 0H16V16l-8.7-1.2V8.5Z"/></svg>
-          Windows Beta
+          Windows installer
         </a>
       </div>
       <div class="cmd">
-        <span class="dollar">$</span><code id="brew">brew install --cask sonybridge</code>
+        <span class="dollar">$</span><code id="brew">sudo dnf install ./sony-device-center-*-Linux.rpm</code>
         <button id="copy" aria-label="Copy install command">Copy</button>
       </div>
-      <div class="subnote">MIT licensed · builds on the community SonyHeadphonesClient</div>
+      <div class="subnote">MIT licensed · not affiliated with Sony · C++20 SDK, daemon and CLI included</div>
     </div>
     <div class="shot">
       <div class="halo"></div>
-      <div class="frame"><img src="connected.png" alt="SonyBridge connected to a WH-CH720N, showing noise-cancelling and ambient controls" loading="lazy"></div>
+      <div class="frame"><img src="screenshots/overview.png" alt="Sony Device Center overview page showing a connected WH-1000XM5, battery level and noise-control modes" loading="lazy"></div>
     </div>
   </div></div>
 </header>
@@ -246,7 +253,7 @@
   <div class="shead reveal">
     <span class="eyebrow">Everything the app hides</span>
     <h2>Full control, minus the phone.</h2>
-    <p>SonyBridge talks to your headset over Bluetooth using Sony's own protocol — so every setting you'd expect from the mobile app is right on your desktop.</p>
+    <p>Sony Device Center talks to your headset over Bluetooth using Sony's own protocol — so every setting you'd expect from the mobile app is right on your desktop.</p>
   </div>
   <div class="bento">
     <div class="card wide c-4 reveal">
@@ -285,12 +292,38 @@
   </div>
 </div></section>
 
+<section id="screenshots"><div class="wrap">
+  <div class="shead reveal">
+    <span class="eyebrow">The app</span>
+    <h2>Every control, one window.</h2>
+    <p>A native Qt 6 desktop app — noise control, a five-band equalizer with Clear Bass, DSEE and the device features Sony keeps in the phone app.</p>
+  </div>
+  <div class="gal">
+    <figure class="reveal">
+      <img src="screenshots/noise-control.png" alt="Noise Control page with noise cancelling, ambient sound and off modes, an ambient level slider and a focus-on-voice toggle" loading="lazy">
+      <figcaption>Noise control, ambient levels 1&ndash;20 and Focus on Voice.</figcaption>
+    </figure>
+    <figure class="reveal">
+      <img src="screenshots/equalizer.png" alt="Equalizer page with preset chips and five band sliders plus Clear Bass" loading="lazy">
+      <figcaption>Presets, five bands and Clear Bass.</figcaption>
+    </figure>
+    <figure class="reveal">
+      <img src="screenshots/audio-features.png" alt="Audio features page with DSEE Extreme, Speak-to-Chat, Adaptive Volume and Auto Power-Off" loading="lazy">
+      <figcaption>DSEE, Speak-to-Chat, Adaptive Volume, Auto Power-Off.</figcaption>
+    </figure>
+    <figure class="reveal">
+      <img src="screenshots/settings.png" alt="Settings page with launch-at-startup, display language, app version and community links" loading="lazy">
+      <figcaption>Autostart, six languages and build details.</figcaption>
+    </figure>
+  </div>
+</div></section>
+
 <section id="protocol" style="padding-top:20px"><div class="wrap">
   <div class="proto reveal">
     <div>
       <span class="eyebrow">How it works</span>
       <h3>Speaks Sony's binary protocol.</h3>
-      <p>Sony headphones expose a vendor RFCOMM/SPP service. SonyBridge frames commands on the wire, handles the v2 init handshake and per-frame ACK the newer devices require, and reads state straight back from the headset.</p>
+      <p>Sony headphones expose a vendor RFCOMM/SPP service. Sony Device Center frames commands on the wire, handles the v2 init handshake and per-frame ACK the newer devices require, and reads state straight back from the headset.</p>
     </div>
     <div class="hexbox" aria-hidden="true">
       <span class="lab">Set noise cancelling · v2</span>
@@ -334,25 +367,27 @@
   <div class="shead reveal">
     <span class="eyebrow">Get started</span>
     <h2>Install in a minute.</h2>
-    <p>Pair your headphones in your OS Bluetooth settings first, then open SonyBridge and hit Connect.</p>
+    <p>Pair your headphones in your OS Bluetooth settings first, then open Sony Device Center and hit Connect.</p>
   </div>
   <div class="inst">
     <div class="card reveal">
-      <div class="plat"><svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor"><path d="M11.18 8.52c-.02-1.6 1.3-2.37 1.36-2.4-.74-1.08-1.9-1.23-2.3-1.25-.98-.1-1.9.57-2.4.57-.5 0-1.26-.56-2.07-.54-1.06.02-2.05.62-2.6 1.57-1.11 1.92-.28 4.76.8 6.32.53.76 1.16 1.62 1.98 1.59.8-.03 1.1-.51 2.06-.51.96 0 1.24.51 2.07.5.86-.01 1.4-.78 1.92-1.55.6-.88.85-1.74.86-1.78-.02-.01-1.65-.63-1.68-2.51Zm-1.6-4.6c.44-.53.74-1.27.66-2.01-.64.03-1.4.43-1.86.96-.41.47-.77 1.22-.67 1.94.71.06 1.43-.36 1.87-.89Z"/></svg>macOS</div>
-      <div class="cmd" style="margin-top:0"><span class="dollar">$</span><code>brew install --cask sonybridge</code></div>
-      <div class="meta">macOS 11+ · Apple Silicon &amp; Intel · or download the .app</div>
-      <div style="margin-top:16px"><a class="btn btn-ghost" href="https://github.com/AmitRajput-Dev/SonyBridge/releases/latest" target="_blank" rel="noopener">Latest release →</a></div>
-    </div>
-    <div class="card reveal">
-      <div class="plat"><svg width="17" height="17" viewBox="0 0 16 16" fill="currentColor"><path d="M0 2.3 6.5 1.4v6.1H0V2.3ZM7.3 1.3 16 0v7.5H7.3V1.3ZM0 8.5h6.5v6.1L0 13.7V8.5Zm7.3 0H16V16l-8.7-1.2V8.5Z"/></svg>Windows <span class="badgebeta">BETA</span></div>
-      <p style="color:var(--muted);font-size:14px;margin:0">First Windows build — same UI, testers wanted. Grab it and tell us how it runs.</p>
-      <div style="margin-top:16px"><a class="btn btn-ghost" href="https://github.com/AmitRajput-Dev/SonyBridge/releases/tag/v0.4.0-beta1" target="_blank" rel="noopener">Download beta →</a></div>
-    </div>
-    <div class="card reveal">
       <div class="plat"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 3c-1 2-1 4 0 6-2 1-4 3-4 7 0 3 3 5 7 5s7-2 7-5c0-4-2-6-4-7 1-2 1-4 0-6"/><path d="M9 9h6"/></svg>Linux</div>
-      <p style="color:var(--muted);font-size:14px;margin:0">Build from source — the same modern UI runs on the GLFW/OpenGL path.</p>
-      <div class="meta">apt install libbluetooth-dev libglfw3-dev libdbus-1-dev</div>
-      <div style="margin-top:16px"><a class="btn btn-ghost" href="https://github.com/AmitRajput-Dev/SonyBridge#-build-from-source" target="_blank" rel="noopener">Build guide →</a></div>
+      <div class="cmd" style="margin-top:0"><span class="dollar">$</span><code>sudo dnf install ./sony-device-center-*-Linux.rpm</code></div>
+      <div class="cmd"><span class="dollar">$</span><code>sudo apt install ./sony-device-center-*-Linux.deb</code></div>
+      <div class="meta">RPM, DEB and tarball · needs Qt 6, BlueZ and D-Bus</div>
+      <div style="margin-top:16px"><a class="btn btn-ghost" href="https://github.com/marconvcm/sony-device-center/releases/latest" target="_blank" rel="noopener">Latest release &rarr;</a></div>
+    </div>
+    <div class="card reveal">
+      <div class="plat"><svg width="17" height="17" viewBox="0 0 16 16" fill="currentColor"><path d="M0 2.3 6.5 1.4v6.1H0V2.3ZM7.3 1.3 16 0v7.5H7.3V1.3ZM0 8.5h6.5v6.1L0 13.7V8.5Zm7.3 0H16V16l-8.7-1.2V8.5Z"/></svg>Windows</div>
+      <p style="color:var(--muted);font-size:14px;margin:0">Run the MSI installer, or unpack the ZIP. Qt and the MSVC runtime are bundled &mdash; nothing else to install.</p>
+      <div class="meta">The daemon is Linux-only for now; the app talks to the headset directly.</div>
+      <div style="margin-top:16px"><a class="btn btn-ghost" href="https://github.com/marconvcm/sony-device-center/releases/latest" target="_blank" rel="noopener">Download MSI &rarr;</a></div>
+    </div>
+    <div class="card reveal">
+      <div class="plat"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6 3 12l5 6"/><path d="m16 6 5 6-5 6"/></svg>From source</div>
+      <p style="color:var(--muted);font-size:14px;margin:0">CMake and a C++20 compiler. Builds the app, the <code>sonyd</code> daemon, the <code>sonyctl</code> CLI and the libraries.</p>
+      <div class="meta">cmake -B build &amp;&amp; cmake --build build</div>
+      <div style="margin-top:16px"><a class="btn btn-ghost" href="https://github.com/marconvcm/sony-device-center#-building-from-source" target="_blank" rel="noopener">Build guide &rarr;</a></div>
     </div>
   </div>
 </div></section>
@@ -361,10 +396,10 @@
   <div class="support reveal">
     <span class="eyebrow">Free &amp; open-source</span>
     <h2>Keep the reverse-engineering going.</h2>
-    <p>SonyBridge is free forever. If it saved you from Sony's app, a sponsorship or a star keeps new devices and features coming.</p>
+    <p>Sony Device Center is free forever. If it saved you from Sony's app, a sponsorship or a star keeps new devices and features coming.</p>
     <div class="cta">
-      <a class="btn btn-primary" href="https://github.com/sponsors/AmitRajput-Dev" target="_blank" rel="noopener">❤ Sponsor</a>
-      <a class="btn btn-ghost" href="https://github.com/AmitRajput-Dev/SonyBridge" target="_blank" rel="noopener">★ Star on GitHub</a>
+      <a class="btn btn-primary" href="https://github.com/sponsors/marconvcm" target="_blank" rel="noopener">❤ Sponsor</a>
+      <a class="btn btn-ghost" href="https://github.com/marconvcm/sony-device-center" target="_blank" rel="noopener">★ Star on GitHub</a>
     </div>
   </div>
 </div></section>
@@ -373,23 +408,23 @@
   <div class="top">
     <div>
       <a class="brand" href="#top" style="font-size:17px">
-        <svg class="mk" viewBox="0 0 40 40" fill="none" aria-hidden="true"><rect width="40" height="40" rx="10" fill="#111119"/><path d="M8 22a12 12 0 0 1 24 0" stroke="#4C8DFF" stroke-width="2.6" stroke-linecap="round"/><rect x="6" y="20" width="6.5" height="12" rx="3.2" fill="#4C8DFF"/><rect x="27.5" y="20" width="6.5" height="12" rx="3.2" fill="#7DB0FF"/></svg>
-        Sony<span style="color:var(--accent2)">Bridge</span>
+        <img class="mk" src="app-icon.svg" width="40" height="40" alt="" aria-hidden="true">
+        Device<span style="color:var(--accent2)">&nbsp;Center</span>
       </a>
-      <p class="cred" style="margin-top:14px">Built on <a href="https://github.com/Plutoberth/SonyHeadphonesClient" target="_blank" rel="noopener">SonyHeadphonesClient</a> by Plutoberth &amp; contributors, the macOS port by <a href="https://github.com/semvis123" target="_blank" rel="noopener">semvis123</a>, and protocol references from <a href="https://codeberg.org/Freeyourgadget/Gadgetbridge" target="_blank" rel="noopener">GadgetBridge</a>.</p>
+      <p class="cred" style="margin-top:14px">An independent open-source project. Protocol reverse-engineering references: <a href="https://github.com/Plutoberth/SonyHeadphonesClient" target="_blank" rel="noopener">SonyHeadphonesClient</a>, <a href="https://codeberg.org/Freeyourgadget/Gadgetbridge" target="_blank" rel="noopener">Gadgetbridge</a> and <a href="https://github.com/AmitRajput-Dev/SonyBridge" target="_blank" rel="noopener">SonyBridge</a>.</p>
     </div>
     <div style="display:flex;gap:44px">
       <div style="display:flex;flex-direction:column;gap:10px">
         <a href="#features">Features</a><a href="#devices">Devices</a><a href="#install">Install</a>
       </div>
       <div style="display:flex;flex-direction:column;gap:10px">
-        <a href="https://github.com/AmitRajput-Dev/SonyBridge" target="_blank" rel="noopener">GitHub</a>
-        <a href="https://github.com/AmitRajput-Dev/SonyBridge/releases" target="_blank" rel="noopener">Releases</a>
-        <a href="https://github.com/AmitRajput-Dev/SonyBridge/issues" target="_blank" rel="noopener">Report a device</a>
+        <a href="https://github.com/marconvcm/sony-device-center" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/marconvcm/sony-device-center/releases" target="_blank" rel="noopener">Releases</a>
+        <a href="https://github.com/marconvcm/sony-device-center/issues" target="_blank" rel="noopener">Report a device</a>
       </div>
     </div>
   </div>
-  <div class="disc">Not affiliated with, endorsed by, or connected to Sony. SonyBridge talks to your headphones using a reverse-engineered protocol, for interoperability. Use at your own risk. · MIT licensed.</div>
+  <div class="disc">Sony Device Center is an independent open-source project, free for anyone to use, study and modify. It is <strong>not affiliated with, endorsed by, or connected to Sony Corporation</strong>. Sony and all product names are trademarks of their respective owners. It talks to your headphones over a reverse-engineered protocol, for interoperability. Use at your own risk. · MIT licensed.</div>
 </div></footer>
 </div>
 
