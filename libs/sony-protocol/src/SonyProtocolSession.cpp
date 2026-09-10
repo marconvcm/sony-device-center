@@ -1,4 +1,5 @@
 #include "sony/protocol/SonyProtocolSession.h"
+#include "sony/transport/Logger.h"
 #include <algorithm>
 #include <array>
 
@@ -21,7 +22,9 @@ void SonyProtocolSession::connect(const transport::DeviceAddress& address) {
     if (!_transport) {
         throw SonyException(SonyErrorCode::TransportFailure, "No transport configured");
     }
+    Logger::info(LogCategory::Transport, "Connecting transport to " + address.str());
     _transport->connect(address);
+    Logger::info(LogCategory::Transport, "Transport connected to " + address.str());
     start();
 }
 
@@ -189,6 +192,7 @@ void SonyProtocolSession::_parseStream(std::vector<SonyFrame>& outFrames) {
 
 void SonyProtocolSession::_handleDecodedFrame(const SonyFrame& frame) {
     if (frame.type == DataType::Ack) {
+        Logger::debug(LogCategory::Session, "RX  ACK seq=" + std::to_string(frame.sequence));
         std::lock_guard lock(_sessionMtx);
         _hasAck = true;
         if (_pendingRequest) {
@@ -200,6 +204,11 @@ void SonyProtocolSession::_handleDecodedFrame(const SonyFrame& frame) {
     }
 
     if (frame.type == DataType::DataMdr) {
+        std::string desc = Logger::describePayload(frame.payload);
+        if (!desc.empty()) {
+            Logger::debug(LogCategory::Protocol, desc);
+        }
+
         // Send ACK back to device with toggled 1-bit sequence
         try {
             _sendAck(static_cast<uint8_t>(1 - (frame.sequence & 1)));
@@ -268,6 +277,7 @@ void SonyProtocolSession::_handleDecodedFrame(const SonyFrame& frame) {
 }
 
 void SonyProtocolSession::_sendAck(uint8_t seqNumber) {
+    Logger::debug(LogCategory::Session, "TX  ACK seq=" + std::to_string(seqNumber));
     SonyFrame ackFrame{
         .type = DataType::Ack,
         .sequence = seqNumber,
@@ -282,6 +292,7 @@ void SonyProtocolSession::_writeFrame(const SonyFrame& frame) {
         throw SonyException(SonyErrorCode::Disconnected, "Transport not connected");
     }
     auto encoded = FrameCodec::encode(frame);
+    Logger::logTx(encoded, Logger::describePayload(frame.payload));
     std::span<const std::byte> byteSpan(reinterpret_cast<const std::byte*>(encoded.data()), encoded.size());
     _transport->send(byteSpan);
 }

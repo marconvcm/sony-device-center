@@ -61,6 +61,7 @@ catch_discover_tests(sony-protocol-tests PROPERTIES TIMEOUT 10)
 add_executable(sony-transport-tests
     transport/FakeTransportTests.cpp
     transport/TransportAdapterTests.cpp
+    transport/LoggerTests.cpp
     "${SONYBRIDGE_CLIENT_DIR}/CommandSerializer.cpp"
     "${SONYBRIDGE_CLIENT_DIR}/ByteMagic.cpp"
     "${SONYBRIDGE_CLIENT_DIR}/BluetoothWrapper.cpp"

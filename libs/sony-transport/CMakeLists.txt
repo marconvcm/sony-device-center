@@ -7,6 +7,7 @@ add_library(sony-transport
     src/FakeTransport.cpp
     src/BluetoothConnectorTransport.cpp
     src/TransportBluetoothConnector.cpp
+    src/Logger.cpp
 )
 
 target_compile_features(sony-transport PUBLIC cxx_std_20)
