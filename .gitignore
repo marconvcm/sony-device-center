@@ -1,4 +1,4 @@
-
+.frames 
 # Created by https://www.toptal.com/developers/gitignore/api/c++,visualstudio,python
 # Edit at https://www.toptal.com/developers/gitignore?templates=c++,visualstudio,python
 
@@ -530,3 +530,15 @@ Client/imgui.ini
 
 # linux build
 Client/linux/sonyheadphonesclient.build/
+
+# CPack and packaging artifacts
+_CPack_Packages/
+CPackConfig.cmake
+CPackSourceConfig.cmake
+*.deb
+*.rpm
+*.dmg
+*.msi
+*.AppImage
+Client/resources/devices/output/
+

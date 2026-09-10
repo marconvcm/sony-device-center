@@ -276,6 +276,65 @@ clean_up:
     return ret;
 }
 
+bool dbus_get_property_bool(DBusConnection *const connection, const char *device_path, const char *property)
+{
+    bool ret = false;
+    DBusError error;
+    DBusMessage *msg = NULL;
+    DBusMessage *rsp = NULL;
+    DBusMessageIter args;
+    DBusMessageIter subargs;
+    char const *const device_interface = "org.bluez.Device1";
+
+    dbus_error_init(&error);
+    msg = dbus_message_new_method_call("org.bluez",
+                                       device_path,
+                                       "org.freedesktop.DBus.Properties",
+                                       "Get");
+    if (NULL == msg)
+    {
+        return false;
+    }
+
+    dbus_message_append_args(msg,
+                             DBUS_TYPE_STRING, &device_interface,
+                             DBUS_TYPE_INVALID);
+
+    dbus_message_append_args(msg,
+                             DBUS_TYPE_STRING, &property,
+                             DBUS_TYPE_INVALID);
+
+    rsp = dbus_connection_send_with_reply_and_block(connection,
+                                                    msg,
+                                                    DBUS_TIMEOUT_USE_DEFAULT,
+                                                    &error);
+    if (!dbus_error_is_set(&error) && rsp && dbus_message_iter_init(rsp, &args))
+    {
+        dbus_message_iter_recurse(&args, &subargs);
+        if (dbus_message_iter_get_arg_type(&subargs) == DBUS_TYPE_BOOLEAN)
+        {
+            dbus_bool_t val = FALSE;
+            dbus_message_iter_get_basic(&subargs, &val);
+            ret = (val != FALSE);
+        }
+    }
+
+    if (dbus_error_is_set(&error))
+    {
+        dbus_error_free(&error);
+    }
+    if (NULL != rsp)
+    {
+        dbus_message_unref(rsp);
+    }
+    if (NULL != msg)
+    {
+        dbus_message_unref(msg);
+    }
+
+    return ret;
+}
+
 uint8_t sdp_getServiceChannel(const char *dev_addr, uint8_t *uuid128)
 {
   int status;
@@ -325,11 +384,6 @@ uint8_t sdp_getServiceChannel(const char *dev_addr, uint8_t *uuid128)
   sdp_list_free(search_list, 0);
   sdp_list_free(attrid_list, 0);
   sdp_close(session);
-
-  if (port != 0)
-  {
-    printf("found service running on RFCOMM port %d\n", port);
-  }
 
   return port;
 }

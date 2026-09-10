@@ -1,0 +1,13 @@
+[Unit]
+Description=Sony Audio Device Daemon
+Documentation=https://github.com/Plutoberth/SonyHeadphonesClient
+After=bluetooth.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/sonyd
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=default.target

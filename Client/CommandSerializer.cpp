@@ -1,97 +1,31 @@
 #include "CommandSerializer.h"
+#include "sony/protocol/FrameCodec.h"
 
-constexpr unsigned char ESCAPED_BYTE_SENTRY = 61;
-constexpr unsigned char ESCAPED_60 = 44;
-constexpr unsigned char ESCAPED_61 = 45;
-constexpr unsigned char ESCAPED_62 = 46;
+using namespace sony;
+using namespace sony::protocol;
+
 constexpr int MAX_STEPS_WH_1000_XM3 = 19;
 
 namespace CommandSerializer
 {
 	Buffer _escapeSpecials(const Buffer& src)
 	{
-		Buffer ret;
-		ret.reserve(src.size());
-
-		for (auto&& b : src)
-		{
-			switch (b)
-			{
-			case 60:
-				ret.push_back(ESCAPED_BYTE_SENTRY);
-				ret.push_back(ESCAPED_60);
-				break;
-
-			case 61:
-				ret.push_back(ESCAPED_BYTE_SENTRY);
-				ret.push_back(ESCAPED_61);
-				break;
-
-			case 62:
-				ret.push_back(ESCAPED_BYTE_SENTRY);
-				ret.push_back(ESCAPED_62);
-				break;
-
-			default:
-				ret.push_back(b);
-				break;
-			}
-		}
-
-		return ret;
+		auto inSpan = std::span<const uint8_t>(reinterpret_cast<const uint8_t*>(src.data()), src.size());
+		auto escaped = FrameCodec::escape(inSpan);
+		return Buffer(escaped.begin(), escaped.end());
 	}
 
 	Buffer _unescapeSpecials(const Buffer& src)
 	{
-		Buffer ret;
-		ret.reserve(src.size());
-
-		for (size_t i = 0; i < src.size(); i++)
-		{
-			auto currByte = src[i];
-			if (currByte == ESCAPED_BYTE_SENTRY)
-			{
-				if (i == src.size() - 1)
-				{
-					throw std::runtime_error("No data left for escaped byte data");
-				}
-				i = i + 1;
-				switch (src[i])
-				{
-				case ESCAPED_60:
-					ret.push_back(60);
-					break;
-
-				case ESCAPED_61:
-					ret.push_back(61);
-					break;
-
-				case ESCAPED_62:
-					ret.push_back(62);
-					break;
-
-				default:
-					throw std::runtime_error("Unexpected escaped byte");
-					break;
-				}
-			}
-			else
-			{
-				ret.push_back(currByte);
-			}
-		}
-
-		return ret;
+		auto inSpan = std::span<const uint8_t>(reinterpret_cast<const uint8_t*>(src.data()), src.size());
+		auto unescaped = FrameCodec::unescape(inSpan);
+		return Buffer(unescaped.begin(), unescaped.end());
 	}
 
 	unsigned char _sumChecksum(const char* src, size_t size)
 	{
-		unsigned char accumulator = 0;
-		for (size_t i = 0; i < size; i++)
-		{
-			accumulator += src[i];
-		}
-		return accumulator;
+		auto inSpan = std::span<const uint8_t>(reinterpret_cast<const uint8_t*>(src), size);
+		return FrameCodec::calculateChecksum(inSpan);
 	}
 
 	unsigned char _sumChecksum(const Buffer& src)
@@ -101,71 +35,40 @@ namespace CommandSerializer
 
 	Buffer packageDataForBt(const Buffer& src, DATA_TYPE dataType, unsigned int seqNumber)
 	{
-		//Reserve at least the size for the size, start&end markers, and the source
-		Buffer toEscape;
-		toEscape.reserve(src.size() + 2 + sizeof(int));
-		Buffer ret;
-		ret.reserve(toEscape.capacity());
-		toEscape.push_back(static_cast<unsigned char>(dataType));
-		toEscape.push_back(seqNumber);
-		auto retSize = intToBytesBE(static_cast<unsigned int>(src.size()));
-		//Insert data size
-		toEscape.insert(toEscape.end(), retSize.begin(), retSize.end());
-		//Insert command data
-		toEscape.insert(toEscape.end(), src.begin(), src.end());
-
-		auto checksum = _sumChecksum(toEscape);
-		toEscape.push_back(checksum);
-		toEscape = _escapeSpecials(toEscape);
-
-		
-		ret.push_back(START_MARKER);
-		ret.insert(ret.end(), toEscape.begin(), toEscape.end());
-		ret.push_back(END_MARKER);
-
-
-		// Message will be chunked if it's larger than MAX_BLUETOOTH_MESSAGE_SIZE, just crash to deal with it for now
-		if (ret.size() > MAX_BLUETOOTH_MESSAGE_SIZE)
-		{
-			throw std::runtime_error("Exceeded the max bluetooth message size, and I can't handle chunked messages");
-		}
-
-		return ret;
+		SonyFrame frame{
+			.type = static_cast<DataType>(dataType),
+			.sequence = static_cast<uint8_t>(seqNumber),
+			.payload = std::vector<uint8_t>(src.begin(), src.end())
+		};
+		auto encoded = FrameCodec::encode(frame);
+		return Buffer(encoded.begin(), encoded.end());
 	}
 
 	Message unpackBtMessage(const Buffer& src)
 	{
-		//Message data format: ESCAPE_SPECIALS(<DATA_TYPE><SEQ_NUMBER><BIG ENDIAN 4 BYTE SIZE OF UNESCAPED DATA><DATA><1 BYTE CHECKSUM>)
-		auto unescaped = _unescapeSpecials(src);
-
-		//1 (type) + 1 (seq) + 4 (size) + 1 (checksum) = 7 bytes minimum, before any payload.
-		if (unescaped.size() < 7)
+		try
 		{
-			throw std::runtime_error("Invalid message: Smaller than the minimum message size");
+			auto inSpan = std::span<const uint8_t>(reinterpret_cast<const uint8_t*>(src.data()), src.size());
+			auto frame = FrameCodec::decodeBody(inSpan);
+			Message ret;
+			ret.dataType = static_cast<DATA_TYPE>(frame.type);
+			ret.seqNumber = frame.sequence;
+			ret.payload = Buffer(frame.payload.begin(), frame.payload.end());
+			return ret;
 		}
-
-		unsigned int dataSize =
-			((unsigned int)(unsigned char)unescaped[2] << 24) |
-			((unsigned int)(unsigned char)unescaped[3] << 16) |
-			((unsigned int)(unsigned char)unescaped[4] << 8) |
-			((unsigned int)(unsigned char)unescaped[5]);
-
-		if (unescaped.size() < (size_t)6 + dataSize + 1)
+		catch (const SonyException& e)
 		{
-			throw RecoverableException("Invalid message: declared size exceeds received data", true);
+			if (e.code() == SonyErrorCode::InvalidChecksum)
+			{
+				throw RecoverableException("Invalid checksum!", true);
+			}
+			if (e.code() == SonyErrorCode::InvalidFrame &&
+			    std::string_view(e.what()).find("declared size") != std::string_view::npos)
+			{
+				throw RecoverableException("Invalid message: declared size exceeds received data", true);
+			}
+			throw;
 		}
-
-		//Checksum covers everything from DATA_TYPE up to (not including) the checksum byte, over the unescaped bytes.
-		if ((unsigned char)unescaped[6 + dataSize] != _sumChecksum(unescaped.data(), 6 + dataSize))
-		{
-			throw RecoverableException("Invalid checksum!", true);
-		}
-
-		Message ret;
-		ret.dataType = static_cast<DATA_TYPE>(unescaped[0]);
-		ret.seqNumber = unescaped[1];
-		ret.payload = Buffer(unescaped.begin() + 6, unescaped.begin() + 6 + dataSize);
-		return ret;
 	}
 
 	NC_DUAL_SINGLE_VALUE getDualSingleForAsmLevel(char asmLevel)
