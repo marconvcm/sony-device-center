@@ -10,9 +10,17 @@ endif()
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 
+option(SONY_REQUIRE_QT
+    "Fail configuration when Qt 6 is missing instead of skipping the desktop app" OFF)
+
 find_package(Qt6 COMPONENTS Core Gui Qml Quick QuickControls2 QUIET)
 
 if(NOT Qt6_FOUND)
+    if(SONY_REQUIRE_QT)
+        message(FATAL_ERROR
+            "Qt 6 (Core, Gui, Qml, Quick, QuickControls2) not found, and "
+            "SONY_REQUIRE_QT is ON. Release packages must contain the desktop app.")
+    endif()
     message(WARNING "Qt 6 (Core, Gui, Qml, Quick, QuickControls2) not found — skipping sony-device-center target.")
     return()
 endif()

@@ -33,7 +33,7 @@ jobs:
       # Packaging builds do not run the suite, so tests are left out of the
       # configure entirely rather than built and skipped.
       - name: Configure
-        run: cmake -B build -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DBUILD_TESTING=OFF
+        run: cmake -B build -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DBUILD_TESTING=OFF -DSONY_REQUIRE_QT=ON
 
       - name: Build
         run: cmake --build build --parallel
@@ -60,25 +60,43 @@ jobs:
         with:
           submodules: true
 
+      # qtdeclarative ships inside the Qt 6 desktop base archive; naming it as
+      # an optional module makes aqtinstall fail with "not available".
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
         with:
-          version: '6.8.1'
+          version: '6.8.*'
           arch: 'win64_msvc2022_64'
-          modules: 'qtdeclarative'
 
-      - name: Add WiX to PATH
+      # CPack's WIX generator drives candle.exe/light.exe, which only exist in
+      # WiX 3 - WiX 4+ replaced them with a different CLI. Install it if the
+      # runner image does not already carry it.
+      - name: Ensure WiX 3 is available
         shell: pwsh
         run: |
-          $wix = Get-ChildItem 'C:\Program Files (x86)' -Filter 'WiX Toolset*' -Directory |
-                 Select-Object -Last 1
-          if (-not $wix) { throw 'WiX Toolset not found on the runner image' }
-          Write-Host "Using $($wix.FullName)"
-          "$($wix.FullName)\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
+          function Find-Wix {
+            Get-ChildItem 'C:\Program Files (x86)' -Filter 'WiX Toolset*' -Directory -ErrorAction SilentlyContinue |
+              Sort-Object Name | Select-Object -Last 1
+          }
+          $wix = Find-Wix
+          if (-not $wix) {
+            Write-Host 'WiX 3 not present on the image; installing via chocolatey'
+            choco install wixtoolset --version=3.14.1 -y --no-progress
+            $wix = Find-Wix
+          }
+          if (-not $wix) { throw 'WiX 3 could not be installed' }
+          $bin = Join-Path $wix.FullName 'bin'
+          if (-not (Test-Path (Join-Path $bin 'candle.exe'))) {
+            throw "candle.exe not found under $bin"
+          }
+          Write-Host "Using $bin"
+          $bin | Out-File -FilePath $env:GITHUB_PATH -Append
 
       - name: Configure
         shell: bash
-        run: cmake -B build -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DBUILD_TESTING=OFF
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DBUILD_TESTING=OFF \
+                -DSONY_REQUIRE_QT=ON -DCMAKE_PREFIX_PATH="${QT_ROOT_DIR}"
 
       - name: Build
         shell: bash
