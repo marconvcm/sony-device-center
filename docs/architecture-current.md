@@ -370,3 +370,55 @@ Introduced `SonyErrorCode` and `SonyException` (Phase 13 preview):
 - All 44 tests pass with 100% success rate across `sony-protocol-tests` and `sony-transport-tests`.
 - Both `Client/build` and root `build` configure, build, link, and test cleanly with zero warnings.
 
+## Phase 5: Frame Codec Extraction (`libs/sony-protocol`)
+
+Per Phase 5 of the execution plan, framing responsibilities have been decoupled from
+`CommandSerializer` into an independent, reusable library (`libs/sony-protocol/FrameCodec`).
+
+### 1. `FrameCodec` Isolation
+
+The codec operates strictly on Sony wire frames and knows nothing about ANC, battery, EQ,
+Bluetooth, or Sony device models:
+
+```text
+       ┌───────────────────────────────┐
+       │          SonyFrame            │
+       ├───────────────────────────────┤
+       │ + type: DataType              │
+       │ + sequence: uint8_t           │
+       │ + payload: vector<uint8_t>    │
+       └──────────────▲────────────────┘
+                      │ encodes / decodes
+       ┌──────────────┴───────────────┐
+       │          FrameCodec          │
+       ├───────────────────────────────┤
+       │ + encode(SonyFrame) -> vector │
+       │ + decode(span) -> SonyFrame   │
+       │ + decodeBody(span)->SonyFrame │
+       │ + escape(span) -> vector      │
+       │ + unescape(span) -> vector    │
+       │ + calculateChecksum(span)     │
+       └───────────────────────────────┘
+```
+
+### 2. Wire Framing & Protocol Mechanics
+
+- **Delimiters**: Frames are bounded by `START_MARKER` (`0x3e`) and `END_MARKER` (`0x3c`).
+- **Body Layout**: `<DATA_TYPE> <SEQ> <4-byte BE length> <PAYLOAD> <CHECKSUM>`
+- **Escaping**: Special bytes `0x3c` (60), `0x3d` (61), and `0x3e` (62) within the body are escaped via sentry `0x3d` followed by literal translation bytes (`0x2c`, `0x2d`, `0x2e`).
+- **Checksum**: Computed as an unsigned modulo-256 sum over the unescaped body bytes up to the checksum index.
+- **Maximum Length**: Strict validation against the 2048-byte limit (`MAX_FRAME_SIZE`).
+
+### 3. Seamless Integration with `CommandSerializer`
+
+`CommandSerializer` now delegates framing, escaping, checksumming, and body unpacking directly to `FrameCodec`, preserving 100% backward compatibility for existing callers:
+- `packageDataForBt` encodes via `FrameCodec::encode`.
+- `unpackBtMessage` decodes un-delimited payloads via `FrameCodec::decodeBody`.
+- Legacy semantic command serialization (`serializeNcAndAsmSetting`, `serializeVPTSetting`) remains intact.
+
+### 4. Verification
+
+- 13 new unit tests added in `tests/protocol/FrameCodecTests.cpp`.
+- Total suite expanded from 44 to 57 tests; 100% passing.
+
+

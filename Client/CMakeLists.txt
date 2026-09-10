@@ -14,6 +14,10 @@ if(NOT TARGET sony-transport)
     add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../libs/sony-transport" "${CMAKE_CURRENT_BINARY_DIR}/libs/sony-transport")
 endif()
 
+if(NOT TARGET sony-protocol)
+    add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../libs/sony-protocol" "${CMAKE_CURRENT_BINARY_DIR}/libs/sony-protocol")
+endif()
+
 add_executable(SonyHeadphonesClient)
 
 add_definitions(-D__HEADPHONES_APP_VERSION__="0.4.0-beta2")
@@ -111,6 +115,7 @@ endif ()
 target_link_libraries(SonyHeadphonesClient
     PRIVATE Threads::Threads
     sony-transport
+    sony-protocol
 )
 
 if (WIN32 OR LINUX)

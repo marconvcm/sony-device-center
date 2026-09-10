@@ -7,6 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 include(CTest)
 
 add_subdirectory(libs/sony-transport)
+add_subdirectory(libs/sony-protocol)
 
 if(BUILD_TESTING)
     add_subdirectory(tests)
