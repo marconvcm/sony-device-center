@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.14)
-project(SonyDeviceCenter VERSION 2.1.0 LANGUAGES CXX)
+project(SonyDeviceCenter VERSION 0.1.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -68,7 +68,17 @@ if(UNIX AND NOT APPLE)
     set(CPACK_RPM_PACKAGE_LICENSE "MIT")
     set(CPACK_RPM_PACKAGE_GROUP "Applications/Multimedia")
 elseif(WIN32)
-    set(CPACK_GENERATOR "ZIP;NSIS")
+    set(CPACK_GENERATOR "ZIP;WIX")
+    # WiX rejects a licence file without a .txt/.rtf extension, and the
+    # repository keeps its licence extensionless.
+    configure_file("${CMAKE_CURRENT_SOURCE_DIR}/LICENSE"
+                   "${CMAKE_CURRENT_BINARY_DIR}/LICENSE.txt" COPYONLY)
+    set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_BINARY_DIR}/LICENSE.txt")
+    # Stable across releases - changing it breaks in-place upgrades.
+    set(CPACK_WIX_UPGRADE_GUID "45B55BE7-8A9A-4442-8F1E-90109B402CB1")
+    set(CPACK_WIX_PRODUCT_ICON "${CMAKE_CURRENT_SOURCE_DIR}/packaging/windows/sony-device-center.ico")
+    set(CPACK_PACKAGE_INSTALL_DIRECTORY "Sony Device Center")
+    set(CPACK_PACKAGE_EXECUTABLES "sony-device-center" "Sony Device Center")
 elseif(APPLE)
     set(CPACK_GENERATOR "TGZ;DragNDrop")
 endif()

@@ -79,3 +79,22 @@ install(TARGETS sony-device-center
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
     BUNDLE  DESTINATION .)
 
+if(WIN32)
+    # A bare .exe cannot start without the Qt DLLs and QML module tree beside
+    # it, so let windeployqt populate the install prefix at install time.
+    get_target_property(_qt_qmake Qt6::qmake IMPORTED_LOCATION)
+    get_filename_component(_qt_bin "${_qt_qmake}" DIRECTORY)
+    find_program(WINDEPLOYQT_EXECUTABLE windeployqt HINTS "${_qt_bin}")
+
+    if(WINDEPLOYQT_EXECUTABLE)
+        install(CODE "
+            execute_process(COMMAND \"${WINDEPLOYQT_EXECUTABLE}\"
+                --release --no-translations --no-compiler-runtime
+                --qmldir \"${CMAKE_CURRENT_SOURCE_DIR}/qml\"
+                \"\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR}/sony-device-center.exe\")
+        ")
+    else()
+        message(WARNING "windeployqt not found - the Windows package will not include the Qt runtime.")
+    endif()
+endif()
+

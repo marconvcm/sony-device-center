@@ -1,0 +1,131 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  BUILD_TYPE: Release
+
+jobs:
+  linux:
+    name: Linux packages (DEB, RPM, TGZ)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Install build and packaging dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential cmake rpm \
+            libbluetooth-dev libdbus-1-dev \
+            libglew-dev libglfw3-dev libgl1-mesa-dev \
+            qt6-base-dev qt6-declarative-dev
+
+      # Packaging builds do not run the suite, so tests are left out of the
+      # configure entirely rather than built and skipped.
+      - name: Configure
+        run: cmake -B build -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DBUILD_TESTING=OFF
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Package
+        run: cd build && cpack -G "DEB;RPM;TGZ"
+
+      - name: Collect
+        run: |
+          mkdir -p dist
+          cp build/*.deb build/*.rpm build/*.tar.gz dist/
+          ls -la dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-packages
+          path: dist/
+
+  windows:
+    name: Windows installer (MSI, ZIP)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.8.1'
+          arch: 'win64_msvc2022_64'
+          modules: 'qtdeclarative'
+
+      - name: Add WiX to PATH
+        shell: pwsh
+        run: |
+          $wix = Get-ChildItem 'C:\Program Files (x86)' -Filter 'WiX Toolset*' -Directory |
+                 Select-Object -Last 1
+          if (-not $wix) { throw 'WiX Toolset not found on the runner image' }
+          Write-Host "Using $($wix.FullName)"
+          "$($wix.FullName)\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
+
+      - name: Configure
+        shell: bash
+        run: cmake -B build -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DBUILD_TESTING=OFF
+
+      - name: Build
+        shell: bash
+        run: cmake --build build --config ${BUILD_TYPE} --parallel
+
+      - name: Package
+        shell: bash
+        run: cd build && cpack -C ${BUILD_TYPE} -G "WIX;ZIP"
+
+      - name: Collect
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp build/*.msi build/*.zip dist/
+          ls -la dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-packages
+          path: dist/
+
+  publish:
+    name: Publish GitHub release
+    needs: [linux, windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Flatten
+        run: |
+          mkdir -p dist
+          find artifacts -type f -exec cp {} dist/ \;
+          ls -la dist
+
+      - name: Create or update the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/* --clobber
+          else
+            gh release create "$TAG" dist/* \
+              --title "$TAG" \
+              --generate-notes
+          fi
