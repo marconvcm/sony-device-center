@@ -86,7 +86,7 @@ jobs:
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
         with:
-          version: '>=6.8.6 <6.9.0'
+          version: '>=6.8.6,<6.9.0'
           arch: 'win64_msvc2022_64'
 
       # CPack's WIX generator drives candle.exe/light.exe, which only exist in
