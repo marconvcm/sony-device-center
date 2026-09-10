@@ -19,6 +19,18 @@ Sony locks headphone settings and telemetry behind their mobile-only apps (*Sony
 
 ---
 
+## 📸 Screenshots
+
+![Overview](docs/screenshots/overview.png)
+
+| Noise Control | Equalizer | Audio Features |
+| :---: | :---: | :---: |
+| ![Noise Control](docs/screenshots/noise-control.png) | ![Equalizer](docs/screenshots/equalizer.png) | ![Audio Features](docs/screenshots/audio-features.png) |
+
+<sub>Captured on Linux/Wayland against `sonyd --simulated`, the daemon's built-in device simulator.</sub>
+
+---
+
 ## ✨ Features
 
 - 🎚️ **Noise Control** — Active Noise Cancelling (ANC), Ambient Sound (levels 1–20), and Off modes.
