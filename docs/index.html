@@ -79,8 +79,21 @@ a{color:inherit;text-decoration:none}
   border-bottom-color:var(--line);
 }
 .nav .row{display:flex;align-items:center;justify-content:space-between;height:60px;gap:24px}
-.brand{display:flex;align-items:center;gap:10px;font-size:15.5px;font-weight:600;letter-spacing:-.01em;flex:none}
-.brand img{width:28px;height:28px}
+.brand{display:flex;align-items:center;gap:11px;flex:none}
+.brand img{width:34px;height:34px;flex:none}
+footer .brand img{width:38px;height:38px}
+footer .brand .l1{font-size:13px}
+footer .brand .l2{font-size:17.5px}
+/* Two lines stacked to the mark's height, so the lockup reads as one block. */
+.brand .lockup{display:flex;flex-direction:column;justify-content:center;gap:1px}
+.brand .l1{
+  font-family:var(--mono);font-size:12.5px;font-weight:500;
+  letter-spacing:.14em;text-transform:uppercase;color:var(--dim);line-height:1;
+}
+.brand .l2{
+  font-size:16px;font-weight:650;letter-spacing:-.015em;
+  color:var(--accent-soft);line-height:1;
+}
 .nav .links{display:flex;gap:28px}
 .nav .links a{font-size:14px;color:var(--dim);transition:color .2s}
 .nav .links a:hover{color:var(--txt)}
@@ -324,8 +337,8 @@ html.js .reveal.in{opacity:1;transform:none}
 
 <nav class="nav" id="nav"><div class="wrap"><div class="row">
   <a class="brand" href="#top">
-    <img src="app-icon.svg" width="28" height="28" alt="" aria-hidden="true">
-    Device<span style="color:var(--accent-soft)">&nbsp;Center</span>
+    <img src="app-icon.svg" width="34" height="34" alt="" aria-hidden="true">
+    <span class="lockup"><span class="l1">Device</span><span class="l2">Center</span></span>
   </a>
   <div class="links">
     <a href="#app">The app</a>
@@ -579,9 +592,9 @@ html.js .reveal.in{opacity:1;transform:none}
 <footer><div class="wrap">
   <div class="top">
     <div>
-      <a class="brand" href="#top" style="font-size:17px">
-        <img src="app-icon.svg" width="30" height="30" alt="" aria-hidden="true">
-        Device<span style="color:var(--accent-soft)">&nbsp;Center</span>
+      <a class="brand" href="#top">
+        <img src="app-icon.svg" width="38" height="38" alt="" aria-hidden="true">
+        <span class="lockup"><span class="l1">Device</span><span class="l2">Center</span></span>
       </a>
       <p class="cred">An independent open-source project. Protocol reverse-engineering references:
         <a href="https://github.com/Plutoberth/SonyHeadphonesClient" target="_blank" rel="noopener">SonyHeadphonesClient</a>,
