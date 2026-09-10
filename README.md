@@ -198,9 +198,37 @@ open Client/macos/SonyHeadphonesClient.xcodeproj
 Then press **⌘R** to build and run.
 </details>
 
+### Applications & Tools
+
+SonyBridge provides three primary applications built on the core SDK:
+
+1. **`sonyd`** — Background headless daemon managing the RFCOMM Bluetooth link and hosting a local IPC socket (`/tmp/sony-device-center.sock` or `$XDG_RUNTIME_DIR/sony-device-center.sock`).
+2. **`sonyctl`** — Instant CLI diagnostic and control tool that communicates with `sonyd` (or runs standalone if the daemon is offline):
+   ```bash
+   # Check status and device info
+   sonyctl status
+   sonyctl info
+   sonyctl battery
+
+   # Noise control & ambient sound
+   sonyctl anc on
+   sonyctl ambient 10
+   sonyctl ambient off
+
+   # Equalizer & audio tuning
+   sonyctl eq get
+   sonyctl eq preset bass-boost
+   sonyctl dsee on
+   sonyctl apo 3
+   ```
+3. **`sony-device-center`** — Modern dark Qt 6 / QML desktop companion featuring interactive hero visualization, peripheral battery badges, card-based controls, and multi-device switching.
+4. **`SonyHeadphonesClient`** — Legacy Dear ImGui / GLFW desktop client.
+
+See the [Hardware Validation Matrix](docs/device-matrix.md) and [Packaging Guide](packaging/README.md).
+
 ### Automated tests
 
-The project includes test suites for protocol framing, serialization, and transport abstraction using Catch2 3 and CTest (no Bluetooth hardware required).
+The project includes 106 Catch2 tests covering wire framing, byte escaping, checksums, fragmentation, session lifecycle, transport adapters, concurrent device state, typed errors, IPC protocol, and socket communication (zero Bluetooth hardware required).
 
 Run all tests after building the root project:
 
@@ -208,18 +236,12 @@ Run all tests after building the root project:
 ctest --test-dir build --output-on-failure
 ```
 
-Or build and run tests independently (headless / without GUI dependencies):
-
-```sh
-cmake -B tests/build -S tests -DCMAKE_BUILD_TYPE=Release
-cmake --build tests/build
-ctest --test-dir tests/build --output-on-failure
-```
-
 Included test suites:
 - **`sony-protocol-tests`**: wire frame format, byte escaping, checksums, truncated frames, fragmentation, and v1/v2 command serialization.
-- **`sony-transport-tests`**: `ITransport` abstraction, `FakeTransport` (deterministic fault injection, timeouts, disconnects, chunked reads, frame recording), bidirectional connector adapters, and `BluetoothWrapper` end-to-end integration.
-See [the current architecture and risks](docs/architecture-current.md).
+- **`sony-transport-tests`**: `ITransport` abstraction, `FakeTransport` (fault injection, timeouts, disconnects, chunked reads, frame recording), and bidirectional connector adapters.
+- **`sony-core-tests`**: `SonyDevice` lifecycle, capability caches, async event dispatching, `IpcProtocol` serialization, and end-to-end `IpcServer` / `IpcClient` socket communication.
+
+See [the architecture documentation](docs/architecture-current.md).
 
 ## 🔬 How it works
 
