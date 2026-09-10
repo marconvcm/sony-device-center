@@ -26,11 +26,12 @@ jobs:
 
     - name: Build protocol regression tests
       run: |
-        cmake -S "${{github.workspace}}/tests" -B "${{runner.temp}}/sony-protocol-tests" -DCMAKE_BUILD_TYPE=Release
-        cmake --build "${{runner.temp}}/sony-protocol-tests" --config Release
+        cmake -S "${{github.workspace}}" -B "${{runner.temp}}/build" -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
+        cmake --build "${{runner.temp}}/build" --config Release --target sony-protocol-tests sony-transport-tests sony-core-tests
 
     - name: Protocol regression tests
-      run: ctest --test-dir "${{runner.temp}}/sony-protocol-tests" -C Release --output-on-failure --no-tests=error
+      run: ctest --test-dir "${{runner.temp}}/build" -C Release --output-on-failure --no-tests=error
+
 
     - name: Create build directory
       working-directory: ${{github.workspace}}/Client

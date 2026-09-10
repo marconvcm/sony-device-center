@@ -4,7 +4,13 @@ project(sony-device-center LANGUAGES CXX)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml Quick QuickControls2)
+find_package(Qt6 COMPONENTS Core Gui Qml Quick QuickControls2 QUIET)
+
+if(NOT Qt6_FOUND)
+    message(WARNING "Qt 6 (Core, Gui, Qml, Quick, QuickControls2) not found — skipping sony-device-center target.")
+    return()
+endif()
+
 
 add_executable(sony-device-center
     main.cpp
