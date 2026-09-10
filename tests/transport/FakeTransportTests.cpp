@@ -2,6 +2,8 @@
 #include "sony/transport/FakeTransport.h"
 #include "sony/transport/SonyError.h"
 
+#include <array>
+
 using namespace sony::transport;
 using namespace sony;
 

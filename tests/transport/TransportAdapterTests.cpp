@@ -8,6 +8,9 @@
 #include "BluetoothWrapper.h"
 #include "CommandSerializer.h"
 
+#include <algorithm>
+#include <array>
+
 using namespace sony::transport;
 using namespace sony;
 

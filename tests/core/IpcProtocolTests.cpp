@@ -6,6 +6,8 @@
 #include "sony/protocol/FrameCodec.h"
 #include "sony/transport/FakeTransport.h"
 
+#include <algorithm>
+
 using namespace sony;
 using namespace sony::core;
 using namespace sony::protocol;

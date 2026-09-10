@@ -47,6 +47,8 @@ if(UNIX AND NOT APPLE)
 elseif(WIN32)
     target_sources(sony-transport PRIVATE
         "${SONYBRIDGE_CLIENT_DIR}/windows/WindowsBluetoothConnector.cpp"
+        # WindowsBluetoothConnector calls MACStringToLong / MACBytesToString.
+        "${SONYBRIDGE_CLIENT_DIR}/ByteMagic.cpp"
     )
     target_include_directories(sony-transport PRIVATE
         "${SONYBRIDGE_CLIENT_DIR}/windows"

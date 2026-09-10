@@ -28,7 +28,10 @@ if(BUILD_TESTING)
     add_subdirectory(tests)
 endif()
 
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Client/CMakeLists.txt")
+# The legacy ImGui client builds from CMake on Linux and Windows only; on
+# macOS its entry point and ImGui backend live in the Xcode project, so the
+# CMake target has no main() and cannot link. See docs/architecture-current.md.
+if(NOT APPLE AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Client/CMakeLists.txt")
     add_subdirectory(Client)
 endif()
 

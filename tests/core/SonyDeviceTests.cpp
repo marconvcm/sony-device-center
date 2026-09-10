@@ -4,6 +4,7 @@
 #include "sony/transport/FakeTransport.h"
 #include "sony/transport/SonyError.h"
 
+#include <algorithm>
 #include <chrono>
 #include <thread>
 #include <atomic>
