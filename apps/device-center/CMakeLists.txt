@@ -16,6 +16,8 @@ add_executable(sony-device-center
     main.cpp
     src/DeviceCenterController.cpp
     include/DeviceCenterController.h
+    src/I18nManager.cpp
+    include/I18nManager.h
     qml.qrc
 )
 

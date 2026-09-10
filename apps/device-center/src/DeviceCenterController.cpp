@@ -1,9 +1,19 @@
 #include "DeviceCenterController.h"
+#include "I18nManager.h"
 #include "sony/core/DeviceService.h"
 #include "sony/core/IpcProtocol.h"
 #include "sony/protocol/DeviceProfileRegistry.h"
 #include "sony/transport/PlatformTransport.h"
 
+#include <QCoreApplication>
+#include <QDesktopServices>
+#include <QDir>
+#include <QFile>
+#include <QFileInfo>
+#include <QSettings>
+#include <QStandardPaths>
+#include <QTextStream>
+#include <QUrl>
 #include <QVariantMap>
 #include <algorithm>
 #include <sstream>
@@ -12,6 +22,8 @@ namespace sony::devicecenter {
 
 DeviceCenterController::DeviceCenterController(QObject* parent)
     : QObject(parent), _ipcClient(std::make_unique<core::IpcClient>()) {
+    QSettings settings("SonyBridge", "SonyDeviceCenter");
+    _currentLanguage = settings.value("language", "en").toString();
     _initService();
     refreshDiscoveredDevices();
 }
@@ -425,6 +437,82 @@ void DeviceCenterController::refreshDiscoveredDevices() {
         _pairedDevices.append(item);
     }
     emit pairedDevicesChanged();
+}
+
+bool DeviceCenterController::autostart() const {
+#if defined(Q_OS_LINUX)
+    QString autostartDir = QStandardPaths::writableLocation(QStandardPaths::ConfigLocation) + "/autostart";
+    QString desktopFile = autostartDir + "/sony-device-center.desktop";
+    return QFileInfo::exists(desktopFile);
+#elif defined(Q_OS_WIN)
+    QSettings bootSettings("HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run", QSettings::NativeFormat);
+    return bootSettings.contains("SonyDeviceCenter");
+#else
+    return false;
+#endif
+}
+
+void DeviceCenterController::setAutostart(bool enable) {
+#if defined(Q_OS_LINUX)
+    QString autostartDir = QStandardPaths::writableLocation(QStandardPaths::ConfigLocation) + "/autostart";
+    QString desktopFile = autostartDir + "/sony-device-center.desktop";
+    if (enable) {
+        QDir().mkpath(autostartDir);
+        QFile file(desktopFile);
+        if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            QTextStream out(&file);
+            out << "[Desktop Entry]\n";
+            out << "Type=Application\n";
+            out << "Name=Sony Device Center\n";
+            out << "Comment=Sony Headphone Device Bridge and Companion\n";
+            out << "Exec=" << QCoreApplication::applicationFilePath() << "\n";
+            out << "Icon=sony-device-center\n";
+            out << "Terminal=false\n";
+            out << "Categories=Audio;AudioVideo;Settings;\n";
+            out << "X-GNOME-Autostart-enabled=true\n";
+        }
+    } else {
+        QFile::remove(desktopFile);
+    }
+#elif defined(Q_OS_WIN)
+    QSettings bootSettings("HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run", QSettings::NativeFormat);
+    if (enable) {
+        QString appPath = QDir::toNativeSeparators(QCoreApplication::applicationFilePath());
+        bootSettings.setValue("SonyDeviceCenter", "\"" + appPath + "\"");
+    } else {
+        bootSettings.remove("SonyDeviceCenter");
+    }
+#endif
+    emit autostartChanged();
+}
+
+QString DeviceCenterController::appVersion() const {
+    return "2.1.0";
+}
+
+QString DeviceCenterController::currentLanguage() const {
+    return _currentLanguage;
+}
+
+QVariantList DeviceCenterController::availableLanguages() const {
+    return I18nManager::instance().availableLanguages();
+}
+
+void DeviceCenterController::setLanguage(const QString& langCode) {
+    if (_currentLanguage != langCode) {
+        _currentLanguage = langCode;
+        QSettings settings("SonyBridge", "SonyDeviceCenter");
+        settings.setValue("language", langCode);
+        emit languageChanged();
+    }
+}
+
+QString DeviceCenterController::t(const QString& key) const {
+    return I18nManager::instance().translate(key, _currentLanguage);
+}
+
+void DeviceCenterController::openUrl(const QString& url) {
+    QDesktopServices::openUrl(QUrl(url));
 }
 
 } // namespace sony::devicecenter

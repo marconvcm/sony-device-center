@@ -15,6 +15,12 @@ ApplicationWindow {
 
     property int navIndex: 0
 
+    // Reactive i18n helper
+    function tr(key) {
+        var _ = controller.currentLanguage
+        return controller.t(key)
+    }
+
     // ==========================================================
     // DESIGN TOKENS
     // Every color in this file comes from here. No orphan hex.
@@ -84,7 +90,13 @@ ApplicationWindow {
         power:      "M12 3.5v8 M6.6 6.6a7.6 7.6 0 1 0 10.8 0",
         bolt:       "M13.2 2.5L4.8 13.4h6.3l-1.3 8.1 8.4-10.9h-6.3z",
         bluetooth:  "M7.5 7.5L16.5 13.4 12 17V3.6l4.5 3.6-9 6",
-        chevron:    "M5 9l7 7 7-7"
+        chevron:    "M5 9l7 7 7-7",
+        settings:   "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z",
+        globe:      "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z M2 12h20 M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z",
+        github:     "M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22",
+        heart:      "M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z",
+        info:       "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M12 16v-4 M12 8h.01",
+        externalLink: "M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6 M15 3h6v6 M10 14L21 3"
     })
 
     // Elevated card. Gradient fakes a top light source; hairline defines the edge.
@@ -566,7 +578,7 @@ ApplicationWindow {
                                     }
                                 }
                                 Text {
-                                    text: controller.connected ? "Connected" : "Disconnected"
+                                    text: controller.connected ? window.tr("connected") : window.tr("disconnected")
                                     color: controller.connected ? window.txtDim : window.txtFaint
                                     font.pixelSize: 11
                                 }
@@ -578,7 +590,7 @@ ApplicationWindow {
                 // Navigation with a sliding indicator
                 Item {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 5 * 44 + 4 * 6
+                    Layout.preferredHeight: 6 * 44 + 5 * 6
 
                     // The indicator floats; items don't each carry their own.
                     Rectangle {
@@ -606,11 +618,12 @@ ApplicationWindow {
 
                     Repeater {
                         model: [
-                            { idx: 0, name: "Overview",        glyph: window.icons.headphones },
-                            { idx: 1, name: "Noise Control",   glyph: window.icons.shield },
-                            { idx: 2, name: "Equalizer",       glyph: window.icons.sliders },
-                            { idx: 3, name: "Audio Features",  glyph: window.icons.sparkle },
-                            { idx: 4, name: "Device Switcher", glyph: window.icons.swap }
+                            { idx: 0, key: "nav_overview",        glyph: window.icons.headphones },
+                            { idx: 1, key: "nav_noise_control",   glyph: window.icons.shield },
+                            { idx: 2, key: "nav_equalizer",       glyph: window.icons.sliders },
+                            { idx: 3, key: "nav_audio_features",  glyph: window.icons.sparkle },
+                            { idx: 4, key: "nav_device_switcher", glyph: window.icons.swap },
+                            { idx: 5, key: "nav_settings",        glyph: window.icons.settings }
                         ]
 
                         delegate: Item {
@@ -646,7 +659,7 @@ ApplicationWindow {
 
                                 Text {
                                     Layout.fillWidth: true
-                                    text: navItem.modelData.name
+                                    text: window.tr(navItem.modelData.key)
                                     color: navItem.current ? window.txt
                                          : navHover.hovered ? window.txtDim : window.txtFaint
                                     font.pixelSize: 13
@@ -1640,7 +1653,7 @@ ApplicationWindow {
                                                 color: devCard.current ? window.success : window.txtFaint
                                             }
                                             Text {
-                                                text: devCard.current ? "Connected" : "Available"
+                                                text: devCard.current ? window.tr("connected") : window.tr("available")
                                                 color: devCard.current ? window.success : window.txtFaint
                                                 font.pixelSize: 11
                                                 font.weight: Font.Medium
@@ -1659,12 +1672,346 @@ ApplicationWindow {
                                         Layout.preferredWidth: 132
                                         Layout.alignment: Qt.AlignVCenter
                                         implicitHeight: 40
-                                        text: devCard.current ? "Active" : "Connect"
+                                        text: devCard.current ? window.tr("active") : window.tr("connect")
                                         glyphPath: devCard.current ? "" : window.icons.swap
                                         active: devCard.current
                                         enabled: !devCard.current
                                         opacity: enabled ? 1.0 : 0.8
                                         onClicked: controller.connectDevice(devCard.modelData.address, devCard.modelData.name)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Item { Layout.fillHeight: true }
+                }
+            }
+
+            // ==================================================
+            // 6 · SETTINGS
+            // ==================================================
+            ViewPage {
+                ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: 36
+                    spacing: 22
+
+                    ColumnLayout {
+                        spacing: 5
+                        Eyebrow { text: window.tr("settings_eyebrow") }
+                        Text {
+                            text: window.tr("settings_title")
+                            color: window.txt
+                            font.pixelSize: 28
+                            font.weight: Font.DemiBold
+                            font.letterSpacing: -0.6
+                        }
+                        Text {
+                            text: window.tr("settings_subtitle")
+                            color: window.txtDim
+                            font.pixelSize: 13
+                        }
+                    }
+
+                    // Card 1: System & Interface Preferences
+                    Card {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 180
+
+                        ColumnLayout {
+                            anchors.fill: parent
+                            anchors.margins: 22
+                            spacing: 16
+
+                            // Row 1: Init with OS
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 16
+
+                                Rectangle {
+                                    Layout.preferredWidth: 38
+                                    Layout.preferredHeight: 38
+                                    radius: 11
+                                    color: Qt.rgba(window.accent.r, window.accent.g, window.accent.b, 0.14)
+                                    border.width: 1
+                                    border.color: Qt.rgba(window.accent.r, window.accent.g, window.accent.b, 0.35)
+
+                                    Glyph {
+                                        anchors.centerIn: parent
+                                        path: window.icons.power
+                                        size: 18
+                                        color: window.accentSoft
+                                    }
+                                }
+
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 3
+                                    Text {
+                                        text: window.tr("init_with_os")
+                                        color: window.txt
+                                        font.pixelSize: 14
+                                        font.weight: Font.DemiBold
+                                    }
+                                    Text {
+                                        text: window.tr("init_with_os_desc")
+                                        color: window.txtDim
+                                        font.pixelSize: 12
+                                    }
+                                }
+
+                                NeoSwitch {
+                                    checked: controller.autostart
+                                    onToggled: controller.setAutostart(checked)
+                                }
+                            }
+
+                            Rectangle {
+                                Layout.fillWidth: true
+                                height: 1
+                                color: window.line
+                            }
+
+                            // Row 2: Language Selector
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 16
+
+                                Rectangle {
+                                    Layout.preferredWidth: 38
+                                    Layout.preferredHeight: 38
+                                    radius: 11
+                                    color: Qt.rgba(window.accent.r, window.accent.g, window.accent.b, 0.14)
+                                    border.width: 1
+                                    border.color: Qt.rgba(window.accent.r, window.accent.g, window.accent.b, 0.35)
+
+                                    Glyph {
+                                        anchors.centerIn: parent
+                                        path: window.icons.globe
+                                        size: 18
+                                        color: window.accentSoft
+                                    }
+                                }
+
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 3
+                                    Text {
+                                        text: window.tr("language")
+                                        color: window.txt
+                                        font.pixelSize: 14
+                                        font.weight: Font.DemiBold
+                                    }
+                                    Text {
+                                        text: window.tr("language_desc")
+                                        color: window.txtDim
+                                        font.pixelSize: 12
+                                    }
+                                }
+
+                                RowLayout {
+                                    spacing: 8
+                                    Repeater {
+                                        model: controller.availableLanguages
+                                        delegate: PillButton {
+                                            required property var modelData
+                                            compact: true
+                                            text: modelData.name
+                                            active: controller.currentLanguage === modelData.code
+                                            onClicked: controller.setLanguage(modelData.code)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Split Cards: About Application & Community/Donate
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 18
+
+                        // Left Card: About App & Version
+                        Card {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 184
+
+                            ColumnLayout {
+                                anchors.fill: parent
+                                anchors.margins: 22
+                                spacing: 14
+
+                                RowLayout {
+                                    spacing: 14
+                                    Rectangle {
+                                        Layout.preferredWidth: 42
+                                        Layout.preferredHeight: 42
+                                        radius: 12
+                                        color: Qt.rgba(window.accent.r, window.accent.g, window.accent.b, 0.16)
+                                        border.width: 1
+                                        border.color: Qt.rgba(window.accent.r, window.accent.g, window.accent.b, 0.45)
+
+                                        Glyph {
+                                            anchors.centerIn: parent
+                                            path: window.icons.headphones
+                                            size: 20
+                                            color: window.accentSoft
+                                        }
+                                    }
+
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 2
+                                        Text {
+                                            text: window.tr("about_app")
+                                            color: window.txt
+                                            font.pixelSize: 15
+                                            font.weight: Font.DemiBold
+                                        }
+                                        Text {
+                                            text: "Sony Device Center"
+                                            color: window.txtDim
+                                            font.pixelSize: 12
+                                        }
+                                    }
+
+                                    Rectangle {
+                                        Layout.preferredHeight: 28
+                                        Layout.preferredWidth: verLabel.implicitWidth + 20
+                                        radius: 14
+                                        color: window.surfaceSunk
+                                        border.width: 1
+                                        border.color: window.lineHi
+
+                                        Text {
+                                            id: verLabel
+                                            anchors.centerIn: parent
+                                            text: "v" + controller.appVersion
+                                            color: window.accentSoft
+                                            font.pixelSize: 11
+                                            font.weight: Font.DemiBold
+                                        }
+                                    }
+                                }
+
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    height: 1
+                                    color: window.line
+                                }
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 16
+
+                                    ColumnLayout {
+                                        spacing: 2
+                                        Eyebrow { text: "Protocol Core" }
+                                        Text {
+                                            text: "MDR V1 & V2 (C++20)"
+                                            color: window.txt
+                                            font.pixelSize: 12
+                                            font.weight: Font.Medium
+                                        }
+                                    }
+
+                                    ColumnLayout {
+                                        spacing: 2
+                                        Eyebrow { text: "Framework" }
+                                        Text {
+                                            text: "Qt 6 Quick / QML"
+                                            color: window.txt
+                                            font.pixelSize: 12
+                                            font.weight: Font.Medium
+                                        }
+                                    }
+
+                                    ColumnLayout {
+                                        spacing: 2
+                                        Eyebrow { text: "License" }
+                                        Text {
+                                            text: "MIT Open Source"
+                                            color: window.txt
+                                            font.pixelSize: 12
+                                            font.weight: Font.Medium
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Right Card: GitHub & Donate
+                        Card {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 184
+
+                            ColumnLayout {
+                                anchors.fill: parent
+                                anchors.margins: 22
+                                spacing: 14
+
+                                RowLayout {
+                                    spacing: 14
+                                    Rectangle {
+                                        Layout.preferredWidth: 42
+                                        Layout.preferredHeight: 42
+                                        radius: 12
+                                        color: Qt.rgba(window.danger.r, window.danger.g, window.danger.b, 0.16)
+                                        border.width: 1
+                                        border.color: Qt.rgba(window.danger.r, window.danger.g, window.danger.b, 0.45)
+
+                                        Glyph {
+                                            anchors.centerIn: parent
+                                            path: window.icons.heart
+                                            size: 20
+                                            color: window.danger
+                                        }
+                                    }
+
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 2
+                                        Text {
+                                            text: window.tr("links_support")
+                                            color: window.txt
+                                            font.pixelSize: 15
+                                            font.weight: Font.DemiBold
+                                        }
+                                        Text {
+                                            text: "GitHub & Sponsorship"
+                                            color: window.txtDim
+                                            font.pixelSize: 12
+                                        }
+                                    }
+                                }
+
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: window.tr("donate_desc")
+                                    color: window.txtDim
+                                    font.pixelSize: 12
+                                    wrapMode: Text.WordWrap
+                                    maximumLineCount: 2
+                                    elide: Text.ElideRight
+                                }
+
+                                RowLayout {
+                                    spacing: 10
+
+                                    PillButton {
+                                        compact: true
+                                        glyphPath: window.icons.github
+                                        text: window.tr("btn_github")
+                                        onClicked: controller.openUrl("https://github.com/marconvcm/sony_xm_device_bridge")
+                                    }
+
+                                    PillButton {
+                                        compact: true
+                                        tint: window.danger
+                                        glyphPath: window.icons.heart
+                                        text: window.tr("btn_donate")
+                                        onClicked: controller.openUrl("https://github.com/sponsors/marconvcm")
                                     }
                                 }
                             }

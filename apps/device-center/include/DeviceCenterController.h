@@ -42,6 +42,11 @@ class DeviceCenterController : public QObject {
 
     Q_PROPERTY(QVariantList pairedDevices READ pairedDevices NOTIFY pairedDevicesChanged)
 
+    Q_PROPERTY(bool autostart READ autostart WRITE setAutostart NOTIFY autostartChanged)
+    Q_PROPERTY(QString appVersion READ appVersion CONSTANT)
+    Q_PROPERTY(QString currentLanguage READ currentLanguage WRITE setLanguage NOTIFY languageChanged)
+    Q_PROPERTY(QVariantList availableLanguages READ availableLanguages CONSTANT)
+
 public:
     explicit DeviceCenterController(QObject* parent = nullptr);
     ~DeviceCenterController() override;
@@ -74,6 +79,11 @@ public:
 
     [[nodiscard]] QVariantList pairedDevices() const;
 
+    [[nodiscard]] bool autostart() const;
+    [[nodiscard]] QString appVersion() const;
+    [[nodiscard]] QString currentLanguage() const;
+    [[nodiscard]] QVariantList availableLanguages() const;
+
     Q_INVOKABLE void setAnc(bool enabled);
     Q_INVOKABLE void setAmbient(int level, bool focusOnVoice = false);
     Q_INVOKABLE void setNoiseControlOff();
@@ -84,6 +94,11 @@ public:
     Q_INVOKABLE void setAdaptiveVolume(bool enabled);
     Q_INVOKABLE void setAutoPowerOff(int index);
 
+    Q_INVOKABLE void setAutostart(bool enable);
+    Q_INVOKABLE void setLanguage(const QString& langCode);
+    Q_INVOKABLE QString t(const QString& key) const;
+    Q_INVOKABLE void openUrl(const QString& url);
+
     Q_INVOKABLE void connectDevice(const QString& address, const QString& name = "");
     Q_INVOKABLE void disconnectDevice();
     Q_INVOKABLE void refreshDiscoveredDevices();
@@ -92,6 +107,8 @@ signals:
     void stateChanged();
     void capabilitiesChanged();
     void pairedDevicesChanged();
+    void autostartChanged();
+    void languageChanged();
 
 private:
     void _initService();
@@ -119,6 +136,7 @@ private:
     bool _adaptiveVolume{false};
     int _autoPowerOff{0};
     QVariantList _pairedDevices;
+    QString _currentLanguage{"en"};
 
 };
 
