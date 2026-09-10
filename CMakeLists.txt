@@ -13,6 +13,7 @@ add_subdirectory(libs/sony-core)
 
 add_subdirectory(apps/sonyd)
 add_subdirectory(apps/sonyctl)
+add_subdirectory(apps/device-center)
 
 if(BUILD_TESTING)
     add_subdirectory(tests)

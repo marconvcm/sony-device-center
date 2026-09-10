@@ -1,0 +1,25 @@
+<RCC>
+    <qresource prefix="/">
+        <file>qml/Main.qml</file>
+        <file alias="resources/devices/linkbuds-s.png">../../Client/resources/devices/linkbuds-s.png</file>
+        <file alias="resources/devices/mdr-1000x.png">../../Client/resources/devices/mdr-1000x.png</file>
+        <file alias="resources/devices/mdr-xb950bt.png">../../Client/resources/devices/mdr-xb950bt.png</file>
+        <file alias="resources/devices/wf-1000x.png">../../Client/resources/devices/wf-1000x.png</file>
+        <file alias="resources/devices/wf-1000xm3.png">../../Client/resources/devices/wf-1000xm3.png</file>
+        <file alias="resources/devices/wf-1000xm4.png">../../Client/resources/devices/wf-1000xm4.png</file>
+        <file alias="resources/devices/wf-1000xm5.png">../../Client/resources/devices/wf-1000xm5.png</file>
+        <file alias="resources/devices/wf-1000xm6.png">../../Client/resources/devices/wf-1000xm6.png</file>
+        <file alias="resources/devices/wf-c700n.png">../../Client/resources/devices/wf-c700n.png</file>
+        <file alias="resources/devices/wh-1000xm2.png">../../Client/resources/devices/wh-1000xm2.png</file>
+        <file alias="resources/devices/wh-1000xm3.png">../../Client/resources/devices/wh-1000xm3.png</file>
+        <file alias="resources/devices/wh-1000xm4.png">../../Client/resources/devices/wh-1000xm4.png</file>
+        <file alias="resources/devices/wh-1000xm5.png">../../Client/resources/devices/wh-1000xm5.png</file>
+        <file alias="resources/devices/wh-1000xm6.png">../../Client/resources/devices/wh-1000xm6.png</file>
+        <file alias="resources/devices/wh-ch520.png">../../Client/resources/devices/wh-ch520.png</file>
+        <file alias="resources/devices/wh-ch720n.png">../../Client/resources/devices/wh-ch720n.png</file>
+        <file alias="resources/devices/wh-xb900n.png">../../Client/resources/devices/wh-xb900n.png</file>
+        <file alias="resources/devices/wh-xb910n.png">../../Client/resources/devices/wh-xb910n.png</file>
+        <file alias="resources/devices/wi-1000x.png">../../Client/resources/devices/wi-1000x.png</file>
+        <file alias="resources/devices/wi-1000xm2.png">../../Client/resources/devices/wi-1000xm2.png</file>
+    </qresource>
+</RCC>
