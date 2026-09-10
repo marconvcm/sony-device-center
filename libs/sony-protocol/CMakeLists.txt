@@ -6,6 +6,7 @@ add_library(sony-protocol
     src/SonyProtocolSession.cpp
     src/ProtocolV1.cpp
     src/ProtocolV2.cpp
+    src/DeviceProfileRegistry.cpp
 )
 
 target_compile_features(sony-protocol PUBLIC cxx_std_20)
