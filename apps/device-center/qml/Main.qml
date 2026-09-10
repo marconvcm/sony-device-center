@@ -243,6 +243,7 @@ ApplicationWindow {
 
     // Small uppercase label. Letter-spacing is what makes it read as deliberate.
     component Eyebrow: Text {
+        textFormat: Text.PlainText
         color: window.txtFaint
         font.pixelSize: 10
         font.bold: true
@@ -313,6 +314,7 @@ ApplicationWindow {
                 color: pill.active ? pill.tint : window.txtDim
             }
             Text {
+                textFormat: Text.PlainText
                 text: pill.text
                 color: pill.active ? window.txt : window.txtDim
                 font.pixelSize: pill.compact ? 12 : 13
@@ -407,6 +409,7 @@ ApplicationWindow {
         spacing: 10
 
         Text {
+            textFormat: Text.PlainText
             Layout.alignment: Qt.AlignHCenter
             text: (band.value > 0 ? "+" : "") + Math.round(band.value)
             color: Math.round(band.value) === 0 ? window.txtFaint : window.accentSoft
@@ -477,6 +480,7 @@ ApplicationWindow {
         }
 
         Text {
+            textFormat: Text.PlainText
             Layout.alignment: Qt.AlignHCenter
             text: band.label
             color: window.txtFaint
@@ -562,6 +566,7 @@ ApplicationWindow {
                     ColumnLayout {
                         spacing: 2
                         Text {
+                            textFormat: Text.PlainText
                             text: "DEVICE"
                             color: window.txtDim
                             font.family: window.monoFamily
@@ -569,6 +574,7 @@ ApplicationWindow {
                             font.letterSpacing: 1.7
                         }
                         Text {
+                            textFormat: Text.PlainText
                             text: "Center"
                             color: window.accentSoft
                             font.pixelSize: 17
@@ -638,6 +644,7 @@ ApplicationWindow {
                             }
 
                             Text {
+                                textFormat: Text.PlainText
                                 anchors.centerIn: parent
                                 visible: !controller.isCharging
                                 text: controller.connected ? controller.batteryLevel : "—"
@@ -651,6 +658,7 @@ ApplicationWindow {
                             Layout.fillWidth: true
                             spacing: 3
                             Text {
+                                textFormat: Text.PlainText
                                 Layout.fillWidth: true
                                 text: controller.deviceName
                                 color: window.txt
@@ -674,6 +682,7 @@ ApplicationWindow {
                                     }
                                 }
                                 Text {
+                                    textFormat: Text.PlainText
                                     text: controller.connected ? window.tr("connected") : window.tr("disconnected")
                                     color: controller.connected ? window.txtDim : window.txtFaint
                                     font.pixelSize: 11
@@ -754,6 +763,7 @@ ApplicationWindow {
                                 }
 
                                 Text {
+                                    textFormat: Text.PlainText
                                     Layout.fillWidth: true
                                     text: window.tr(navItem.modelData.key)
                                     color: navItem.current ? window.txt
@@ -792,12 +802,14 @@ ApplicationWindow {
                             Layout.fillWidth: true
                             spacing: 0
                             Text {
+                                textFormat: Text.PlainText
                                 text: "SDK Core"
                                 color: window.txtDim
                                 font.pixelSize: 11
                                 font.weight: Font.Medium
                             }
                             Text {
+                                textFormat: Text.PlainText
                                 text: "IPC · RFCOMM V2"
                                 color: window.txtFaint
                                 font.pixelSize: 10
@@ -841,6 +853,7 @@ ApplicationWindow {
                             spacing: 5
                             Eyebrow { text: controller.connected ? "Connected Device" : "Offline" }
                             Text {
+                                textFormat: Text.PlainText
                                 text: controller.deviceName
                                 color: window.txt
                                 font.pixelSize: 30
@@ -879,6 +892,7 @@ ApplicationWindow {
                                         text: statChip.modelData.k
                                     }
                                     Text {
+                                        textFormat: Text.PlainText
                                         Layout.alignment: Qt.AlignHCenter
                                         text: statChip.modelData.v
                                         color: window.txt
@@ -989,6 +1003,7 @@ ApplicationWindow {
                             }
 
                             Text {
+                                textFormat: Text.PlainText
                                 Layout.alignment: Qt.AlignHCenter
                                 Layout.topMargin: 10
                                 text: controller.noiseControlMode === "cancelling" ? "Noise Cancelling"
@@ -1001,6 +1016,7 @@ ApplicationWindow {
                             }
 
                             Text {
+                                textFormat: Text.PlainText
                                 Layout.alignment: Qt.AlignHCenter
                                 Layout.topMargin: 2
                                 text: controller.noiseControlMode === "cancelling" ? "The outside world is sealed out"
@@ -1068,6 +1084,7 @@ ApplicationWindow {
                         spacing: 5
                         Eyebrow { text: "Isolation" }
                         Text {
+                            textFormat: Text.PlainText
                             text: "Noise Control"
                             color: window.txt
                             font.pixelSize: 28
@@ -1075,6 +1092,7 @@ ApplicationWindow {
                             font.letterSpacing: -0.6
                         }
                         Text {
+                            textFormat: Text.PlainText
                             text: "Choose how much of the world gets through."
                             color: window.txtDim
                             font.pixelSize: 13
@@ -1171,12 +1189,14 @@ ApplicationWindow {
                                     ColumnLayout {
                                         spacing: 2
                                         Text {
+                                            textFormat: Text.PlainText
                                             text: modeCard.modelData.label
                                             color: window.txt
                                             font.pixelSize: 15
                                             font.weight: Font.DemiBold
                                         }
                                         Text {
+                                            textFormat: Text.PlainText
                                             text: modeCard.modelData.desc
                                             color: window.txtFaint
                                             font.pixelSize: 12
@@ -1208,6 +1228,7 @@ ApplicationWindow {
                                     spacing: 2
                                     Eyebrow { text: "Ambient" }
                                     Text {
+                                        textFormat: Text.PlainText
                                         text: "Sound Level"
                                         color: window.txt
                                         font.pixelSize: 15
@@ -1223,6 +1244,7 @@ ApplicationWindow {
                                     border.width: 1
                                     border.color: Qt.rgba(window.ambientWarm.r, window.ambientWarm.g, window.ambientWarm.b, 0.5)
                                     Text {
+                                        textFormat: Text.PlainText
                                         anchors.centerIn: parent
                                         text: Math.round(ambientSlider.value)
                                         color: window.ambientWarm
@@ -1247,12 +1269,14 @@ ApplicationWindow {
                                     Layout.fillWidth: true
                                     spacing: 2
                                     Text {
+                                        textFormat: Text.PlainText
                                         text: "Focus on Voice"
                                         color: window.txt
                                         font.pixelSize: 13
                                         font.weight: Font.Medium
                                     }
                                     Text {
+                                        textFormat: Text.PlainText
                                         text: "Lift human speech, filter the low rumble"
                                         color: window.txtFaint
                                         font.pixelSize: 11
@@ -1284,6 +1308,7 @@ ApplicationWindow {
                         spacing: 5
                         Eyebrow { text: "Signature" }
                         Text {
+                            textFormat: Text.PlainText
                             text: "Equalizer"
                             color: window.txt
                             font.pixelSize: 28
@@ -1291,6 +1316,7 @@ ApplicationWindow {
                             font.letterSpacing: -0.6
                         }
                         Text {
+                            textFormat: Text.PlainText
                             text: "Five bands, plus dedicated Clear Bass."
                             color: window.txtDim
                             font.pixelSize: 13
@@ -1342,6 +1368,7 @@ ApplicationWindow {
                                 TapHandler { id: chipTap; onTapped: controller.setEqualizerPreset(chip.modelData.id) }
 
                                 Text {
+                                    textFormat: Text.PlainText
                                     id: chipText
                                     anchors.centerIn: parent
                                     text: chip.modelData.name
@@ -1369,6 +1396,7 @@ ApplicationWindow {
                                 Eyebrow { text: "5-Band · ±10 dB" }
                                 Item { Layout.fillWidth: true }
                                 Text {
+                                    textFormat: Text.PlainText
                                     text: controller.equalizerPresetName
                                     color: window.accentSoft
                                     font.pixelSize: 12
@@ -1427,12 +1455,14 @@ ApplicationWindow {
                                 Layout.preferredWidth: 210
                                 spacing: 2
                                 Text {
+                                    textFormat: Text.PlainText
                                     text: "Clear Bass"
                                     color: window.txt
                                     font.pixelSize: 15
                                     font.weight: Font.DemiBold
                                 }
                                 Text {
+                                    textFormat: Text.PlainText
                                     text: "Sub-bass weight, no distortion"
                                     color: window.txtFaint
                                     font.pixelSize: 11
@@ -1454,6 +1484,7 @@ ApplicationWindow {
                                 border.width: 1
                                 border.color: Qt.rgba(window.accent.r, window.accent.g, window.accent.b, 0.5)
                                 Text {
+                                    textFormat: Text.PlainText
                                     anchors.centerIn: parent
                                     text: (controller.clearBass > 0 ? "+" : "") + controller.clearBass
                                     color: window.accentSoft
@@ -1479,6 +1510,7 @@ ApplicationWindow {
                         spacing: 5
                         Eyebrow { text: "Behaviour" }
                         Text {
+                            textFormat: Text.PlainText
                             text: "Sound & Device Features"
                             color: window.txt
                             font.pixelSize: 28
@@ -1486,6 +1518,7 @@ ApplicationWindow {
                             font.letterSpacing: -0.6
                         }
                         Text {
+                            textFormat: Text.PlainText
                             text: "Upscaling, speak-to-chat, and power discipline."
                             color: window.txtDim
                             font.pixelSize: 13
@@ -1546,12 +1579,14 @@ ApplicationWindow {
                                         Layout.fillWidth: true
                                         spacing: 3
                                         Text {
+                                            textFormat: Text.PlainText
                                             text: featCard.modelData.title
                                             color: window.txt
                                             font.pixelSize: 15
                                             font.weight: Font.DemiBold
                                         }
                                         Text {
+                                            textFormat: Text.PlainText
                                             Layout.fillWidth: true
                                             text: featCard.modelData.desc
                                             color: window.txtFaint
@@ -1604,12 +1639,14 @@ ApplicationWindow {
                                     Layout.fillWidth: true
                                     spacing: 3
                                     Text {
+                                        textFormat: Text.PlainText
                                         text: "Auto Power-Off"
                                         color: window.txt
                                         font.pixelSize: 15
                                         font.weight: Font.DemiBold
                                     }
                                     Text {
+                                        textFormat: Text.PlainText
                                         Layout.fillWidth: true
                                         text: "Shut down after idle or removal"
                                         color: window.txtFaint
@@ -1635,6 +1672,7 @@ ApplicationWindow {
                                     }
 
                                     contentItem: Text {
+                                        textFormat: Text.PlainText
                                         leftPadding: 13
                                         rightPadding: 28
                                         text: powerCombo.displayText
@@ -1675,6 +1713,7 @@ ApplicationWindow {
                         spacing: 5
                         Eyebrow { text: "Easy Switch" }
                         Text {
+                            textFormat: Text.PlainText
                             text: "Paired Devices"
                             color: window.txt
                             font.pixelSize: 28
@@ -1682,6 +1721,7 @@ ApplicationWindow {
                             font.letterSpacing: -0.6
                         }
                         Text {
+                            textFormat: Text.PlainText
                             text: "Hand the connection to another set without re-pairing."
                             color: window.txtDim
                             font.pixelSize: 13
@@ -1735,6 +1775,7 @@ ApplicationWindow {
                                         Layout.fillWidth: true
                                         spacing: 3
                                         Text {
+                                            textFormat: Text.PlainText
                                             text: devCard.modelData.name
                                             color: window.txt
                                             font.pixelSize: 15
@@ -1749,12 +1790,14 @@ ApplicationWindow {
                                                 color: devCard.current ? window.success : window.txtFaint
                                             }
                                             Text {
+                                                textFormat: Text.PlainText
                                                 text: devCard.current ? window.tr("connected") : window.tr("available")
                                                 color: devCard.current ? window.success : window.txtFaint
                                                 font.pixelSize: 11
                                                 font.weight: Font.Medium
                                             }
                                             Text {
+                                                textFormat: Text.PlainText
                                                 text: "·  " + devCard.modelData.address
                                                 color: window.txtFaint
                                                 font.pixelSize: 11
@@ -1797,6 +1840,7 @@ ApplicationWindow {
                         spacing: 5
                         Eyebrow { text: window.tr("settings_eyebrow") }
                         Text {
+                            textFormat: Text.PlainText
                             text: window.tr("settings_title")
                             color: window.txt
                             font.pixelSize: 28
@@ -1804,6 +1848,7 @@ ApplicationWindow {
                             font.letterSpacing: -0.6
                         }
                         Text {
+                            textFormat: Text.PlainText
                             text: window.tr("settings_subtitle")
                             color: window.txtDim
                             font.pixelSize: 13
@@ -1845,12 +1890,14 @@ ApplicationWindow {
                                     Layout.fillWidth: true
                                     spacing: 3
                                     Text {
+                                        textFormat: Text.PlainText
                                         text: window.tr("init_with_os")
                                         color: window.txt
                                         font.pixelSize: 14
                                         font.weight: Font.DemiBold
                                     }
                                     Text {
+                                        textFormat: Text.PlainText
                                         text: window.tr("init_with_os_desc")
                                         color: window.txtDim
                                         font.pixelSize: 12
@@ -1894,12 +1941,14 @@ ApplicationWindow {
                                     Layout.fillWidth: true
                                     spacing: 3
                                     Text {
+                                        textFormat: Text.PlainText
                                         text: window.tr("language")
                                         color: window.txt
                                         font.pixelSize: 14
                                         font.weight: Font.DemiBold
                                     }
                                     Text {
+                                        textFormat: Text.PlainText
                                         text: window.tr("language_desc")
                                         color: window.txtDim
                                         font.pixelSize: 12
@@ -1938,6 +1987,7 @@ ApplicationWindow {
                                     }
 
                                     contentItem: Text {
+                                        textFormat: Text.PlainText
                                         leftPadding: 14
                                         rightPadding: 28
                                         text: langCombo.displayText
@@ -1994,6 +2044,7 @@ ApplicationWindow {
                                         contentItem: RowLayout {
                                             spacing: 8
                                             Text {
+                                                textFormat: Text.PlainText
                                                 Layout.fillWidth: true
                                                 text: modelData.name
                                                 color: (modelData.code === controller.currentLanguage) ? window.accentSoft : window.txt
@@ -2041,12 +2092,14 @@ ApplicationWindow {
                                         Layout.fillWidth: true
                                         spacing: 2
                                         Text {
+                                            textFormat: Text.PlainText
                                             text: window.tr("about_app")
                                             color: window.txt
                                             font.pixelSize: 15
                                             font.weight: Font.DemiBold
                                         }
                                         Text {
+                                            textFormat: Text.PlainText
                                             text: "Sony Device Center"
                                             color: window.txtDim
                                             font.pixelSize: 12
@@ -2062,6 +2115,7 @@ ApplicationWindow {
                                         border.color: window.lineHi
 
                                         Text {
+                                            textFormat: Text.PlainText
                                             id: verLabel
                                             anchors.centerIn: parent
                                             text: "v" + controller.appVersion
@@ -2086,6 +2140,7 @@ ApplicationWindow {
                                         spacing: 2
                                         Eyebrow { text: "Protocol Core" }
                                         Text {
+                                            textFormat: Text.PlainText
                                             text: "MDR V1 & V2 (C++20)"
                                             color: window.txt
                                             font.pixelSize: 12
@@ -2097,6 +2152,7 @@ ApplicationWindow {
                                         spacing: 2
                                         Eyebrow { text: "Framework" }
                                         Text {
+                                            textFormat: Text.PlainText
                                             text: "Qt 6 Quick / QML"
                                             color: window.txt
                                             font.pixelSize: 12
@@ -2108,6 +2164,7 @@ ApplicationWindow {
                                         spacing: 2
                                         Eyebrow { text: "License" }
                                         Text {
+                                            textFormat: Text.PlainText
                                             text: "MIT Open Source"
                                             color: window.txt
                                             font.pixelSize: 12
@@ -2150,12 +2207,14 @@ ApplicationWindow {
                                         Layout.fillWidth: true
                                         spacing: 2
                                         Text {
+                                            textFormat: Text.PlainText
                                             text: window.tr("links_support")
                                             color: window.txt
                                             font.pixelSize: 15
                                             font.weight: Font.DemiBold
                                         }
                                         Text {
+                                            textFormat: Text.PlainText
                                             text: "GitHub & Sponsorship"
                                             color: window.txtDim
                                             font.pixelSize: 12
@@ -2164,6 +2223,7 @@ ApplicationWindow {
                                 }
 
                                 Text {
+                                    textFormat: Text.PlainText
                                     Layout.fillWidth: true
                                     text: window.tr("donate_desc")
                                     color: window.txtDim
@@ -2206,6 +2266,7 @@ ApplicationWindow {
                     }
 
                     Text {
+                        textFormat: Text.PlainText
                         Layout.fillWidth: true
                         text: window.tr("disclaimer")
                         color: window.txtFaint
