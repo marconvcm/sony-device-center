@@ -42,6 +42,19 @@ ApplicationWindow {
     readonly property color txtDim:        "#98A1B2"
     readonly property color txtFaint:      "#5C6473"
 
+    // Mono face for the wordmark. Resolved against the installed families
+    // rather than set through font.families: that property makes the engine
+    // abort loading the component on Qt 6.11, and silently — no error text.
+    readonly property string monoFamily: {
+        var wanted = ["JetBrains Mono", "JetBrainsMono Nerd Font", "Cascadia Code",
+                      "SF Mono", "Consolas", "DejaVu Sans Mono", "Liberation Mono"]
+        var installed = Qt.fontFamilies()
+        for (var i = 0; i < wanted.length; ++i)
+            if (installed.indexOf(wanted[i]) !== -1)
+                return wanted[i]
+        return "monospace"
+    }
+
     // Motion constants — one place to retune the whole app's feel.
     readonly property int   tFast:  140
     readonly property int   tBase:  200
@@ -538,23 +551,30 @@ ApplicationWindow {
                 anchors.margins: 22
                 spacing: 26
 
-                // Brand
+                // Brand. Two lines, set to the height of the mark — the same
+                // lockup the site and the brand assets use.
                 RowLayout {
                     spacing: 12
                     BrandTile {
-                        Layout.preferredWidth: 40
-                        Layout.preferredHeight: 40
+                        Layout.preferredWidth: 42
+                        Layout.preferredHeight: 42
                     }
                     ColumnLayout {
-                        spacing: 1
+                        spacing: 2
                         Text {
-                            text: "Device Center"
-                            color: window.txt
-                            font.pixelSize: 15
-                            font.weight: Font.DemiBold
-                            font.letterSpacing: -0.2
+                            text: "DEVICE"
+                            color: window.txtDim
+                            font.family: window.monoFamily
+                            font.pixelSize: 12
+                            font.letterSpacing: 1.7
                         }
-                        Eyebrow { text: "Sony Audio" }
+                        Text {
+                            text: "Center"
+                            color: window.accentSoft
+                            font.pixelSize: 17
+                            font.weight: Font.DemiBold
+                            font.letterSpacing: -0.3
+                        }
                     }
                 }
 
