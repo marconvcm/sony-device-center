@@ -1810,16 +1810,108 @@ ApplicationWindow {
                                     }
                                 }
 
-                                RowLayout {
-                                    spacing: 8
-                                    Repeater {
-                                        model: controller.availableLanguages
-                                        delegate: PillButton {
-                                            required property var modelData
-                                            compact: true
-                                            text: modelData.name
-                                            active: controller.currentLanguage === modelData.code
-                                            onClicked: controller.setLanguage(modelData.code)
+                                ComboBox {
+                                    id: langCombo
+                                    implicitWidth: 168
+                                    implicitHeight: 38
+                                    model: controller.availableLanguages
+                                    textRole: "name"
+                                    valueRole: "code"
+
+                                    currentIndex: {
+                                        var langs = controller.availableLanguages
+                                        for (var i = 0; i < langs.length; ++i) {
+                                            if (langs[i].code === controller.currentLanguage) return i
+                                        }
+                                        return 0
+                                    }
+
+                                    onActivated: {
+                                        var item = model[index]
+                                        if (item && item.code) {
+                                            controller.setLanguage(item.code)
+                                        }
+                                    }
+
+                                    background: Rectangle {
+                                        radius: 11
+                                        color: langCombo.hovered ? window.surfaceHi : window.surfaceSunk
+                                        border.width: 1
+                                        border.color: langCombo.hovered ? window.lineHi : window.line
+                                        Behavior on color { ColorAnimation { duration: window.tFast } }
+                                    }
+
+                                    contentItem: Text {
+                                        leftPadding: 14
+                                        rightPadding: 28
+                                        text: langCombo.displayText
+                                        color: window.txt
+                                        font.pixelSize: 13
+                                        font.weight: Font.Medium
+                                        verticalAlignment: Text.AlignVCenter
+                                        elide: Text.ElideRight
+                                    }
+
+                                    indicator: Glyph {
+                                        x: langCombo.width - width - 12
+                                        y: langCombo.height / 2 - height / 2
+                                        size: 14
+                                        color: window.txtFaint
+                                        path: window.icons.chevron
+                                        rotation: langCombo.popup.visible ? 180 : 0
+                                        Behavior on rotation { NumberAnimation { duration: window.tBase } }
+                                    }
+
+                                    popup: Popup {
+                                        y: langCombo.height + 4
+                                        width: langCombo.width
+                                        implicitHeight: Math.min(contentItem.implicitHeight + 12, 260)
+                                        padding: 6
+                                        background: Rectangle {
+                                            radius: 12
+                                            color: window.surface
+                                            border.width: 1
+                                            border.color: window.lineHi
+                                        }
+                                        contentItem: ListView {
+                                            clip: true
+                                            implicitHeight: contentHeight
+                                            model: langCombo.popup.visible ? langCombo.delegateModel : null
+                                            currentIndex: langCombo.highlightedIndex
+                                            ScrollIndicator.vertical: ScrollIndicator {}
+                                        }
+                                    }
+
+                                    delegate: ItemDelegate {
+                                        id: langDel
+                                        width: langCombo.width - 12
+                                        implicitHeight: 36
+                                        highlighted: langCombo.highlightedIndex === index
+                                        hoverEnabled: true
+
+                                        background: Rectangle {
+                                            radius: 8
+                                            color: langDel.highlighted ? window.surfaceHi : (langDel.hovered ? window.surfaceHi : "transparent")
+                                            Behavior on color { ColorAnimation { duration: window.tFast } }
+                                        }
+
+                                        contentItem: RowLayout {
+                                            spacing: 8
+                                            Text {
+                                                Layout.fillWidth: true
+                                                text: modelData.name
+                                                color: (modelData.code === controller.currentLanguage) ? window.accentSoft : window.txt
+                                                font.pixelSize: 13
+                                                font.weight: (modelData.code === controller.currentLanguage) ? Font.DemiBold : Font.Normal
+                                                verticalAlignment: Text.AlignVCenter
+                                            }
+                                            Rectangle {
+                                                visible: modelData.code === controller.currentLanguage
+                                                width: 6
+                                                height: 6
+                                                radius: 3
+                                                color: window.accent
+                                            }
                                         }
                                     }
                                 }
