@@ -43,11 +43,13 @@ add_executable(sony-protocol-tests
     protocol/ProtocolV2Tests.cpp
     protocol/DeviceProfileTests.cpp
     protocol/CapabilityDiscoveryTests.cpp
+    protocol/DeviceStateTests.cpp
     protocol/CommandSerializerTests.cpp
     protocol/BluetoothWrapperTests.cpp
     "${SONYBRIDGE_CLIENT_DIR}/CommandSerializer.cpp"
     "${SONYBRIDGE_CLIENT_DIR}/ByteMagic.cpp"
     "${SONYBRIDGE_CLIENT_DIR}/BluetoothWrapper.cpp"
+    "${SONYBRIDGE_CLIENT_DIR}/Headphones.cpp"
 )
 target_compile_features(sony-protocol-tests PRIVATE cxx_std_20)
 target_include_directories(sony-protocol-tests PRIVATE "${SONYBRIDGE_CLIENT_DIR}")
