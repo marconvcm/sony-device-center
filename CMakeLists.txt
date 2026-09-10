@@ -5,10 +5,14 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include(CTest)
+find_package(Threads REQUIRED)
 
 add_subdirectory(libs/sony-transport)
 add_subdirectory(libs/sony-protocol)
 add_subdirectory(libs/sony-core)
+
+add_subdirectory(apps/sonyd)
+add_subdirectory(apps/sonyctl)
 
 if(BUILD_TESTING)
     add_subdirectory(tests)

@@ -1,5 +1,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include "sony/core/IpcProtocol.h"
+#include "sony/core/IpcServer.h"
+#include "sony/core/IpcClient.h"
 #include "sony/core/DeviceService.h"
 #include "sony/protocol/FrameCodec.h"
 #include "sony/transport/FakeTransport.h"
@@ -251,4 +253,41 @@ TEST_CASE("IpcProtocol execution through DeviceService", "[core][ipc]") {
         service.disconnect();
         CHECK_FALSE(service.isConnected());
     }
+}
+
+TEST_CASE("IpcServer and IpcClient end-to-end communication over socket", "[core][ipc]") {
+    auto transport = std::make_shared<AutoAckFakeTransport>();
+    auto discovery = std::make_shared<FakeDeviceDiscovery>();
+    auto service = std::make_shared<DeviceService>(transport, discovery);
+    service->connect(DeviceAddress("11:22:33:44:55:66"), "WH-1000XM5");
+
+    std::string testSocket = "/tmp/sony-test-ipc-" + std::to_string(std::chrono::system_clock::now().time_since_epoch().count()) + ".sock";
+
+    IpcClient client(testSocket);
+    CHECK_FALSE(client.isDaemonRunning());
+
+    IpcServer server(service, testSocket);
+    server.start();
+    CHECK(server.isRunning());
+
+    // Allow server thread to enter accept loop
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    CHECK(client.isDaemonRunning());
+
+    auto resp = client.sendCommand("battery");
+    CHECK(resp.success);
+    CHECK(resp.data.find("85%") != std::string::npos);
+
+    auto ancResp = client.sendCommand("anc on");
+    CHECK(ancResp.success);
+    CHECK(service->snapshot()->noiseControl.mode == NoiseControlMode::NoiseCancelling);
+
+    auto ambResp = client.sendCommand("ambient 12");
+    CHECK(ambResp.success);
+    CHECK(service->snapshot()->noiseControl.mode == NoiseControlMode::Ambient);
+    CHECK(service->snapshot()->noiseControl.ambientLevel == 12);
+
+    server.stop();
+    CHECK_FALSE(server.isRunning());
+    CHECK_FALSE(client.isDaemonRunning());
 }

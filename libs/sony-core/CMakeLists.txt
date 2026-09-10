@@ -5,6 +5,8 @@ add_library(sony-core
     src/SonyDevice.cpp
     src/DeviceService.cpp
     src/IpcProtocol.cpp
+    src/IpcServer.cpp
+    src/IpcClient.cpp
 )
 
 target_compile_features(sony-core PUBLIC cxx_std_20)

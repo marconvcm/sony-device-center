@@ -115,10 +115,14 @@ IpcCommand IpcProtocol::parseCommand(std::string_view line) {
 }
 
 std::string IpcProtocol::serializeResponse(const IpcResponse& response) {
+    std::string encodedData = response.data;
+    for (char& c : encodedData) {
+        if (c == '\n') c = '\x1e';
+    }
     std::ostringstream oss;
     oss << (response.success ? "OK" : "ERR") << "|"
         << response.message << "|"
-        << response.data << "\n";
+        << encodedData << "\n";
     return oss.str();
 }
 
@@ -142,7 +146,11 @@ IpcResponse IpcProtocol::parseResponse(std::string_view line) {
         resp.message = std::string(line.substr(firstPipe + 1));
     } else {
         resp.message = std::string(line.substr(firstPipe + 1, secondPipe - firstPipe - 1));
-        resp.data = std::string(line.substr(secondPipe + 1));
+        std::string rawData = std::string(line.substr(secondPipe + 1));
+        for (char& c : rawData) {
+            if (c == '\x1e') c = '\n';
+        }
+        resp.data = std::move(rawData);
     }
 
     return resp;
