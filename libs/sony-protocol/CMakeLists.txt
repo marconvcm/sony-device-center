@@ -3,6 +3,7 @@ project(sony-protocol LANGUAGES CXX)
 
 add_library(sony-protocol
     src/FrameCodec.cpp
+    src/EqualizerPresets.cpp
     src/SonyProtocolSession.cpp
     src/ProtocolV1.cpp
     src/ProtocolV2.cpp

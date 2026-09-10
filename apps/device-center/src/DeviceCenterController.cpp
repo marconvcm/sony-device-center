@@ -3,6 +3,7 @@
 #include "sony/core/DeviceService.h"
 #include "sony/core/IpcProtocol.h"
 #include "sony/protocol/DeviceProfileRegistry.h"
+#include "sony/protocol/EqualizerPresets.h"
 #include "sony/transport/PlatformTransport.h"
 
 #include <QCoreApplication>
@@ -109,6 +110,11 @@ void DeviceCenterController::_syncState() {
                 auto endLine = pName.find('\n');
                 if (endLine != std::string::npos) pName = pName.substr(0, endLine);
                 _equalizerPresetName = QString::fromStdString(pName);
+                // Recover the code too, so the selected chip matches the label.
+                const int code = protocol::equalizerPresetFromName(pName);
+                if (code >= 0) {
+                    _equalizerPreset = code;
+                }
             }
         }
     } else if (_directService && _directService->activeDevice() && _directService->isConnected()) {
@@ -126,6 +132,8 @@ void DeviceCenterController::_syncState() {
         _ambientLevel = snap->noiseControl.ambientLevel > 0 ? snap->noiseControl.ambientLevel : 10;
         _focusOnVoice = snap->noiseControl.focusOnVoice;
         _equalizerPreset = snap->equalizer.preset;
+        _equalizerPresetName = QString::fromStdString(
+            protocol::equalizerPresetName(_equalizerPreset));
         _clearBass = snap->equalizer.clearBass;
         _dsee = snap->dsee;
         _speakToChat = snap->speakToChat;
@@ -281,25 +289,21 @@ void DeviceCenterController::setNoiseControlOff() {
 }
 
 void DeviceCenterController::setEqualizerPreset(int preset) {
+    // The codes come from the QML chip model and already match the protocol
+    // table; do not remap them here. An earlier hand-written switch in this
+    // function was off by one and had bass and treble swapped, so "Vocal"
+    // applied Relaxed, "Bright" fell through to "off", and the label named a
+    // different preset from the one in effect.
     _equalizerPreset = preset;
-    std::string presetStr = "off";
-    switch (preset) {
-        case 0x11: presetStr = "bright"; _equalizerPresetName = "Bright"; break;
-        case 0x12: presetStr = "excited"; _equalizerPresetName = "Excited"; break;
-        case 0x13: presetStr = "mellow"; _equalizerPresetName = "Mellow"; break;
-        case 0x14: presetStr = "relaxed"; _equalizerPresetName = "Relaxed"; break;
-        case 0x15: presetStr = "vocal"; _equalizerPresetName = "Vocal"; break;
-        case 0x16: presetStr = "bass-boost"; _equalizerPresetName = "Bass Boost"; break;
-        case 0x17: presetStr = "treble-boost"; _equalizerPresetName = "Treble Boost"; break;
-        case 0x18: presetStr = "speech"; _equalizerPresetName = "Speech"; break;
-        case 0x01: presetStr = "custom1"; _equalizerPresetName = "Custom 1"; break;
-        case 0x02: presetStr = "custom2"; _equalizerPresetName = "Custom 2"; break;
-        default: presetStr = "off"; _equalizerPresetName = "Off"; break;
-    }
+    _equalizerPresetName = QString::fromStdString(protocol::equalizerPresetName(preset));
 
     try {
         if (_usingIpc && _ipcClient) {
-            _ipcClient->sendCommand("eq preset " + presetStr);
+            const auto id = protocol::equalizerPresetId(preset);
+            if (id.empty()) {
+                return;
+            }
+            _ipcClient->sendCommand("eq preset " + std::string(id));
         } else if (_directService && _directService->activeDevice()) {
             _directService->activeDevice()->setEqualizerPreset(preset);
         }
@@ -310,8 +314,12 @@ void DeviceCenterController::setEqualizerPreset(int preset) {
 void DeviceCenterController::setEqualizerCustom(int clearBass, const QVariantList& bands) {
     _clearBass = std::clamp(clearBass, -10, 10);
     _equalizerBands = bands;
-    _equalizerPreset = 0x01;
-    _equalizerPresetName = "Custom";
+    // 0xa0 is MANUAL in the protocol, and what the QML chip and
+    // ProtocolV2::setEqualizerCustom() both use. 0x01 matched neither, so the
+    // Custom chip never highlighted after dialling in bands.
+    _equalizerPreset = static_cast<int>(protocol::EqualizerPreset::Manual);
+    _equalizerPresetName = QString::fromStdString(
+        protocol::equalizerPresetName(_equalizerPreset));
 
     try {
         if (_usingIpc && _ipcClient) {

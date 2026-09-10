@@ -107,3 +107,43 @@ TEST_CASE("DeviceProfileRegistry: string conversions", "[protocol][profile]")
     REQUIRE(to_string(SonyProtocolVersion::V1) == "V1");
     REQUIRE(to_string(SonyProtocolVersion::V2) == "V2");
 }
+
+// ---------------------------------------------------------------------------
+// Equalizer preset table
+//
+// The desktop controller used to carry its own copy of this mapping, off by one
+// with bass and treble swapped. These pin the values against the
+// reverse-engineered reference in Client/Constants.h so a second copy cannot
+// drift again.
+#include "sony/protocol/EqualizerPresets.h"
+
+TEST_CASE("Equalizer preset codes match the protocol reference", "[protocol][eq]") {
+    CHECK(static_cast<int>(EqualizerPreset::Off)         == 0x00);
+    CHECK(static_cast<int>(EqualizerPreset::Bright)      == 0x10);
+    CHECK(static_cast<int>(EqualizerPreset::Excited)     == 0x11);
+    CHECK(static_cast<int>(EqualizerPreset::Mellow)      == 0x12);
+    CHECK(static_cast<int>(EqualizerPreset::Relaxed)     == 0x13);
+    CHECK(static_cast<int>(EqualizerPreset::Vocal)       == 0x14);
+    CHECK(static_cast<int>(EqualizerPreset::TrebleBoost) == 0x15);
+    CHECK(static_cast<int>(EqualizerPreset::BassBoost)   == 0x16);
+    CHECK(static_cast<int>(EqualizerPreset::Speech)      == 0x17);
+    CHECK(static_cast<int>(EqualizerPreset::Manual)      == 0xa0);
+}
+
+TEST_CASE("Equalizer preset names round-trip", "[protocol][eq]") {
+    for (const auto& info : equalizerPresets()) {
+        const int code = static_cast<int>(info.preset);
+        CHECK(equalizerPresetFromName(info.id) == code);
+        CHECK(equalizerPresetFromName(info.displayName) == code);
+        CHECK(equalizerPresetId(code) == info.id);
+        CHECK(equalizerPresetName(code) == std::string(info.displayName));
+    }
+}
+
+TEST_CASE("Equalizer preset lookup is case-insensitive and accepts aliases", "[protocol][eq]") {
+    CHECK(equalizerPresetFromName("BASS-BOOST") == 0x16);
+    CHECK(equalizerPresetFromName("bass") == 0x16);
+    CHECK(equalizerPresetFromName("treble") == 0x15);
+    CHECK(equalizerPresetFromName("Bass Boost") == 0x16);
+    CHECK(equalizerPresetFromName("nonsense") == -1);
+}

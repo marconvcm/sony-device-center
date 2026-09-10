@@ -1,4 +1,5 @@
 #include "sony/core/IpcProtocol.h"
+#include "sony/protocol/EqualizerPresets.h"
 #include <algorithm>
 #include <sstream>
 
@@ -34,38 +35,11 @@ std::string toLower(std::string_view s) {
 }
 
 int parsePresetName(std::string_view name) {
-    auto low = toLower(name);
-    if (low == "off") return 0x00;
-    if (low == "bright") return 0x10;
-    if (low == "excited") return 0x11;
-    if (low == "mellow") return 0x12;
-    if (low == "relaxed") return 0x13;
-    if (low == "vocal") return 0x14;
-    if (low == "treble-boost" || low == "treble_boost" || low == "treble") return 0x15;
-    if (low == "bass-boost" || low == "bass_boost" || low == "bass") return 0x16;
-    if (low == "speech") return 0x17;
-    if (low == "manual") return 0xa0;
-    try {
-        return std::stoi(std::string(name));
-    } catch (...) {
-        return -1;
-    }
+    return protocol::equalizerPresetFromName(name);
 }
 
 std::string presetToString(int preset) {
-    switch (preset) {
-        case 0x00: return "Off";
-        case 0x10: return "Bright";
-        case 0x11: return "Excited";
-        case 0x12: return "Mellow";
-        case 0x13: return "Relaxed";
-        case 0x14: return "Vocal";
-        case 0x15: return "Treble Boost";
-        case 0x16: return "Bass Boost";
-        case 0x17: return "Speech";
-        case 0xa0: return "Manual";
-        default: return "Preset (" + std::to_string(preset) + ")";
-    }
+    return protocol::equalizerPresetName(preset);
 }
 
 } // namespace
