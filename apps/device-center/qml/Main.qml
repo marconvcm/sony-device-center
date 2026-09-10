@@ -2160,7 +2160,7 @@ ApplicationWindow {
                                         compact: true
                                         glyphPath: window.icons.github
                                         text: window.tr("btn_github")
-                                        onClicked: controller.openUrl("https://github.com/marconvcm/sony_xm_device_bridge")
+                                        onClicked: controller.openUrl("https://github.com/marconvcm/sony-device-center")
                                     }
 
                                     PillButton {

@@ -1,6 +1,6 @@
 <img src="docs/app-icon.png" width="88" align="right" alt="">
 
-# Sony Device Center (Sony XM Device Bridge)
+# Sony Device Center
 
 **An open-source desktop suite and C++20 SDK for Sony headphones and earbuds — Ambient Sound, Noise Cancelling, Equalizer, Clear Bass, DSEE, battery monitoring, and device control, without needing a mobile phone.**
 
@@ -16,6 +16,18 @@ Sony locks headphone settings and telemetry behind their mobile-only apps (*Sony
 - **`sonyctl`** — A fast, scriptable **CLI tool** for instant terminal controls and scripting.
 - **`sonyd`** — A lightweight **background daemon** managing the Bluetooth link and exposing a local IPC socket.
 - **`sony-protocol` / `sony-transport` / `sony-core`** — Modular, decoupled **C++20 libraries** for integration into third-party tools and desktop environments.
+
+---
+
+## 📸 Screenshots
+
+![Overview](docs/screenshots/overview.png)
+
+| Noise Control | Equalizer | Audio Features |
+| :---: | :---: | :---: |
+| ![Noise Control](docs/screenshots/noise-control.png) | ![Equalizer](docs/screenshots/equalizer.png) | ![Audio Features](docs/screenshots/audio-features.png) |
+
+<sub>Captured on Linux/Wayland against `sonyd --simulated`, the daemon's built-in device simulator.</sub>
 
 ---
 
