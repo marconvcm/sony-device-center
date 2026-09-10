@@ -31,12 +31,14 @@ private:
 
 class BluetoothConnectorDiscovery : public IDeviceDiscovery {
 public:
+    explicit BluetoothConnectorDiscovery(std::unique_ptr<IBluetoothConnector> connector);
     explicit BluetoothConnectorDiscovery(IBluetoothConnector* connector);
     ~BluetoothConnectorDiscovery() override = default;
 
     std::vector<DiscoveredDevice> discover() override;
 
 private:
+    std::unique_ptr<IBluetoothConnector> _ownedConnector;
     IBluetoothConnector* _connector{nullptr};
 };
 

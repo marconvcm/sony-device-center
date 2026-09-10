@@ -71,8 +71,7 @@ std::unique_ptr<ITransport> createPlatformTransport() {
 }
 
 std::unique_ptr<IDeviceDiscovery> createPlatformDiscovery() {
-    auto connector = std::make_unique<WindowsBluetoothConnector>();
-    return std::make_unique<BluetoothConnectorDiscovery>(connector.release());
+    return std::make_unique<BluetoothConnectorDiscovery>(std::make_unique<WindowsBluetoothConnector>());
 }
 
 } // namespace sony::transport
@@ -87,8 +86,7 @@ std::unique_ptr<ITransport> createPlatformTransport() {
 }
 
 std::unique_ptr<IDeviceDiscovery> createPlatformDiscovery() {
-    auto connector = std::make_unique<MacOSBluetoothConnector>();
-    return std::make_unique<BluetoothConnectorDiscovery>(connector.release());
+    return std::make_unique<BluetoothConnectorDiscovery>(std::make_unique<MacOSBluetoothConnector>());
 }
 
 } // namespace sony::transport

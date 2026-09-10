@@ -82,6 +82,9 @@ IBluetoothConnector* BluetoothConnectorTransport::connector() const noexcept {
     return _connector;
 }
 
+BluetoothConnectorDiscovery::BluetoothConnectorDiscovery(std::unique_ptr<IBluetoothConnector> connector)
+    : _ownedConnector(std::move(connector)), _connector(_ownedConnector.get()) {}
+
 BluetoothConnectorDiscovery::BluetoothConnectorDiscovery(IBluetoothConnector* connector)
     : _connector(connector) {}
 
