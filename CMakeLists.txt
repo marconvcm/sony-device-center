@@ -8,6 +8,7 @@ include(CTest)
 
 add_subdirectory(libs/sony-transport)
 add_subdirectory(libs/sony-protocol)
+add_subdirectory(libs/sony-core)
 
 if(BUILD_TESTING)
     add_subdirectory(tests)

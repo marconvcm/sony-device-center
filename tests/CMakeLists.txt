@@ -34,6 +34,10 @@ if(NOT TARGET sony-protocol)
     add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../libs/sony-protocol" "${CMAKE_CURRENT_BINARY_DIR}/libs/sony-protocol")
 endif()
 
+if(NOT TARGET sony-core)
+    add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../libs/sony-core" "${CMAKE_CURRENT_BINARY_DIR}/libs/sony-core")
+endif()
+
 set(SONYBRIDGE_CLIENT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../Client")
 
 add_executable(sony-protocol-tests
@@ -70,3 +74,11 @@ target_compile_features(sony-transport-tests PRIVATE cxx_std_20)
 target_include_directories(sony-transport-tests PRIVATE "${SONYBRIDGE_CLIENT_DIR}")
 target_link_libraries(sony-transport-tests PRIVATE Catch2::Catch2WithMain Threads::Threads sony-transport sony-protocol)
 catch_discover_tests(sony-transport-tests PROPERTIES TIMEOUT 10)
+
+add_executable(sony-core-tests
+    core/SonyDeviceTests.cpp
+    core/IpcProtocolTests.cpp
+)
+target_compile_features(sony-core-tests PRIVATE cxx_std_20)
+target_link_libraries(sony-core-tests PRIVATE Catch2::Catch2WithMain Threads::Threads sony-transport sony-protocol sony-core)
+catch_discover_tests(sony-core-tests PROPERTIES TIMEOUT 10)
