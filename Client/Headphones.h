@@ -1,8 +1,12 @@
+#pragma once
+
 #include "SingleInstanceFuture.h"
 #include "BluetoothWrapper.h"
 #include "Constants.h"
+#include "sony/protocol/DeviceState.h"
 
 #include <mutex>
+#include <memory>
 
 template <class T>
 struct Property {
@@ -88,6 +92,11 @@ public:
 
 	bool isChanged();
 	void setChanges();
+
+	// Phase 10 & 11: Immutable device state snapshots
+	[[nodiscard]] sony::protocol::DeviceState state() const;
+	[[nodiscard]] std::shared_ptr<const sony::protocol::DeviceState> snapshot() const;
+
 private:
 	Property<bool> _ambientSoundControl = { 0 };
 	Property<bool> _focusOnVoice = { 0 };
@@ -95,24 +104,16 @@ private:
 	Property<SOUND_POSITION_PRESET> _surroundPosition = { SOUND_POSITION_PRESET::OUT_OF_RANGE, SOUND_POSITION_PRESET::OFF };
 	Property<int> _vptType = { 0 };
 
-	int _batteryLevel = -1;
-	bool _batteryCharging = false;
-	bool _hasDualBattery = false;
-	int _batteryLeft = -1;
-	int _batteryRight = -1;
-	int _batteryCase = -1;
-	EQ_PRESET _eqPreset = EQ_PRESET::OFF;
-	std::vector<int> _eqBands = { 0, 0, 0, 0, 0 };
-	int _eqClearBass = 0;
-	bool _dsee = false;
+	// Structured device state replacing scattered primitive fields
+	sony::protocol::DeviceState _deviceState;
 
-	bool _hasAutoPowerOff = false; int _autoPowerOff = 0;
-	bool _hasFirmware = false; std::string _firmware;
-	bool _hasCodec = false; std::string _codec;
-	bool _hasSpeakToChat = false; bool _speakToChat = false;
-	bool _hasAdaptiveVolume = false; bool _adaptiveVolume = false;
+	bool _hasAutoPowerOff = false;
+	bool _hasFirmware = false;
+	bool _hasCodec = false;
+	bool _hasSpeakToChat = false;
+	bool _hasAdaptiveVolume = false;
 
-	std::mutex _propertyMtx;
+	mutable std::mutex _propertyMtx;
 
 	BluetoothWrapper& _conn;
 };

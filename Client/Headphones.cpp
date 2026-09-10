@@ -18,11 +18,13 @@ void Headphones::setAmbientSoundControl(bool val)
 
 bool Headphones::getAmbientSoundControl()
 {
+	std::lock_guard guard(this->_propertyMtx);
 	return this->_ambientSoundControl.current;
 }
 
 bool Headphones::isFocusOnVoiceAvailable()
 {
+	std::lock_guard guard(this->_propertyMtx);
 	return this->_ambientSoundControl.current && this->_asmLevel.current > MINIMUM_VOICE_FOCUS_STEP;
 }
 
@@ -34,11 +36,13 @@ void Headphones::setFocusOnVoice(bool val)
 
 bool Headphones::getFocusOnVoice()
 {
+	std::lock_guard guard(this->_propertyMtx);
 	return this->_focusOnVoice.current;
 }
 
 bool Headphones::isSetAsmLevelAvailable()
 {
+	std::lock_guard guard(this->_propertyMtx);
 	return this->_ambientSoundControl.current;
 }
 
@@ -50,6 +54,7 @@ void Headphones::setAsmLevel(int val)
 
 int Headphones::getAsmLevel()
 {
+	std::lock_guard guard(this->_propertyMtx);
 	return this->_asmLevel.current;
 }
 
@@ -61,6 +66,7 @@ void Headphones::setSurroundPosition(SOUND_POSITION_PRESET val)
 
 SOUND_POSITION_PRESET Headphones::getSurroundPosition()
 {
+	std::lock_guard guard(this->_propertyMtx);
 	return this->_surroundPosition.current;
 }
 
@@ -72,6 +78,7 @@ void Headphones::setVptType(int val)
 
 int Headphones::getVptType()
 {
+	std::lock_guard guard(this->_propertyMtx);
 	return this->_vptType.current;
 }
 
@@ -92,8 +99,8 @@ void Headphones::requestBattery()
 		auto resp = this->_conn.sendCommandAndReadResponse({ (char)V2Command::BATTERY_GET, 0x00 }, V2Command::BATTERY_RET, 0x00);
 		if (resp.size() >= 4) {
 			std::lock_guard guard(this->_propertyMtx);
-			this->_batteryLevel = (unsigned char)resp[2];
-			this->_batteryCharging = resp[3] == 1;
+			this->_deviceState.battery.main = (unsigned char)resp[2];
+			this->_deviceState.battery.charging = (resp[3] == 1);
 			return; // found a single battery; don't waste time probing the TWS types
 		}
 	} catch (...) {}
@@ -103,10 +110,12 @@ void Headphones::requestBattery()
 		auto resp = this->_conn.sendCommandAndReadResponse({ (char)V2Command::BATTERY_GET, 0x09 }, V2Command::BATTERY_RET, 0x09);
 		if (resp.size() >= 6) {
 			std::lock_guard guard(this->_propertyMtx);
-			this->_hasDualBattery = true;
-			this->_batteryLeft = (unsigned char)resp[2];
-			this->_batteryRight = (unsigned char)resp[4];
-			this->_batteryLevel = std::min(this->_batteryLeft, this->_batteryRight);
+			unsigned char left = (unsigned char)resp[2];
+			unsigned char right = (unsigned char)resp[4];
+			this->_deviceState.battery.left = left;
+			this->_deviceState.battery.right = right;
+			this->_deviceState.battery.main = std::min(left, right);
+			this->_deviceState.battery.charging = (resp[3] == 1) || (resp[5] == 1);
 		}
 	} catch (...) {}
 
@@ -114,25 +123,46 @@ void Headphones::requestBattery()
 		auto resp = this->_conn.sendCommandAndReadResponse({ (char)V2Command::BATTERY_GET, 0x0a }, V2Command::BATTERY_RET, 0x0a);
 		if (resp.size() >= 4) {
 			std::lock_guard guard(this->_propertyMtx);
-			this->_batteryCase = (unsigned char)resp[2];
+			this->_deviceState.battery.caseBattery = (unsigned char)resp[2];
 		}
 	} catch (...) {}
 }
 
 int Headphones::getBatteryLevel()
 {
-	return this->_batteryLevel;
+	std::lock_guard guard(this->_propertyMtx);
+	return this->_deviceState.battery.main.value_or(-1);
 }
 
 bool Headphones::isBatteryCharging()
 {
-	return this->_batteryCharging;
+	std::lock_guard guard(this->_propertyMtx);
+	return this->_deviceState.battery.charging;
 }
 
-bool Headphones::hasDualBattery() { return this->_hasDualBattery; }
-int Headphones::getBatteryLeft() { return this->_batteryLeft; }
-int Headphones::getBatteryRight() { return this->_batteryRight; }
-int Headphones::getBatteryCase() { return this->_batteryCase; }
+bool Headphones::hasDualBattery()
+{
+	std::lock_guard guard(this->_propertyMtx);
+	return this->_deviceState.battery.left.has_value() && this->_deviceState.battery.right.has_value();
+}
+
+int Headphones::getBatteryLeft()
+{
+	std::lock_guard guard(this->_propertyMtx);
+	return this->_deviceState.battery.left.value_or(-1);
+}
+
+int Headphones::getBatteryRight()
+{
+	std::lock_guard guard(this->_propertyMtx);
+	return this->_deviceState.battery.right.value_or(-1);
+}
+
+int Headphones::getBatteryCase()
+{
+	std::lock_guard guard(this->_propertyMtx);
+	return this->_deviceState.battery.caseBattery.value_or(-1);
+}
 
 void Headphones::requestEqualizer()
 {
@@ -144,14 +174,14 @@ void Headphones::requestEqualizer()
 	if (resp.size() >= 3)
 	{
 		std::lock_guard guard(this->_propertyMtx);
-		this->_eqPreset = static_cast<EQ_PRESET>((unsigned char)resp[2]);
+		this->_deviceState.equalizer.preset = static_cast<int>((unsigned char)resp[2]);
 		// When band data is present (57 00 <preset> 06 <bass+10> <b1..b5+10>), decode the -10..10 values.
 		if (resp.size() >= 10)
 		{
-			this->_eqClearBass = (unsigned char)resp[4] - 10;
-			for (int i = 0; i < 5; i++)
+			this->_deviceState.equalizer.clearBass = (unsigned char)resp[4] - 10;
+			for (size_t i = 0; i < 5; i++)
 			{
-				this->_eqBands[i] = (unsigned char)resp[5 + i] - 10;
+				this->_deviceState.equalizer.bands[i] = (unsigned char)resp[5 + i] - 10;
 			}
 		}
 	}
@@ -159,7 +189,8 @@ void Headphones::requestEqualizer()
 
 EQ_PRESET Headphones::getEqualizerPreset()
 {
-	return this->_eqPreset;
+	std::lock_guard guard(this->_propertyMtx);
+	return static_cast<EQ_PRESET>(this->_deviceState.equalizer.preset);
 }
 
 void Headphones::setEqualizerPreset(EQ_PRESET preset)
@@ -172,7 +203,7 @@ void Headphones::setEqualizerPreset(EQ_PRESET preset)
 		0x00
 	});
 	std::lock_guard guard(this->_propertyMtx);
-	this->_eqPreset = preset;
+	this->_deviceState.equalizer.preset = static_cast<int>(preset);
 }
 
 void Headphones::setEqualizerCustom(int clearBass, const std::vector<int>& bands)
@@ -193,22 +224,24 @@ void Headphones::setEqualizerCustom(int clearBass, const std::vector<int>& bands
 	this->_conn.sendCommand(cmd);
 
 	std::lock_guard guard(this->_propertyMtx);
-	this->_eqPreset = EQ_PRESET::MANUAL;
-	this->_eqClearBass = clearBass;
-	for (int i = 0; i < 5; i++)
+	this->_deviceState.equalizer.preset = static_cast<int>(EQ_PRESET::MANUAL);
+	this->_deviceState.equalizer.clearBass = clearBass;
+	for (size_t i = 0; i < 5; i++)
 	{
-		this->_eqBands[i] = i < (int)bands.size() ? bands[i] : 0;
+		this->_deviceState.equalizer.bands[i] = i < bands.size() ? bands[i] : 0;
 	}
 }
 
 int Headphones::getClearBass()
 {
-	return this->_eqClearBass;
+	std::lock_guard guard(this->_propertyMtx);
+	return this->_deviceState.equalizer.clearBass;
 }
 
 int Headphones::getEqualizerBand(int index)
 {
-	return (index >= 0 && index < (int)this->_eqBands.size()) ? this->_eqBands[index] : 0;
+	std::lock_guard guard(this->_propertyMtx);
+	return (index >= 0 && index < 5) ? this->_deviceState.equalizer.bands[index] : 0;
 }
 
 void Headphones::requestDsee()
@@ -221,13 +254,14 @@ void Headphones::requestDsee()
 	if (resp.size() >= 3)
 	{
 		std::lock_guard guard(this->_propertyMtx);
-		this->_dsee = resp[2] != 0;
+		this->_deviceState.dsee = resp[2] != 0;
 	}
 }
 
 bool Headphones::getDsee()
 {
-	return this->_dsee;
+	std::lock_guard guard(this->_propertyMtx);
+	return this->_deviceState.dsee;
 }
 
 void Headphones::setDsee(bool enabled)
@@ -239,7 +273,7 @@ void Headphones::setDsee(bool enabled)
 		(char)(enabled ? 0x01 : 0x00)
 	});
 	std::lock_guard guard(this->_propertyMtx);
-	this->_dsee = enabled;
+	this->_deviceState.dsee = enabled;
 }
 
 void Headphones::requestAmbientState()
@@ -262,6 +296,10 @@ void Headphones::requestAmbientState()
 			this->_ambientSoundControl.current = this->_ambientSoundControl.desired = on;
 			this->_asmLevel.current = this->_asmLevel.desired = ambient ? level : 0;
 			this->_focusOnVoice.current = this->_focusOnVoice.desired = voice;
+
+			this->_deviceState.noiseControl.mode = on ? (ambient ? sony::protocol::NoiseControlMode::Ambient : sony::protocol::NoiseControlMode::NoiseCancelling) : sony::protocol::NoiseControlMode::Off;
+			this->_deviceState.noiseControl.ambientLevel = ambient ? level : 0;
+			this->_deviceState.noiseControl.focusOnVoice = voice;
 		}
 	}
 	else
@@ -314,67 +352,91 @@ void Headphones::probeCapabilities()
 	// so we never expose or send a command the device can't handle.
 	try {
 		auto r = this->_conn.sendCommandAndReadResponse({ (char)V2Command::FW_GET, 0x02 }, V2Command::FW_RET);
-		if (r.size() > 3) { std::lock_guard g(this->_propertyMtx); this->_firmware = std::string(r.begin() + 3, r.end()); this->_hasFirmware = true; }
+		if (r.size() > 3) {
+			std::lock_guard g(this->_propertyMtx);
+			this->_deviceState.firmware = std::string(r.begin() + 3, r.end());
+			this->_hasFirmware = true;
+		}
 	} catch (...) {}
 
 	try {
 		auto r = this->_conn.sendCommandAndReadResponse({ (char)V2Command::CODEC_GET, 0x02 }, V2Command::CODEC_RET);
-		if (r.size() >= 3) { auto n = codecName((unsigned char)r[2]); if (!n.empty()) { std::lock_guard g(this->_propertyMtx); this->_codec = n; this->_hasCodec = true; } }
+		if (r.size() >= 3) {
+			auto n = codecName((unsigned char)r[2]);
+			if (!n.empty()) {
+				std::lock_guard g(this->_propertyMtx);
+				this->_deviceState.codec = n;
+				this->_hasCodec = true;
+			}
+		}
 	} catch (...) {}
 
 	try {
 		auto r = this->_conn.sendCommandAndReadResponse({ (char)V2Command::APO_GET, 0x05 }, V2Command::APO_RET);
-		if (r.size() >= 4) { std::lock_guard g(this->_propertyMtx); this->_autoPowerOff = apoIndexFromCode((unsigned char)r[2], (unsigned char)r[3]); this->_hasAutoPowerOff = true; }
+		if (r.size() >= 4) {
+			std::lock_guard g(this->_propertyMtx);
+			this->_deviceState.autoPowerOff = apoIndexFromCode((unsigned char)r[2], (unsigned char)r[3]);
+			this->_hasAutoPowerOff = true;
+		}
 	} catch (...) {}
 
 	try {
 		auto r = this->_conn.sendCommandAndReadResponse({ (char)V2Command::BTNMODE_GET, (char)V2Command::SUB_ADAPTIVE_VOLUME }, V2Command::BTNMODE_RET, V2Command::SUB_ADAPTIVE_VOLUME);
-		if (r.size() >= 3) { std::lock_guard g(this->_propertyMtx); this->_adaptiveVolume = (r[2] == 0); this->_hasAdaptiveVolume = true; }
+		if (r.size() >= 3) {
+			std::lock_guard g(this->_propertyMtx);
+			this->_deviceState.adaptiveVolume = (r[2] == 0);
+			this->_hasAdaptiveVolume = true;
+		}
 	} catch (...) {}
 
 	try {
 		auto r = this->_conn.sendCommandAndReadResponse({ (char)V2Command::BTNMODE_GET, (char)V2Command::SUB_SPEAK_TO_CHAT }, V2Command::BTNMODE_RET, V2Command::SUB_SPEAK_TO_CHAT);
-		if (r.size() >= 3) { std::lock_guard g(this->_propertyMtx); this->_speakToChat = (r[2] == 0); this->_hasSpeakToChat = true; }
+		if (r.size() >= 3) {
+			std::lock_guard g(this->_propertyMtx);
+			this->_deviceState.speakToChat = (r[2] == 0);
+			this->_hasSpeakToChat = true;
+		}
 	} catch (...) {}
 }
 
-bool Headphones::hasAutoPowerOff() { return this->_hasAutoPowerOff; }
-int Headphones::getAutoPowerOff() { return this->_autoPowerOff; }
+bool Headphones::hasAutoPowerOff() { std::lock_guard g(this->_propertyMtx); return this->_hasAutoPowerOff; }
+int Headphones::getAutoPowerOff() { std::lock_guard g(this->_propertyMtx); return this->_deviceState.autoPowerOff; }
 void Headphones::setAutoPowerOff(int index)
 {
 	if (index < 0 || index > 5) return;
 	this->_conn.sendCommand({ (char)V2Command::APO_SET, 0x05, (char)APO_CODES[index].first, (char)APO_CODES[index].second });
 	std::lock_guard guard(this->_propertyMtx);
-	this->_autoPowerOff = index;
+	this->_deviceState.autoPowerOff = index;
 }
 
-bool Headphones::hasFirmware() { return this->_hasFirmware; }
-std::string Headphones::getFirmware() { return this->_firmware; }
-bool Headphones::hasCodec() { return this->_hasCodec; }
-std::string Headphones::getCodec() { return this->_codec; }
+bool Headphones::hasFirmware() { std::lock_guard g(this->_propertyMtx); return this->_hasFirmware; }
+std::string Headphones::getFirmware() { std::lock_guard g(this->_propertyMtx); return this->_deviceState.firmware; }
+bool Headphones::hasCodec() { std::lock_guard g(this->_propertyMtx); return this->_hasCodec; }
+std::string Headphones::getCodec() { std::lock_guard g(this->_propertyMtx); return this->_deviceState.codec; }
 
-bool Headphones::hasSpeakToChat() { return this->_hasSpeakToChat; }
-bool Headphones::getSpeakToChat() { return this->_speakToChat; }
+bool Headphones::hasSpeakToChat() { std::lock_guard g(this->_propertyMtx); return this->_hasSpeakToChat; }
+bool Headphones::getSpeakToChat() { std::lock_guard g(this->_propertyMtx); return this->_deviceState.speakToChat; }
 void Headphones::setSpeakToChat(bool enabled)
 {
 	// SET: f8 0c <enabled? 0:1> 01  (enable bit is inverted on v2)
 	this->_conn.sendCommand({ (char)V2Command::BTNMODE_SET, (char)V2Command::SUB_SPEAK_TO_CHAT, (char)(enabled ? 0x00 : 0x01), 0x01 });
 	std::lock_guard guard(this->_propertyMtx);
-	this->_speakToChat = enabled;
+	this->_deviceState.speakToChat = enabled;
 }
 
-bool Headphones::hasAdaptiveVolume() { return this->_hasAdaptiveVolume; }
-bool Headphones::getAdaptiveVolume() { return this->_adaptiveVolume; }
+bool Headphones::hasAdaptiveVolume() { std::lock_guard g(this->_propertyMtx); return this->_hasAdaptiveVolume; }
+bool Headphones::getAdaptiveVolume() { std::lock_guard g(this->_propertyMtx); return this->_deviceState.adaptiveVolume; }
 void Headphones::setAdaptiveVolume(bool enabled)
 {
 	// SET: f8 0a <enabled? 0:1>  (inverted)
 	this->_conn.sendCommand({ (char)V2Command::BTNMODE_SET, (char)V2Command::SUB_ADAPTIVE_VOLUME, (char)(enabled ? 0x00 : 0x01) });
 	std::lock_guard guard(this->_propertyMtx);
-	this->_adaptiveVolume = enabled;
+	this->_deviceState.adaptiveVolume = enabled;
 }
 
 bool Headphones::isChanged()
 {
+	std::lock_guard guard(this->_propertyMtx);
 	return !(this->_ambientSoundControl.isFulfilled() && this->_asmLevel.isFulfilled() && this->_focusOnVoice.isFulfilled() && this->_surroundPosition.isFulfilled() && this->_vptType.isFulfilled());
 }
 
@@ -415,6 +477,9 @@ void Headphones::setChanges()
 		this->_ambientSoundControl.fulfill();
 		this->_asmLevel.fulfill();
 		this->_focusOnVoice.fulfill();
+		this->_deviceState.noiseControl.mode = this->_ambientSoundControl.current ? (this->_asmLevel.current > 0 ? sony::protocol::NoiseControlMode::Ambient : sony::protocol::NoiseControlMode::NoiseCancelling) : sony::protocol::NoiseControlMode::Off;
+		this->_deviceState.noiseControl.ambientLevel = this->_asmLevel.current;
+		this->_deviceState.noiseControl.focusOnVoice = this->_focusOnVoice.current;
 	}
 
 	// VPT/Surround has no known v2 command and no hardware on v2-only devices like the CH720N - v1 only.
@@ -451,4 +516,16 @@ void Headphones::setChanges()
 		this->_vptType.fulfill();
 		this->_surroundPosition.fulfill();
 	}
+}
+
+sony::protocol::DeviceState Headphones::state() const
+{
+	std::lock_guard guard(this->_propertyMtx);
+	return this->_deviceState;
+}
+
+std::shared_ptr<const sony::protocol::DeviceState> Headphones::snapshot() const
+{
+	std::lock_guard guard(this->_propertyMtx);
+	return std::make_shared<const sony::protocol::DeviceState>(this->_deviceState);
 }
