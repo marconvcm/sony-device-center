@@ -102,23 +102,24 @@ private:
     bool _usingIpc{false};
 
     // Cached UI state
-    QString _deviceName{"WH-1000XM5"};
-    QString _deviceAddress{"CC:98:8B:00:11:22"};
-    bool _connected{true};
-    int _batteryLevel{87};
+    QString _deviceName{""};
+    QString _deviceAddress{""};
+    bool _connected{false};
+    int _batteryLevel{0};
     bool _isCharging{false};
-    QString _noiseControlMode{"cancelling"};
+    QString _noiseControlMode{"off"};
     int _ambientLevel{10};
     bool _focusOnVoice{false};
-    int _equalizerPreset{0x16}; // Bass Boost
-    QString _equalizerPresetName{"Bass Boost"};
-    int _clearBass{4};
+    int _equalizerPreset{0x00};
+    QString _equalizerPresetName{"Off"};
+    int _clearBass{0};
     QVariantList _equalizerBands{0, 0, 0, 0, 0};
-    bool _dsee{true};
-    bool _speakToChat{true};
+    bool _dsee{false};
+    bool _speakToChat{false};
     bool _adaptiveVolume{false};
-    int _autoPowerOff{3};
+    int _autoPowerOff{0};
     QVariantList _pairedDevices;
+
 };
 
 } // namespace sony::devicecenter

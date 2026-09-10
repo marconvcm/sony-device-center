@@ -61,8 +61,6 @@ int LinuxBluetoothConnector::send(char *buf, size_t length)
 
 void LinuxBluetoothConnector::connect(const std::string &addrStr)
 {
-
-  printf("connecting to %s\n", addrStr.c_str());
   struct sockaddr_rc addr = {0};
   int status;
   const char *dest = addrStr.c_str();
@@ -92,7 +90,6 @@ void LinuxBluetoothConnector::connect(const std::string &addrStr)
   {
     throw RecoverableException("Couldn't find the Sony service record on this device (neither protocol version) - is this a supported headset?", true);
   }
-  printf("channel: %d\n", channel);
   addr.rc_channel = channel;
   str2ba(dest, &addr.rc_bdaddr);
 
@@ -120,10 +117,17 @@ std::vector<BluetoothDevice> LinuxBluetoothConnector::getConnectedDevices()
   std::vector<std::string> adapter_paths = dbus_list_adapters(connection);
   for (auto &adapter : adapter_paths)
   {
-    printf("%s\n", adapter.c_str());
     std::string name = dbus_get_property(connection, adapter.c_str(), "Name");
     std::string address = dbus_get_property(connection, adapter.c_str(), "Address");
-    res.push_back({.name = name, .mac = address});
+    bool connected = dbus_get_property_bool(connection, adapter.c_str(), "Connected");
+    if (connected)
+    {
+      res.insert(res.begin(), {.name = name, .mac = address});
+    }
+    else
+    {
+      res.push_back({.name = name, .mac = address});
+    }
   }
 
   return res;
@@ -137,7 +141,6 @@ void LinuxBluetoothConnector::disconnect() noexcept
     ::close(this->_socket);
   }
   this->_connected = false;
-  printf("closed\n");
 }
 
 bool LinuxBluetoothConnector::isConnected() noexcept

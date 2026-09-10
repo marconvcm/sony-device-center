@@ -2,7 +2,9 @@
 #include "sony/core/IpcServer.h"
 #include "sony/protocol/FrameCodec.h"
 #include "sony/transport/FakeTransport.h"
+#include "sony/transport/PlatformTransport.h"
 #include "sony/transport/Logger.h"
+
 
 #include <atomic>
 #include <chrono>
@@ -146,28 +148,52 @@ int main(int argc, char* argv[]) {
     std::shared_ptr<ITransport> transport;
     std::shared_ptr<IDeviceDiscovery> discovery;
 
-    // Simulated or fallback transport
-    auto fakeTransport = std::make_shared<SimulatedDaemonTransport>();
-    auto fakeDiscovery = std::make_shared<FakeDeviceDiscovery>();
-    fakeDiscovery->addDevice(transport::DiscoveredDevice{
-        .name = deviceName,
-        .address = DeviceAddress(deviceAddr.empty() ? "CC:98:8B:00:11:22" : deviceAddr)
-    });
+    if (!simulated) {
+        transport = transport::createPlatformTransport();
+        discovery = transport::createPlatformDiscovery();
+    }
 
-    transport = fakeTransport;
-    discovery = fakeDiscovery;
+    std::string targetAddress = deviceAddr;
+    if (targetAddress.empty() && discovery) {
+        auto devs = discovery->discover();
+        if (!devs.empty()) {
+            targetAddress = devs.front().address.str();
+            deviceName = devs.front().name;
+            std::cout << "[sonyd] Discovered " << devs.size() << " Sony device(s). Selecting: "
+                      << deviceName << " [" << targetAddress << "]\n";
+        }
+    }
+
+    if (simulated) {
+        auto fakeTransport = std::make_shared<SimulatedDaemonTransport>();
+        auto fakeDiscovery = std::make_shared<FakeDeviceDiscovery>();
+        fakeDiscovery->addDevice(transport::DiscoveredDevice{
+            .name = deviceName.empty() ? "WH-1000XM5" : deviceName,
+            .address = DeviceAddress(targetAddress.empty() ? "CC:98:8B:00:11:22" : targetAddress)
+        });
+        transport = fakeTransport;
+        discovery = fakeDiscovery;
+        if (targetAddress.empty()) {
+            targetAddress = "CC:98:8B:00:11:22";
+            deviceName = "WH-1000XM5";
+        }
+    }
 
     auto service = std::make_shared<DeviceService>(transport, discovery);
 
     // Auto-connect to device
-    std::string targetAddress = deviceAddr.empty() ? "CC:98:8B:00:11:22" : deviceAddr;
-    std::cout << "[sonyd] Initializing device connection to " << targetAddress << " (" << deviceName << ")...\n";
-    try {
-        service->connect(DeviceAddress(targetAddress), deviceName);
-        std::cout << "[sonyd] Connected successfully. Protocol V2 active.\n";
-    } catch (const std::exception& ex) {
-        std::cerr << "[sonyd] Warning: initial device connection deferred: " << ex.what() << "\n";
+    if (!targetAddress.empty()) {
+        std::cout << "[sonyd] Initializing device connection to " << targetAddress << " (" << deviceName << ")...\n";
+        try {
+            service->connect(DeviceAddress(targetAddress), deviceName);
+            std::cout << "[sonyd] Connected successfully to " << deviceName << ".\n";
+        } catch (const std::exception& ex) {
+            std::cerr << "[sonyd] Warning: initial device connection deferred: " << ex.what() << "\n";
+        }
+    } else {
+        std::cout << "[sonyd] No paired Sony device found. Waiting for connection command via IPC...\n";
     }
+
 
     // Start IPC Server
     auto server = std::make_unique<IpcServer>(service, socketPath);

@@ -3,7 +3,9 @@
 #include "sony/core/IpcProtocol.h"
 #include "sony/protocol/FrameCodec.h"
 #include "sony/transport/FakeTransport.h"
+#include "sony/transport/PlatformTransport.h"
 #include "sony/transport/Logger.h"
+
 
 #include <iostream>
 #include <memory>
@@ -111,17 +113,24 @@ int main(int argc, char* argv[]) {
     std::cerr << "Notice: sonyd daemon is not running at " << socketPath << "\n"
               << "Starting direct session...\n";
 
-    // Direct mode with fake/simulated transport fallback if no hardware available
-    auto fakeTransport = std::make_shared<FakeTransport>();
-    auto fakeDiscovery = std::make_shared<FakeDeviceDiscovery>();
-    fakeDiscovery->addDevice(transport::DiscoveredDevice{
-        .name = "WH-1000XM5",
-        .address = DeviceAddress("CC:98:8B:00:11:22")
-    });
+    std::shared_ptr<ITransport> transport = transport::createPlatformTransport();
+    std::shared_ptr<IDeviceDiscovery> discovery = transport::createPlatformDiscovery();
+    DeviceService service(transport, discovery);
 
-    DeviceService service(fakeTransport, fakeDiscovery);
     auto cmd = IpcProtocol::parseCommand(commandLine);
+    if (cmd.type != IpcCommandType::Devices) {
+        auto devs = service.discoverDevices();
+        if (!devs.empty()) {
+            try {
+                service.connect(DeviceAddress(devs.front().address), devs.front().name);
+            } catch (const std::exception& ex) {
+                std::cerr << "Notice: initial connection to " << devs.front().name << " deferred: " << ex.what() << "\n";
+            }
+        }
+    }
+
     auto resp = IpcProtocol::execute(cmd, service);
+
 
     if (resp.success) {
         if (!resp.data.empty()) {

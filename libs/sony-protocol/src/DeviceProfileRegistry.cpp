@@ -149,6 +149,29 @@ const std::vector<DeviceProfile>& getStaticProfiles() {
                 .multipoint = true
             }
         },
+        // WF-1000XM6 (V2 protocol, TWS flagship)
+        DeviceProfile{
+            .model = SonyModel::WF1000XM6,
+            .protocol = SonyProtocolVersion::V2,
+            .capabilities = DeviceCapabilities{
+                .battery = true,
+                .dualBattery = true,
+                .noiseCancelling = true,
+                .ambientSound = true,
+                .focusOnVoice = true,
+                .equalizer = true,
+                .clearBass = true,
+                .dsee = true,
+                .speakToChat = true,
+                .adaptiveVolume = true,
+                .autoPowerOff = true,
+                .firmwareInfo = true,
+                .codecInfo = true,
+                .wearSensor = true,
+                .multipoint = true
+            }
+        },
+
         // WH-CH720N (V2 protocol, over-ear, EQ, DSEE, multipoint)
         DeviceProfile{
             .model = SonyModel::WHCH720N,
@@ -246,6 +269,10 @@ SonyModel DeviceProfileRegistry::identifyModel(std::string_view deviceName) noex
     if (upper.find("WF-1000XM5") != std::string::npos || upper.find("WF1000XM5") != std::string::npos) {
         return SonyModel::WF1000XM5;
     }
+    if (upper.find("WF-1000XM6") != std::string::npos || upper.find("WF1000XM6") != std::string::npos) {
+        return SonyModel::WF1000XM6;
+    }
+
     if (upper.find("WH-CH720N") != std::string::npos || upper.find("CH720N") != std::string::npos) {
         return SonyModel::WHCH720N;
     }

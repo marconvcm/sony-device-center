@@ -23,6 +23,7 @@ enum class SonyModel
 
     WF1000XM4,
     WF1000XM5,
+    WF1000XM6,
 
     WHCH720N,
     ULTWear,

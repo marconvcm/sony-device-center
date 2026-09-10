@@ -540,4 +540,5 @@ CPackSourceConfig.cmake
 *.dmg
 *.msi
 *.AppImage
+Client/resources/devices/output/
 
