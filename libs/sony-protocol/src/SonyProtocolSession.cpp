@@ -36,6 +36,7 @@ void SonyProtocolSession::start() {
         std::lock_guard lock(_sessionMtx);
         _streamBuffer.clear();
         _lastSeenDataSeq.reset();
+        _unmatchedFrames.clear();
         _hasAck = false;
         _pendingRequest.reset();
     }
@@ -51,6 +52,7 @@ void SonyProtocolSession::disconnect() noexcept {
         std::lock_guard lock(_sessionMtx);
         _streamBuffer.clear();
         _lastSeenDataSeq.reset();
+        _unmatchedFrames.clear();
         _pendingRequest.reset();
         _hasAck = false;
         _ackCv.notify_all();
@@ -235,6 +237,12 @@ void SonyProtocolSession::_handleDecodedFrame(const SonyFrame& frame) {
                     }
                 }
             }
+            if (!matchedRequest) {
+                _unmatchedFrames.push_back(frame);
+                if (_unmatchedFrames.size() > 32) {
+                    _unmatchedFrames.pop_front();
+                }
+            }
         }
 
         if (matchedRequest) {
@@ -292,7 +300,6 @@ void SonyProtocolSession::send(const SonyFrame& frame, std::chrono::milliseconds
 
     {
         std::lock_guard lock(_sessionMtx);
-        _hasAck = false;
         _expectedAckSeq = toSend.sequence;
     }
 
@@ -310,6 +317,7 @@ void SonyProtocolSession::send(const SonyFrame& frame, std::chrono::milliseconds
     if (!received || !_hasAck) {
         throw SonyException(SonyErrorCode::Timeout, "Timeout waiting for ACK");
     }
+    _hasAck = false;
 }
 
 SonyFrame SonyProtocolSession::sendAndAwaitResponse(
@@ -331,16 +339,27 @@ SonyFrame SonyProtocolSession::sendAndAwaitResponse(
 
     {
         std::lock_guard lock(_sessionMtx);
-        _hasAck = false;
         _expectedAckSeq = toSend.sequence;
         _pendingRequest = PendingRequest{
             .expectedOpcode = retOpcode,
             .expectedSubtype = retSubtype,
             .hasResponse = false,
             .response = {},
-            .hasAck = false,
+            .hasAck = _hasAck,
             .expectedAckSeq = toSend.sequence
         };
+
+        // Check if matching response was already buffered in _unmatchedFrames
+        for (auto it = _unmatchedFrames.begin(); it != _unmatchedFrames.end(); ++it) {
+            if (!it->payload.empty() && it->payload[0] == retOpcode) {
+                if (retSubtype < 0 || (it->payload.size() >= 2 && it->payload[1] == static_cast<uint8_t>(retSubtype))) {
+                    _pendingRequest->response = *it;
+                    _pendingRequest->hasResponse = true;
+                    _unmatchedFrames.erase(it);
+                    break;
+                }
+            }
+        }
     }
 
     _writeFrame(toSend);
@@ -360,6 +379,7 @@ SonyFrame SonyProtocolSession::sendAndAwaitResponse(
         throw SonyException(SonyErrorCode::Timeout, "Timeout waiting for response from device");
     }
 
+    _hasAck = false;
     SonyFrame resp = std::move(_pendingRequest->response);
     _pendingRequest.reset();
     return resp;

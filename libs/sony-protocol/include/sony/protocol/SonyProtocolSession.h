@@ -10,6 +10,7 @@
 #include <chrono>
 #include <condition_variable>
 #include <cstdint>
+#include <deque>
 #include <functional>
 #include <memory>
 #include <mutex>
@@ -92,6 +93,7 @@ private:
     };
 
     std::optional<PendingRequest> _pendingRequest;
+    std::deque<SonyFrame> _unmatchedFrames;
     bool _hasAck{false};
     uint8_t _expectedAckSeq{0};
 

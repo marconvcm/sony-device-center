@@ -4,6 +4,8 @@ project(sony-protocol LANGUAGES CXX)
 add_library(sony-protocol
     src/FrameCodec.cpp
     src/SonyProtocolSession.cpp
+    src/ProtocolV1.cpp
+    src/ProtocolV2.cpp
 )
 
 target_compile_features(sony-protocol PUBLIC cxx_std_20)
