@@ -464,7 +464,7 @@ void DeviceCenterController::setAutostart(bool enable) {
             out << "[Desktop Entry]\n";
             out << "Type=Application\n";
             out << "Name=Sony Device Center\n";
-            out << "Comment=Companion app for Sony WH/WF/LinkBuds audio devices\n";
+            out << "Comment=Unofficial open-source companion for Sony WH/WF/LinkBuds audio devices\n";
             out << "Exec=" << QCoreApplication::applicationFilePath() << "\n";
             out << "Icon=sony-device-center\n";
             out << "Terminal=false\n";

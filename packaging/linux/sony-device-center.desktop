@@ -1,7 +1,7 @@
 [Desktop Entry]
 Name=Sony Device Center
 GenericName=Sony Audio Companion
-Comment=Companion app for Sony WH/WF/LinkBuds audio devices
+Comment=Unofficial open-source companion for Sony WH/WF/LinkBuds audio devices
 Exec=sony-device-center
 Icon=sony-device-center
 Terminal=false

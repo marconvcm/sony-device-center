@@ -18,6 +18,13 @@
       <li>Auto power-off configuration</li>
       <li>Background daemon with socket IPC and CLI utility</li>
     </ul>
+    <p>
+      Sony Device Center is an independent open-source project, free for anyone to
+      use, study and modify. It is not affiliated with, endorsed by, or connected to
+      Sony Corporation. Sony and all product names are trademarks of their respective
+      owners. The app talks to the headphones over a reverse-engineered protocol, for
+      interoperability.
+    </p>
   </description>
   <launchable type="desktop-id">sony-device-center.desktop</launchable>
   <provides>

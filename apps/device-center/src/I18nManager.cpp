@@ -60,6 +60,7 @@ void I18nManager::_initTranslations() {
     en["language"]            = "Display Language";
     en["language_desc"]       = "Select your preferred language for the user interface.";
     en["about_app"]           = "About Application";
+    en["disclaimer"]         = "Sony Device Center is an independent open-source project, free for anyone to use, study and modify. It is not affiliated with, endorsed by, or connected to Sony Corporation. Sony and all product names are trademarks of their respective owners.";
     en["app_version"]         = "Version";
     en["links_support"]       = "Community & Support";
     en["donate_desc"]         = "Enjoying Sony Device Center? Support the development or check out the open-source repository.";
@@ -99,6 +100,7 @@ void I18nManager::_initTranslations() {
     pt["language"]            = "Idioma de Exibição";
     pt["language_desc"]       = "Selecione seu idioma preferido para a interface.";
     pt["about_app"]           = "Sobre o Aplicativo";
+    pt["disclaimer"]         = "O Sony Device Center é um projeto open source independente, livre para qualquer pessoa usar, estudar e modificar. Não é afiliado, endossado nem conectado à Sony Corporation. Sony e todos os nomes de produtos são marcas de seus respectivos proprietários.";
     pt["app_version"]         = "Versão";
     pt["links_support"]       = "Comunidade & Apoio";
     pt["donate_desc"]         = "Gostando do Sony Device Center? Apoie o desenvolvimento contínuo ou confira o código-fonte.";
@@ -138,6 +140,7 @@ void I18nManager::_initTranslations() {
     es["language"]            = "Idioma";
     es["language_desc"]       = "Seleccione su idioma preferido para la interfaz.";
     es["about_app"]           = "Acerca de la Aplicación";
+    es["disclaimer"]         = "Sony Device Center es un proyecto de código abierto independiente, libre para que cualquiera lo use, estudie y modifique. No está afiliado, respaldado ni conectado con Sony Corporation. Sony y todos los nombres de productos son marcas de sus respectivos propietarios.";
     es["app_version"]         = "Versión";
     es["links_support"]       = "Comunidad y Soporte";
     es["donate_desc"]         = "¿Disfrutando de Sony Device Center? Apoye el desarrollo continuo o explore el código fuente.";
@@ -177,6 +180,7 @@ void I18nManager::_initTranslations() {
     de["language"]            = "Sprache";
     de["language_desc"]       = "Wählen Sie Ihre bevorzugte Sprache für die Benutzeroberfläche.";
     de["about_app"]           = "Über die Anwendung";
+    de["disclaimer"]         = "Sony Device Center ist ein unabhängiges Open-Source-Projekt, das jeder frei nutzen, untersuchen und verändern kann. Es steht in keiner Verbindung zur Sony Corporation und wird von ihr weder unterstützt noch empfohlen. Sony und alle Produktnamen sind Marken ihrer jeweiligen Inhaber.";
     de["app_version"]         = "Version";
     de["links_support"]       = "Community & Unterstützung";
     de["donate_desc"]         = "Gefällt Ihnen Sony Device Center? Unterstützen Sie die Weiterentwicklung oder besuchen Sie das Repository.";
@@ -216,6 +220,7 @@ void I18nManager::_initTranslations() {
     fr["language"]            = "Langue d'Affichage";
     fr["language_desc"]       = "Sélectionnez votre langue préférée pour l'interface utilisateur.";
     fr["about_app"]           = "À propos de l'application";
+    fr["disclaimer"]         = "Sony Device Center est un projet open source indépendant, que chacun est libre d'utiliser, d'étudier et de modifier. Il n'est ni affilié à Sony Corporation, ni approuvé ni soutenu par elle. Sony et tous les noms de produits sont des marques de leurs propriétaires respectifs.";
     fr["app_version"]         = "Version";
     fr["links_support"]       = "Communauté & Soutien";
     fr["donate_desc"]         = "Vous appréciez Sony Device Center ? Soutenez le développement continu ou consultez le code source.";
@@ -255,6 +260,7 @@ void I18nManager::_initTranslations() {
     ja["language"]            = "表示言語";
     ja["language_desc"]       = "UIの表示言語を選択します。";
     ja["about_app"]           = "アプリについて";
+    ja["disclaimer"]         = "Sony Device Center は独立したオープンソースプロジェクトであり、誰でも自由に使用・研究・改変できます。ソニー株式会社とは提携しておらず、承認や支援も受けていません。Sony および各製品名は各権利者の商標です。";
     ja["app_version"]         = "バージョン";
     ja["links_support"]       = "コミュニティと支援";
     ja["donate_desc"]         = "Sony Device Centerを気に入っていただけましたら、開発のご支援やリポジトリの確認をお願いします。";

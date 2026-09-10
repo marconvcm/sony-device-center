@@ -2175,6 +2175,25 @@ ApplicationWindow {
                         }
                     }
 
+                    // Independent-project notice. It lives on the page rather
+                    // than inside the About card because it is a trademark
+                    // statement, not a detail about the build.
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.topMargin: 10
+                        Layout.preferredHeight: 1
+                        color: window.line
+                    }
+
+                    Text {
+                        Layout.fillWidth: true
+                        text: window.tr("disclaimer")
+                        color: window.txtFaint
+                        font.pixelSize: 11.5
+                        lineHeight: 1.4
+                        wrapMode: Text.WordWrap
+                    }
+
                     Item { Layout.fillHeight: true }
                 }
             }
