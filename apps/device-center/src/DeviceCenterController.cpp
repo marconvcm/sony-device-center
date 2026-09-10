@@ -232,11 +232,13 @@ QVariantList DeviceCenterController::pairedDevices() const { return _pairedDevic
 
 void DeviceCenterController::setAnc(bool enabled) {
     _noiseControlMode = enabled ? "cancelling" : "off";
-    if (_usingIpc && _ipcClient) {
-        _ipcClient->sendCommand(enabled ? "anc on" : "anc off");
-    } else if (_directService && _directService->activeDevice()) {
-        _directService->activeDevice()->setAnc(enabled);
-    }
+    try {
+        if (_usingIpc && _ipcClient) {
+            _ipcClient->sendCommand(enabled ? "anc on" : "anc off");
+        } else if (_directService && _directService->activeDevice()) {
+            _directService->activeDevice()->setAnc(enabled);
+        }
+    } catch (...) {}
     emit stateChanged();
 }
 
@@ -244,21 +246,25 @@ void DeviceCenterController::setAmbient(int level, bool focusOnVoice) {
     _noiseControlMode = "ambient";
     _ambientLevel = std::clamp(level, 1, 20);
     _focusOnVoice = focusOnVoice;
-    if (_usingIpc && _ipcClient) {
-        _ipcClient->sendCommand("ambient " + std::to_string(_ambientLevel));
-    } else if (_directService && _directService->activeDevice()) {
-        _directService->activeDevice()->setAmbient(_ambientLevel, _focusOnVoice);
-    }
+    try {
+        if (_usingIpc && _ipcClient) {
+            _ipcClient->sendCommand("ambient " + std::to_string(_ambientLevel));
+        } else if (_directService && _directService->activeDevice()) {
+            _directService->activeDevice()->setAmbient(_ambientLevel, _focusOnVoice);
+        }
+    } catch (...) {}
     emit stateChanged();
 }
 
 void DeviceCenterController::setNoiseControlOff() {
     _noiseControlMode = "off";
-    if (_usingIpc && _ipcClient) {
-        _ipcClient->sendCommand("anc off");
-    } else if (_directService && _directService->activeDevice()) {
-        _directService->activeDevice()->setAnc(false);
-    }
+    try {
+        if (_usingIpc && _ipcClient) {
+            _ipcClient->sendCommand("anc off");
+        } else if (_directService && _directService->activeDevice()) {
+            _directService->activeDevice()->setAnc(false);
+        }
+    } catch (...) {}
     emit stateChanged();
 }
 
@@ -279,11 +285,13 @@ void DeviceCenterController::setEqualizerPreset(int preset) {
         default: presetStr = "off"; _equalizerPresetName = "Off"; break;
     }
 
-    if (_usingIpc && _ipcClient) {
-        _ipcClient->sendCommand("eq preset " + presetStr);
-    } else if (_directService && _directService->activeDevice()) {
-        _directService->activeDevice()->setEqualizerPreset(preset);
-    }
+    try {
+        if (_usingIpc && _ipcClient) {
+            _ipcClient->sendCommand("eq preset " + presetStr);
+        } else if (_directService && _directService->activeDevice()) {
+            _directService->activeDevice()->setEqualizerPreset(preset);
+        }
+    } catch (...) {}
     emit stateChanged();
 }
 
@@ -293,60 +301,70 @@ void DeviceCenterController::setEqualizerCustom(int clearBass, const QVariantLis
     _equalizerPreset = 0x01;
     _equalizerPresetName = "Custom";
 
-    if (_usingIpc && _ipcClient) {
-        std::ostringstream oss;
-        oss << "eq custom " << _clearBass;
-        for (const auto& b : bands) {
-            oss << " " << b.toInt();
+    try {
+        if (_usingIpc && _ipcClient) {
+            std::ostringstream oss;
+            oss << "eq custom " << _clearBass;
+            for (const auto& b : bands) {
+                oss << " " << b.toInt();
+            }
+            _ipcClient->sendCommand(oss.str());
+        } else if (_directService && _directService->activeDevice()) {
+            std::array<int, 5> bArr{0, 0, 0, 0, 0};
+            for (int i = 0; i < 5 && i < bands.size(); ++i) {
+                bArr[i] = bands[i].toInt();
+            }
+            _directService->activeDevice()->setEqualizerCustom(_clearBass, bArr);
         }
-        _ipcClient->sendCommand(oss.str());
-    } else if (_directService && _directService->activeDevice()) {
-        std::array<int, 5> bArr{0, 0, 0, 0, 0};
-        for (int i = 0; i < 5 && i < bands.size(); ++i) {
-            bArr[i] = bands[i].toInt();
-        }
-        _directService->activeDevice()->setEqualizerCustom(_clearBass, bArr);
-    }
+    } catch (...) {}
     emit stateChanged();
 }
 
 void DeviceCenterController::setDsee(bool enabled) {
     _dsee = enabled;
-    if (_usingIpc && _ipcClient) {
-        _ipcClient->sendCommand(enabled ? "dsee on" : "dsee off");
-    } else if (_directService && _directService->activeDevice()) {
-        _directService->activeDevice()->setDsee(enabled);
-    }
+    try {
+        if (_usingIpc && _ipcClient) {
+            _ipcClient->sendCommand(enabled ? "dsee on" : "dsee off");
+        } else if (_directService && _directService->activeDevice()) {
+            _directService->activeDevice()->setDsee(enabled);
+        }
+    } catch (...) {}
     emit stateChanged();
 }
 
 void DeviceCenterController::setSpeakToChat(bool enabled) {
     _speakToChat = enabled;
-    if (_usingIpc && _ipcClient) {
-        _ipcClient->sendCommand(enabled ? "speaktochat on" : "speaktochat off");
-    } else if (_directService && _directService->activeDevice()) {
-        _directService->activeDevice()->setSpeakToChat(enabled);
-    }
+    try {
+        if (_usingIpc && _ipcClient) {
+            _ipcClient->sendCommand(enabled ? "speaktochat on" : "speaktochat off");
+        } else if (_directService && _directService->activeDevice()) {
+            _directService->activeDevice()->setSpeakToChat(enabled);
+        }
+    } catch (...) {}
     emit stateChanged();
 }
 
 void DeviceCenterController::setAdaptiveVolume(bool enabled) {
     _adaptiveVolume = enabled;
-    if (_usingIpc && _ipcClient) {
-        _ipcClient->sendCommand(enabled ? "adaptive on" : "adaptive off");
-    } else if (_directService && _directService->activeDevice()) {
-        _directService->activeDevice()->setAdaptiveVolume(enabled);
-    }
+    try {
+        if (_usingIpc && _ipcClient) {
+            _ipcClient->sendCommand(enabled ? "adaptive on" : "adaptive off");
+        } else if (_directService && _directService->activeDevice()) {
+            _directService->activeDevice()->setAdaptiveVolume(enabled);
+        }
+    } catch (...) {}
     emit stateChanged();
 }
 
 void DeviceCenterController::setAutoPowerOff(int index) {
     _autoPowerOff = index;
-    if (_usingIpc && _ipcClient) {
-        _ipcClient->sendCommand("apo " + std::to_string(index));
-    } else if (_directService && _directService->activeDevice()) {
-        _directService->activeDevice()->setAutoPowerOff(index);
-    }
+    try {
+        if (_usingIpc && _ipcClient) {
+            _ipcClient->sendCommand("apo " + std::to_string(index));
+        } else if (_directService && _directService->activeDevice()) {
+            _directService->activeDevice()->setAutoPowerOff(index);
+        }
+    } catch (...) {}
     emit stateChanged();
 }
 

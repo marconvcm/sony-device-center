@@ -58,6 +58,7 @@ void SonyProtocolSession::disconnect() noexcept {
         _unmatchedFrames.clear();
         _pendingRequest.reset();
         _hasAck = false;
+        _sequence.store(0);
         _ackCv.notify_all();
         _responseCv.notify_all();
     }
@@ -195,6 +196,9 @@ void SonyProtocolSession::_handleDecodedFrame(const SonyFrame& frame) {
         Logger::debug(LogCategory::Session, "RX  ACK seq=" + std::to_string(frame.sequence));
         std::lock_guard lock(_sessionMtx);
         _hasAck = true;
+        if (frame.sequence <= 1) {
+            _sequence.store(frame.sequence);
+        }
         if (_pendingRequest) {
             _pendingRequest->hasAck = true;
         }
@@ -312,6 +316,7 @@ void SonyProtocolSession::send(const SonyFrame& frame, std::chrono::milliseconds
     {
         std::lock_guard lock(_sessionMtx);
         _expectedAckSeq = toSend.sequence;
+        _hasAck = false;
     }
 
     _writeFrame(toSend);
@@ -351,12 +356,13 @@ SonyFrame SonyProtocolSession::sendAndAwaitResponse(
     {
         std::lock_guard lock(_sessionMtx);
         _expectedAckSeq = toSend.sequence;
+        _hasAck = false;
         _pendingRequest = PendingRequest{
             .expectedOpcode = retOpcode,
             .expectedSubtype = retSubtype,
             .hasResponse = false,
             .response = {},
-            .hasAck = _hasAck,
+            .hasAck = false,
             .expectedAckSeq = toSend.sequence
         };
 
@@ -402,6 +408,11 @@ void SonyProtocolSession::onNotification(NotificationCallback callback) {
 }
 
 uint8_t SonyProtocolSession::nextSequenceNumber() noexcept {
+    uint8_t cur = _sequence.load();
+    if (cur > 1 && cur < 254) {
+        cur = cur & 1;
+        _sequence.store(cur);
+    }
     return _sequence.fetch_add(1);
 }
 

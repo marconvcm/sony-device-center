@@ -181,7 +181,8 @@ IpcResponse IpcProtocol::execute(const IpcCommand& cmd, IDeviceService& service)
 
     auto snap = dev->snapshot();
 
-    switch (cmd.type) {
+    try {
+        switch (cmd.type) {
         case IpcCommandType::Info: {
             std::ostringstream oss;
             oss << dev->name() << "\n\n"
@@ -359,6 +360,11 @@ IpcResponse IpcProtocol::execute(const IpcCommand& cmd, IDeviceService& service)
             resp.success = false;
             resp.message = "Unknown command: " + cmd.raw;
             return resp;
+        }
+    } catch (const std::exception& ex) {
+        resp.success = false;
+        resp.message = "Command failed: " + std::string(ex.what());
+        return resp;
     }
 }
 
