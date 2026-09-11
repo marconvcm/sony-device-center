@@ -148,6 +148,9 @@ void MacOSBluetoothConnector::connectToMac(MacOSBluetoothConnector* macOSBluetoo
     lk.unlock();
 }
 void MacOSBluetoothConnector::connect(const std::string& addrStr){
+    // A failed attempt ends its thread without a join. Assigning a new thread
+    // over a joinable one calls std::terminate(), so release the old one first.
+    disconnect();
     // convert mac address to nsstring
     NSString *addressNSString = [NSString stringWithCString:addrStr.c_str() encoding:[NSString defaultCStringEncoding]];
     // get device based on mac address
@@ -230,8 +233,11 @@ void MacOSBluetoothConnector::disconnect() noexcept
     running = false;
     // notify the other thread that we are done disconnecting
     disconnectionConditionVariable.notify_all();
-    // wait for the thread to finish
-    uthread.join();
+    // wait for the thread to finish. The channel-closed callback calls this
+    // function on that thread, and a thread cannot join itself.
+    if (uthread.joinable() && uthread.get_id() != std::this_thread::get_id()) {
+        uthread.join();
+    }
 }
 void MacOSBluetoothConnector::closeConnection() {
     // get the channel

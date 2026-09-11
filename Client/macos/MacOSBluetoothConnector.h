@@ -36,7 +36,7 @@ public:
     SonyProtocolVersion protocolVersion = SonyProtocolVersion::V1;
 
 private:
-    void *rfcommDevice;
-    void *rfcommchannel;
+    void *rfcommDevice = nullptr;
+    void *rfcommchannel = nullptr;
     std::thread uthread;
 };
