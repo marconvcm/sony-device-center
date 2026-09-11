@@ -25,8 +25,8 @@ Known connected sessions rotate settings reads in separate maintenance steps,
 nominally within five seconds when the device answers promptly. Battery refreshes
 every 30 seconds. Unsupported profile features are not probed. Timeouts extend
 these intervals rather than accumulating overlapping requests. V1 does not send
-the V2 battery opcode, and V1's undecoded noise-control readback stays unknown until
-a successful write. Protocol similarity is not hardware verification.
+the V2 battery opcode; it reads battery, noise control and equalizer through its
+own legacy opcodes. Protocol similarity is not hardware verification.
 
 `sonyctl --direct` refuses to run while a daemon is reachable at the selected socket.
 This also applies to a disconnected daemon that may be reconnecting. Stop the daemon

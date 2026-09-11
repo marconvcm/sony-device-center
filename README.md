@@ -57,7 +57,7 @@ real hardware.
 | **WH-1000XM6** | V2 | ⚠️ Partially working | Controls work; **equalizer has no effect** ([#10](../../issues/10)), battery intermittent ([#11](../../issues/11)) |
 | **WF-1000XM6** | V2 | ✅ Verified | Community report |
 | **MDR-1000X** | V1 | ❌ Known broken | Shows as disconnected, no controls work ([#12](../../issues/12)) |
-| **WH-1000XM4** | V1 | 🟡 Untested | Expected to behave like the XM3 |
+| **WH-1000XM4** | V1 | ✅ Verified | Community report (firmware 3.0.1, Windows): battery, noise control readback, EQ + Clear Bass, firmware, codec |
 | WF-1000XM5, WF-1000XM4 | V2 | 🟡 Untested | TWS battery reporting unverified |
 | WH-CH720N, ULT WEAR, LinkBuds S, WF-C700N | V2 | 🟡 Untested | |
 | WH-XB910N, WH-CH520 | V2 | 🟡 Untested | |
@@ -66,8 +66,9 @@ real hardware.
 **State and connection handling:** the Qt app now uses structured snapshots,
 updates from supported device notifications, and periodic refreshes. It shows
 unknown readings and command errors explicitly. The daemon retries unavailable
-headphones automatically. V1 noise-control readback remains undecoded; successful
-writes are shown, but an initial mode is not guessed. Model-specific XM6 protocol
+headphones automatically. V1 battery, noise-control and equalizer readback is
+decoded and verified on a WH-1000XM4; the XM3 uses the same opcodes but has not
+been re-tested since. Model-specific XM6 protocol
 failures still need hardware verification. See [IPC and connection lifecycle](docs/ipc-and-lifecycle.md).
 
 Running something not listed, or listed as untested? Please

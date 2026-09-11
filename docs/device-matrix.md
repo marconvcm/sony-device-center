@@ -18,7 +18,7 @@ This document tracks hardware-level verification and protocol capability support
 | Device | Protocol | Connection | Battery | ANC | Ambient | EQ | DSEE | Firmware | Codec | Speak-to-Chat | Auto Power-Off | Tested Firmware | Tester |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
 | **WH-1000XM3** | V1 | RFCOMM | Verified | Verified | Verified | N/A (V1) | N/A (V1) | Unknown | SBC, AAC, LDAC, aptX | N/A | N/A | 4.5.2 | Community |
-| **WH-1000XM4** | V1 | RFCOMM | Verified | Verified | Verified | N/A (V1) | N/A (V1) | Unknown | SBC, AAC, LDAC | Partially Verified | Partially Verified | 2.5.0 | Baseline |
+| **WH-1000XM4** | V1 | RFCOMM | Verified | Verified | Verified | Verified | Not implemented (V1) | Verified | AAC verified | N/A | Not implemented (V1) | 3.0.1 | Community (Windows) |
 | **WH-1000XM5** | V2 | RFCOMM | Verified | Verified | Verified | Verified | Verified | Verified | SBC, AAC, LDAC | Verified | Verified | 2.3.1 | Core Dev |
 | **WH-1000XM6** | V2 | RFCOMM | Expected | Expected | Expected | Expected | Expected | Expected | Expected | Expected | Expected | — | Unreleased |
 | **WF-1000XM4** | V2 | RFCOMM | Expected (Dual+Case) | Expected | Expected | Expected | Expected | Expected | SBC, AAC, LDAC | Expected | Expected | — | Awaiting HW |
@@ -33,9 +33,12 @@ This document tracks hardware-level verification and protocol capability support
 
 ### Protocol V1 (e.g. WH-1000XM3, WH-1000XM4 legacy)
 - Fixed command lengths without variable payloads.
-- Single battery level query.
+- Battery query `0x10 <type>` (returns `0x11`): type `0x00` single, `0x01` dual, `0x02` case.
+- Noise control / ambient via `0x66` / `0x67` / `0x68` with inquired type `0x02`: effect byte, then dual/single (`0x02` = NC, `0x00` = ambient at the trailing level).
+- 5-band equalizer with Clear Bass via `0x56` / `0x57` / `0x58` with inquired type `0x01` (V2 uses `0x00`).
+- Firmware `0x04 0x02` (returns `0x05`), codec `0x18 0x00` (returns `0x19`).
 - **Opcode `0x22` is POWER OFF** — must NEVER be transmitted to a V1 device to query battery.
-- Equalizer and DSEE control handled via separate legacy control messages or not exposed in standard V1 profile.
+- DSEE (`0xe6 0x02`) and auto power-off (`0xf6 0x04`) do answer on a WH-1000XM4 but are not decoded or exposed yet.
 
 ### Protocol V2 (e.g. WH-1000XM5, WF-1000XM4/M5, LinkBuds, ULT WEAR)
 - Extended variable-length payload structures.
@@ -80,7 +83,7 @@ To validate a newly connected physical device:
    sonyctl anc off
    ```
 
-6. **Test Equalizer (V2 devices)**:
+6. **Test Equalizer (V2 devices and WH-1000XM4)**:
    ```bash
    sonyctl eq get
    sonyctl eq preset bass-boost
