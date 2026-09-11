@@ -47,6 +47,7 @@ public:
     void refreshNoiseControl();
     void refreshEqualizer();
     void refreshDsee();
+    void refreshSettingsStep();
 
     // Control operations
     void setNoiseControl(const protocol::NoiseControlState& nc);
@@ -60,6 +61,9 @@ public:
     void setAdaptiveVolume(bool enabled);
 
 private:
+    unsigned _refreshStep{0};
+    void _markSuccess(const std::string& feature);
+    void _markError(const std::string& feature, const SonyException& ex);
     void _setupSession();
     void _onNotification(const protocol::SonyFrame& frame);
 

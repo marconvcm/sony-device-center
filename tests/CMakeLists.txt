@@ -78,6 +78,7 @@ catch_discover_tests(sony-transport-tests PROPERTIES TIMEOUT 10)
 add_executable(sony-core-tests
     core/SonyDeviceTests.cpp
     core/IpcProtocolTests.cpp
+    core/ReliabilityTests.cpp
     core/ProtocolSafetyTests.cpp
 )
 target_compile_features(sony-core-tests PRIVATE cxx_std_20)

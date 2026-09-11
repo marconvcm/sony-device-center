@@ -68,7 +68,7 @@ void Logger::log(LogLevel level, std::string_view category, std::string_view mes
         sink(level, category, message);
     } else {
         // Default output to stderr/clog
-        std::clog << "[" << to_string(level) << "] [" << category << "] " << message << "\n";
+        std::clog << "[" << to_string(level) << "] [" << category << "] " << message << std::endl;
     }
 }
 

@@ -1,4 +1,7 @@
 #include "DeviceCenterController.h"
+#include "DeviceBackend.h"
+#include <QJsonDocument>
+#include <QJsonArray>
 #include "I18nManager.h"
 #include "sony/core/DeviceService.h"
 #include "sony/core/IpcProtocol.h"
@@ -21,132 +24,69 @@
 
 namespace sony::devicecenter {
 
-DeviceCenterController::DeviceCenterController(QObject* parent)
-    : QObject(parent), _ipcClient(std::make_unique<core::IpcClient>()) {
+DeviceCenterController::DeviceCenterController(QObject* parent, std::shared_ptr<core::IDeviceService> service)
+    : QObject(parent) {
     QSettings settings("SonyBridge", "SonyDeviceCenter");
     _currentLanguage = settings.value("language", "en").toString();
-    _initService();
-    refreshDiscoveredDevices();
+    _backend = new DeviceBackend(std::move(service));
+    _backend->moveToThread(&_worker);
+    connect(&_worker, &QThread::started, _backend, &DeviceBackend::start);
+    connect(&_worker, &QThread::finished, _backend, &QObject::deleteLater);
+    connect(_backend, &DeviceBackend::snapshotReady, this, [this](const QByteArray& data, quint64 generation) {
+        if (generation == _generation) _applySnapshot(data);
+    });
+    connect(_backend, &DeviceBackend::devicesReady, this, [this](const QByteArray& data) {
+        _pairedDevices = QJsonDocument::fromJson(data).array().toVariantList();
+        emit pairedDevicesChanged();
+    });
+    connect(_backend, &DeviceBackend::error, this, [this](const QString& error, quint64 generation) {
+        if (generation == _generation) { _lastError = error; emit stateChanged(); }
+    });
+    connect(_backend, &DeviceBackend::completed, this, [this](quint64 generation) {
+        if (generation == _generation) { _busy = false; emit stateChanged(); }
+    });
+    _worker.start();
 }
-
-DeviceCenterController::~DeviceCenterController() = default;
-
-void DeviceCenterController::_initService() {
-    if (_ipcClient && _ipcClient->isDaemonRunning()) {
-        _usingIpc = true;
-        _syncState();
-        return;
-    }
-
-    _usingIpc = false;
-    std::shared_ptr<transport::ITransport> transport = transport::createPlatformTransport();
-    std::shared_ptr<transport::IDeviceDiscovery> discovery = transport::createPlatformDiscovery();
-    _directService = std::make_shared<core::DeviceService>(transport, discovery);
-
-
-    auto devs = _directService->discoverDevices();
-    if (!devs.empty()) {
-        _deviceName = QString::fromStdString(devs.front().name);
-        _deviceAddress = QString::fromStdString(devs.front().address);
-        try {
-            _directService->connect(transport::DeviceAddress(devs.front().address), devs.front().name);
-            _connected = true;
-        } catch (...) {
-            _connected = false;
-        }
-    } else {
-        _connected = false;
-        _deviceName = "No Sony Device Connected";
-        _deviceAddress = "";
-        _batteryLevel = 0;
-    }
-    _syncState();
+DeviceCenterController::~DeviceCenterController() {
+    QMetaObject::invokeMethod(_backend, &DeviceBackend::shutdown, Qt::BlockingQueuedConnection);
+    _worker.quit(); _worker.wait();
 }
-
-void DeviceCenterController::_syncState() {
-    if (_usingIpc && _ipcClient && _ipcClient->isDaemonRunning()) {
-        auto statusResp = _ipcClient->sendCommand("status");
-        _connected = statusResp.success;
-
-        auto infoResp = _ipcClient->sendCommand("info");
-        if (infoResp.success && !infoResp.data.empty()) {
-            _connected = true;
-            std::istringstream iss(infoResp.data);
-            std::string firstLine;
-            if (std::getline(iss, firstLine) && !firstLine.empty()) {
-                _deviceName = QString::fromStdString(firstLine);
-            }
-            std::string line;
-            while (std::getline(iss, line)) {
-                if (line.find("Noise Cancelling") != std::string::npos) {
-                    _noiseControlMode = "cancelling";
-                } else if (line.find("Ambient") != std::string::npos) {
-                    _noiseControlMode = "ambient";
-                } else if (line.find("Off") != std::string::npos && line.find("Noise Control") == std::string::npos) {
-                    _noiseControlMode = "off";
-                }
-            }
-        }
-
-        auto batResp = _ipcClient->sendCommand("battery");
-        if (batResp.success && !batResp.data.empty()) {
-            auto s = batResp.data;
-            auto pctPos = s.find('%');
-            if (pctPos != std::string::npos) {
-                size_t start = s.rfind(' ', pctPos);
-                if (start != std::string::npos) {
-                    try {
-                        _batteryLevel = std::stoi(s.substr(start + 1, pctPos - start - 1));
-                    } catch (...) {}
-                }
-            }
-            _isCharging = (s.find("Charging") != std::string::npos && s.find("Discharging") == std::string::npos);
-        }
-
-        auto eqResp = _ipcClient->sendCommand("eq get");
-        if (eqResp.success && !eqResp.data.empty()) {
-            if (eqResp.data.find("Preset: ") != std::string::npos) {
-                auto pName = eqResp.data.substr(eqResp.data.find("Preset: ") + 8);
-                auto endLine = pName.find('\n');
-                if (endLine != std::string::npos) pName = pName.substr(0, endLine);
-                _equalizerPresetName = QString::fromStdString(pName);
-                // Recover the code too, so the selected chip matches the label.
-                const int code = protocol::equalizerPresetFromName(pName);
-                if (code >= 0) {
-                    _equalizerPreset = code;
-                }
-            }
-        }
-    } else if (_directService && _directService->activeDevice() && _directService->isConnected()) {
-        auto snap = _directService->snapshot();
-        _connected = true;
-        _batteryLevel = snap->battery.main.value_or(0);
-        _isCharging = snap->battery.charging;
-        if (snap->noiseControl.mode == protocol::NoiseControlMode::NoiseCancelling) {
-            _noiseControlMode = "cancelling";
-        } else if (snap->noiseControl.mode == protocol::NoiseControlMode::Ambient) {
-            _noiseControlMode = "ambient";
-        } else {
-            _noiseControlMode = "off";
-        }
-        _ambientLevel = snap->noiseControl.ambientLevel > 0 ? snap->noiseControl.ambientLevel : 10;
-        _focusOnVoice = snap->noiseControl.focusOnVoice;
-        _equalizerPreset = snap->equalizer.preset;
-        _equalizerPresetName = QString::fromStdString(
-            protocol::equalizerPresetName(_equalizerPreset));
-        _clearBass = snap->equalizer.clearBass;
-        _dsee = snap->dsee;
-        _speakToChat = snap->speakToChat;
-        _adaptiveVolume = snap->adaptiveVolume;
-        _autoPowerOff = snap->autoPowerOff;
-    } else {
-        _connected = false;
-        _batteryLevel = 0;
-        _isCharging = false;
-        _noiseControlMode = "off";
-    }
+void DeviceCenterController::_send(const QString& method, const QJsonObject& params) {
+    if (_busy) return;
+    _busy = true; _lastError.clear(); const auto generation = ++_generation;
     emit stateChanged();
-    emit capabilitiesChanged();
+    const auto bytes = QJsonDocument(QJsonObject{{"method",method},{"params",params}}).toJson(QJsonDocument::Compact);
+    QMetaObject::invokeMethod(_backend, [backend = _backend, bytes, generation] { backend->command(bytes, generation); }, Qt::QueuedConnection);
+}
+void DeviceCenterController::_applySnapshot(const QByteArray& data) {
+    const auto s = QJsonDocument::fromJson(data).object();
+    _connected = s.value("connected").toBool();
+    _connectionState = s.value("connectionState").toString("disconnected");
+    if (s.contains("name")) _deviceName = s.value("name").toString();
+    if (s.contains("address")) _deviceAddress = s.value("address").toString();
+    if (!s.contains("features")) {
+        _batteryLevel = -1; _noiseControlMode = "unknown";
+        emit stateChanged(); return;
+    }
+    _features = s.value("features").toObject().toVariantMap();
+    _capabilities = s.value("capabilities").toObject();
+    auto valid = [&s](const char* feature) {
+        return s.value("features").toObject().value(feature).toObject().value("availability").toString() == "valid";
+    };
+    const auto battery = s.value("battery").toObject();
+    _batteryLevel = _connected && valid("battery") ? battery.value("main").toInt(-1) : -1;
+    _isCharging = _connected && battery.value("charging").toBool();
+    const auto nc = s.value("noiseControl").toObject();
+    _noiseControlMode = _connected && valid("noiseControl") ? nc.value("mode").toString() : "unknown";
+    _ambientLevel = nc.value("ambientLevel").toInt(); _focusOnVoice = nc.value("focusOnVoice").toBool();
+    const auto eq = s.value("equalizer").toObject();
+    _equalizerPreset = valid("equalizer") ? eq.value("preset").toInt() : -1;
+    _equalizerPresetName = valid("equalizer") ? eq.value("presetName").toString() : "Unknown";
+    _clearBass = eq.value("clearBass").toInt(); _equalizerBands = eq.value("bands").toArray().toVariantList();
+    _dsee = s.value("dsee").toBool(); _speakToChat = s.value("speakToChat").toBool();
+    _adaptiveVolume = s.value("adaptiveVolume").toBool(); _autoPowerOff = s.value("autoPowerOff").toInt();
+    _codec = _connected && valid("codec") ? s.value("codec").toString("Unknown") : "Unknown";
+    emit stateChanged(); emit capabilitiesChanged();
 }
 
 QString DeviceCenterController::deviceName() const { return _deviceName; }
@@ -192,259 +132,37 @@ QString DeviceCenterController::heroImagePath() const {
     return "resources/devices/wh-1000xm5.png";
 }
 
-bool DeviceCenterController::hasAnc() const {
-    if (_directService && _directService->activeDevice()) {
-        return _directService->activeDevice()->capabilities().noiseCancelling;
-    }
-    auto profile = protocol::DeviceProfileRegistry::getProfileForDevice(_deviceName.toStdString());
-    return profile.capabilities.noiseCancelling;
-}
+bool DeviceCenterController::hasAnc() const { return _capabilities.value("anc").toBool(); }
 
-bool DeviceCenterController::hasAmbient() const {
-    if (_directService && _directService->activeDevice()) {
-        return _directService->activeDevice()->capabilities().ambientSound;
-    }
-    auto profile = protocol::DeviceProfileRegistry::getProfileForDevice(_deviceName.toStdString());
-    return profile.capabilities.ambientSound;
-}
+bool DeviceCenterController::hasAmbient() const { return _capabilities.value("ambient").toBool(); }
 
-bool DeviceCenterController::hasEqualizer() const {
-    if (_directService && _directService->activeDevice()) {
-        return _directService->activeDevice()->capabilities().equalizer;
-    }
-    auto profile = protocol::DeviceProfileRegistry::getProfileForDevice(_deviceName.toStdString());
-    return profile.capabilities.equalizer;
-}
+bool DeviceCenterController::hasEqualizer() const { return _capabilities.value("equalizer").toBool(); }
 
-bool DeviceCenterController::hasClearBass() const {
-    if (_directService && _directService->activeDevice()) {
-        return _directService->activeDevice()->capabilities().clearBass;
-    }
-    auto profile = protocol::DeviceProfileRegistry::getProfileForDevice(_deviceName.toStdString());
-    return profile.capabilities.clearBass;
-}
+bool DeviceCenterController::hasClearBass() const { return _capabilities.value("clearBass").toBool(); }
 
-bool DeviceCenterController::hasDsee() const {
-    if (_directService && _directService->activeDevice()) {
-        return _directService->activeDevice()->capabilities().dsee;
-    }
-    auto profile = protocol::DeviceProfileRegistry::getProfileForDevice(_deviceName.toStdString());
-    return profile.capabilities.dsee;
-}
+bool DeviceCenterController::hasDsee() const { return _capabilities.value("dsee").toBool(); }
 
-bool DeviceCenterController::hasSpeakToChat() const {
-    if (_directService && _directService->activeDevice()) {
-        return _directService->activeDevice()->capabilities().speakToChat;
-    }
-    auto profile = protocol::DeviceProfileRegistry::getProfileForDevice(_deviceName.toStdString());
-    return profile.capabilities.speakToChat;
-}
+bool DeviceCenterController::hasSpeakToChat() const { return _capabilities.value("speakToChat").toBool(); }
 
-bool DeviceCenterController::hasAdaptiveVolume() const {
-    if (_directService && _directService->activeDevice()) {
-        return _directService->activeDevice()->capabilities().adaptiveVolume;
-    }
-    auto profile = protocol::DeviceProfileRegistry::getProfileForDevice(_deviceName.toStdString());
-    return profile.capabilities.adaptiveVolume;
-}
+bool DeviceCenterController::hasAdaptiveVolume() const { return _capabilities.value("adaptiveVolume").toBool(); }
 
 QVariantList DeviceCenterController::pairedDevices() const { return _pairedDevices; }
 
-void DeviceCenterController::setAnc(bool enabled) {
-    _noiseControlMode = enabled ? "cancelling" : "off";
-    try {
-        if (_usingIpc && _ipcClient) {
-            _ipcClient->sendCommand(enabled ? "anc on" : "anc off");
-        } else if (_directService && _directService->activeDevice()) {
-            _directService->activeDevice()->setAnc(enabled);
-        }
-    } catch (...) {}
-    emit stateChanged();
+void DeviceCenterController::setAnc(bool enabled) { _send("anc", {{"enabled",enabled}}); }
+void DeviceCenterController::setAmbient(int level, bool voice) { _send("ambient", {{"level",level},{"focusOnVoice",voice}}); }
+void DeviceCenterController::setNoiseControlOff() { setAnc(false); }
+void DeviceCenterController::setEqualizerPreset(int preset) { _send("eqPreset", {{"preset",preset}}); }
+void DeviceCenterController::setEqualizerCustom(int bass, const QVariantList& bands) {
+    _send("eqCustom", {{"clearBass",bass},{"bands",QJsonArray::fromVariantList(bands)}});
 }
-
-void DeviceCenterController::setAmbient(int level, bool focusOnVoice) {
-    _noiseControlMode = "ambient";
-    _ambientLevel = std::clamp(level, 1, 20);
-    _focusOnVoice = focusOnVoice;
-    try {
-        if (_usingIpc && _ipcClient) {
-            _ipcClient->sendCommand("ambient " + std::to_string(_ambientLevel));
-        } else if (_directService && _directService->activeDevice()) {
-            _directService->activeDevice()->setAmbient(_ambientLevel, _focusOnVoice);
-        }
-    } catch (...) {}
-    emit stateChanged();
-}
-
-void DeviceCenterController::setNoiseControlOff() {
-    _noiseControlMode = "off";
-    try {
-        if (_usingIpc && _ipcClient) {
-            _ipcClient->sendCommand("anc off");
-        } else if (_directService && _directService->activeDevice()) {
-            _directService->activeDevice()->setAnc(false);
-        }
-    } catch (...) {}
-    emit stateChanged();
-}
-
-void DeviceCenterController::setEqualizerPreset(int preset) {
-    // The codes come from the QML chip model and already match the protocol
-    // table; do not remap them here. An earlier hand-written switch in this
-    // function was off by one and had bass and treble swapped, so "Vocal"
-    // applied Relaxed, "Bright" fell through to "off", and the label named a
-    // different preset from the one in effect.
-    _equalizerPreset = preset;
-    _equalizerPresetName = QString::fromStdString(protocol::equalizerPresetName(preset));
-
-    try {
-        if (_usingIpc && _ipcClient) {
-            const auto id = protocol::equalizerPresetId(preset);
-            if (id.empty()) {
-                return;
-            }
-            _ipcClient->sendCommand("eq preset " + std::string(id));
-        } else if (_directService && _directService->activeDevice()) {
-            _directService->activeDevice()->setEqualizerPreset(preset);
-        }
-    } catch (...) {}
-    emit stateChanged();
-}
-
-void DeviceCenterController::setEqualizerCustom(int clearBass, const QVariantList& bands) {
-    _clearBass = std::clamp(clearBass, -10, 10);
-    _equalizerBands = bands;
-    // 0xa0 is MANUAL in the protocol, and what the QML chip and
-    // ProtocolV2::setEqualizerCustom() both use. 0x01 matched neither, so the
-    // Custom chip never highlighted after dialling in bands.
-    _equalizerPreset = static_cast<int>(protocol::EqualizerPreset::Manual);
-    _equalizerPresetName = QString::fromStdString(
-        protocol::equalizerPresetName(_equalizerPreset));
-
-    try {
-        if (_usingIpc && _ipcClient) {
-            std::ostringstream oss;
-            oss << "eq custom " << _clearBass;
-            for (const auto& b : bands) {
-                oss << " " << b.toInt();
-            }
-            _ipcClient->sendCommand(oss.str());
-        } else if (_directService && _directService->activeDevice()) {
-            std::array<int, 5> bArr{0, 0, 0, 0, 0};
-            for (int i = 0; i < 5 && i < bands.size(); ++i) {
-                bArr[i] = bands[i].toInt();
-            }
-            _directService->activeDevice()->setEqualizerCustom(_clearBass, bArr);
-        }
-    } catch (...) {}
-    emit stateChanged();
-}
-
-void DeviceCenterController::setDsee(bool enabled) {
-    _dsee = enabled;
-    try {
-        if (_usingIpc && _ipcClient) {
-            _ipcClient->sendCommand(enabled ? "dsee on" : "dsee off");
-        } else if (_directService && _directService->activeDevice()) {
-            _directService->activeDevice()->setDsee(enabled);
-        }
-    } catch (...) {}
-    emit stateChanged();
-}
-
-void DeviceCenterController::setSpeakToChat(bool enabled) {
-    _speakToChat = enabled;
-    try {
-        if (_usingIpc && _ipcClient) {
-            _ipcClient->sendCommand(enabled ? "speaktochat on" : "speaktochat off");
-        } else if (_directService && _directService->activeDevice()) {
-            _directService->activeDevice()->setSpeakToChat(enabled);
-        }
-    } catch (...) {}
-    emit stateChanged();
-}
-
-void DeviceCenterController::setAdaptiveVolume(bool enabled) {
-    _adaptiveVolume = enabled;
-    try {
-        if (_usingIpc && _ipcClient) {
-            _ipcClient->sendCommand(enabled ? "adaptive on" : "adaptive off");
-        } else if (_directService && _directService->activeDevice()) {
-            _directService->activeDevice()->setAdaptiveVolume(enabled);
-        }
-    } catch (...) {}
-    emit stateChanged();
-}
-
-void DeviceCenterController::setAutoPowerOff(int index) {
-    _autoPowerOff = index;
-    try {
-        if (_usingIpc && _ipcClient) {
-            _ipcClient->sendCommand("apo " + std::to_string(index));
-        } else if (_directService && _directService->activeDevice()) {
-            _directService->activeDevice()->setAutoPowerOff(index);
-        }
-    } catch (...) {}
-    emit stateChanged();
-}
-
-void DeviceCenterController::connectDevice(const QString& address, const QString& name) {
-    _deviceAddress = address;
-    if (!name.isEmpty()) _deviceName = name;
-
-    if (_directService) {
-        try {
-            _directService->connect(transport::DeviceAddress(address.toStdString()), _deviceName.toStdString());
-            _connected = true;
-        } catch (...) {
-            _connected = false;
-        }
-    }
-    _syncState();
-    refreshDiscoveredDevices();
-}
-
-void DeviceCenterController::disconnectDevice() {
-    _connected = false;
-    if (_directService) {
-        _directService->disconnect();
-    }
-    emit stateChanged();
-    refreshDiscoveredDevices();
-}
-
+void DeviceCenterController::setDsee(bool enabled) { _send("dsee", {{"enabled",enabled}}); }
+void DeviceCenterController::setSpeakToChat(bool enabled) { _send("speakToChat", {{"enabled",enabled}}); }
+void DeviceCenterController::setAdaptiveVolume(bool enabled) { _send("adaptiveVolume", {{"enabled",enabled}}); }
+void DeviceCenterController::setAutoPowerOff(int index) { _send("autoPowerOff", {{"index",index}}); }
+void DeviceCenterController::connectDevice(const QString& address, const QString& name) { _send("connect", {{"address",address},{"name",name}}); }
+void DeviceCenterController::disconnectDevice() { _send("disconnect"); }
 void DeviceCenterController::refreshDiscoveredDevices() {
-    _pairedDevices.clear();
-    std::vector<core::DiscoveredDevice> devs;
-    if (_usingIpc && _ipcClient && _ipcClient->isDaemonRunning()) {
-        auto resp = _ipcClient->sendCommand("devices");
-        if (resp.success && !resp.data.empty()) {
-            std::istringstream iss(resp.data);
-            std::string line;
-            while (std::getline(iss, line)) {
-                auto openBracket = line.rfind('[');
-                auto closeBracket = line.rfind(']');
-                if (openBracket != std::string::npos && closeBracket != std::string::npos && closeBracket > openBracket) {
-                    std::string name = line.substr(0, openBracket);
-                    while (!name.empty() && name.back() == ' ') name.pop_back();
-                    std::string mac = line.substr(openBracket + 1, closeBracket - openBracket - 1);
-                    devs.push_back({.address = mac, .name = name});
-                }
-            }
-        }
-    } else if (_directService) {
-        devs = _directService->discoverDevices();
-    }
-
-    for (const auto& d : devs) {
-        QVariantMap item;
-        item["name"] = QString::fromStdString(d.name);
-        item["address"] = QString::fromStdString(d.address);
-        bool isThisActive = (_connected && QString::fromStdString(d.address) == _deviceAddress);
-        item["connected"] = isThisActive;
-        _pairedDevices.append(item);
-    }
-    emit pairedDevicesChanged();
+    QMetaObject::invokeMethod(_backend, &DeviceBackend::discover, Qt::QueuedConnection);
 }
 
 bool DeviceCenterController::autostart() const {

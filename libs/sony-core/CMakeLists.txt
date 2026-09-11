@@ -7,6 +7,7 @@ add_library(sony-core
     src/IpcProtocol.cpp
     src/IpcServer.cpp
     src/IpcClient.cpp
+    src/JsonProtocol.cpp
 )
 
 target_compile_features(sony-core PUBLIC cxx_std_20)
@@ -24,3 +25,5 @@ target_link_libraries(sony-core
         sony-transport
         Threads::Threads
 )
+
+target_include_directories(sony-core PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../../third_party>)

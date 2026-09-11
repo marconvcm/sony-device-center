@@ -111,6 +111,8 @@ NoiseControlState ProtocolV2::getNoiseControl() {
         std::chrono::milliseconds(1000)
     );
 
+    if (resp.payload.size() < 7 || resp.payload[1] != 0x17 || resp.payload[2] != 1)
+        throw SonyException(SonyErrorCode::InvalidResponse, "Malformed noise-control response");
     NoiseControlState state;
     if (resp.payload.size() >= 7) {
         bool on = resp.payload[3] != 0;
@@ -159,6 +161,8 @@ EqualizerState ProtocolV2::getEqualizer() {
         std::chrono::milliseconds(1000)
     );
 
+    if (resp.payload.size() < 10 || resp.payload[1] != 0)
+        throw SonyException(SonyErrorCode::InvalidResponse, "Incomplete equalizer response");
     EqualizerState state;
     if (resp.payload.size() >= 3) {
         state.preset = static_cast<int>(resp.payload[2]);
@@ -209,7 +213,7 @@ bool ProtocolV2::getDsee() {
     if (resp.payload.size() >= 3) {
         return resp.payload[2] != 0;
     }
-    return false;
+    throw SonyException(SonyErrorCode::InvalidResponse, "Incomplete Dsee response");
 }
 
 void ProtocolV2::setDsee(bool enabled) {
@@ -261,7 +265,7 @@ int ProtocolV2::getAutoPowerOff() {
     if (resp.payload.size() >= 4) {
         return apoIndexFromCode(resp.payload[2], resp.payload[3]);
     }
-    return 0;
+    throw SonyException(SonyErrorCode::InvalidResponse, "Incomplete AutoPowerOff response");
 }
 
 void ProtocolV2::setAutoPowerOff(int index) {
@@ -289,7 +293,7 @@ bool ProtocolV2::getSpeakToChat() {
     if (resp.payload.size() >= 3) {
         return resp.payload[2] == 0;
     }
-    return false;
+    throw SonyException(SonyErrorCode::InvalidResponse, "Incomplete SpeakToChat response");
 }
 
 void ProtocolV2::setSpeakToChat(bool enabled) {
@@ -314,7 +318,7 @@ bool ProtocolV2::getAdaptiveVolume() {
     if (resp.payload.size() >= 3) {
         return resp.payload[2] == 0;
     }
-    return false;
+    throw SonyException(SonyErrorCode::InvalidResponse, "Incomplete AdaptiveVolume response");
 }
 
 void ProtocolV2::setAdaptiveVolume(bool enabled) {

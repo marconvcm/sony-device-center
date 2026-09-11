@@ -1,4 +1,5 @@
 #include "sony/core/IpcProtocol.h"
+#include "sony/core/JsonProtocol.h"
 #include "sony/protocol/EqualizerPresets.h"
 #include <algorithm>
 #include <sstream>
@@ -43,6 +44,12 @@ std::string presetToString(int preset) {
 }
 
 } // namespace
+
+std::string IpcProtocol::executeLine(std::string_view line, IDeviceService& service) {
+    auto start = line.find_first_not_of(" \r\t");
+    if (start != std::string_view::npos && (line[start] == '{' || line[start] == '[')) return JsonProtocol::executeLine(line, service);
+    return serializeResponse(execute(parseCommand(line), service));
+}
 
 IpcCommand IpcProtocol::parseCommand(std::string_view line) {
     IpcCommand cmd;
@@ -147,6 +154,12 @@ IpcResponse IpcProtocol::execute(const IpcCommand& cmd, IDeviceService& service)
     }
 
     auto* dev = service.activeDevice();
+    if (cmd.type == IpcCommandType::Status) {
+        resp.success = service.isConnected();
+        resp.message = resp.success ? "Connected" : dev ? "Device disconnected" : "No device selected";
+        if (dev) resp.data = "model=" + dev->name();
+        return resp;
+    }
     if (!dev || !dev->isConnected()) {
         resp.success = false;
         resp.message = "No device connected";

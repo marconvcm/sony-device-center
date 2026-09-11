@@ -1,7 +1,7 @@
 [Unit]
 Description=Sony Audio Device Daemon
-Documentation=https://github.com/Plutoberth/SonyHeadphonesClient
-After=bluetooth.target
+Documentation=https://github.com/marconvcm/sony-device-center
+After=dbus.socket
 
 [Service]
 Type=simple

@@ -119,14 +119,16 @@ std::vector<BluetoothDevice> LinuxBluetoothConnector::getConnectedDevices()
   {
     std::string name = dbus_get_property(connection, adapter.c_str(), "Name");
     std::string address = dbus_get_property(connection, adapter.c_str(), "Address");
+    bool paired = dbus_get_property_bool(connection, adapter.c_str(), "Paired");
+    if (!paired) continue;
     bool connected = dbus_get_property_bool(connection, adapter.c_str(), "Connected");
     if (connected)
     {
-      res.insert(res.begin(), {.name = name, .mac = address});
+      res.insert(res.begin(), {.name = name, .mac = address, .paired = paired, .connected = connected});
     }
     else
     {
-      res.push_back({.name = name, .mac = address});
+      res.push_back({.name = name, .mac = address, .paired = paired, .connected = connected});
     }
   }
 

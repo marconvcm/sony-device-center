@@ -46,7 +46,7 @@ public:
     // Parses an incoming unsolicited frame/payload, mutates the state, and dispatches events.
     // Returns true if the notification was recognized and handled.
     bool parseNotification(const SonyFrame& frame, DeviceState& inOutState);
-    bool parseNotificationPayload(const std::vector<uint8_t>& payload, DeviceState& inOutState);
+    bool parseNotificationPayload(const std::vector<uint8_t>& payload, DeviceState& inOutState, bool notify = true);
 
 private:
     std::mutex _mutex;

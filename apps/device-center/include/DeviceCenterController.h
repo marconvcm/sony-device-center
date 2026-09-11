@@ -1,6 +1,8 @@
 #pragma once
 
 #include <QObject>
+#include <QThread>
+#include <QJsonObject>
 #include <QString>
 #include <QVariantList>
 #include <memory>
@@ -11,9 +13,16 @@
 
 namespace sony::devicecenter {
 
+class DeviceBackend;
+
 class DeviceCenterController : public QObject {
     Q_OBJECT
 
+    Q_PROPERTY(bool busy READ busy NOTIFY stateChanged)
+    Q_PROPERTY(QString lastError READ lastError NOTIFY stateChanged)
+    Q_PROPERTY(QString connectionState READ connectionState NOTIFY stateChanged)
+    Q_PROPERTY(QString codec READ codec NOTIFY stateChanged)
+    Q_PROPERTY(QVariantMap featureStatus READ featureStatus NOTIFY stateChanged)
     Q_PROPERTY(QString deviceName READ deviceName NOTIFY stateChanged)
     Q_PROPERTY(QString deviceAddress READ deviceAddress NOTIFY stateChanged)
     Q_PROPERTY(bool connected READ isConnected NOTIFY stateChanged)
@@ -48,9 +57,15 @@ class DeviceCenterController : public QObject {
     Q_PROPERTY(QVariantList availableLanguages READ availableLanguages CONSTANT)
 
 public:
-    explicit DeviceCenterController(QObject* parent = nullptr);
+    explicit DeviceCenterController(QObject* parent = nullptr, std::shared_ptr<core::IDeviceService> service = {});
     ~DeviceCenterController() override;
 
+    bool busy() const { return _busy; }
+    QString lastError() const { return _lastError; }
+    QString connectionState() const { return _connectionState; }
+    QString codec() const { return _codec; }
+    QVariantMap featureStatus() const { return _features; }
+    Q_INVOKABLE void clearError() { _lastError.clear(); emit stateChanged(); }
     [[nodiscard]] QString deviceName() const;
     [[nodiscard]] QString deviceAddress() const;
     [[nodiscard]] bool isConnected() const;
@@ -111,20 +126,23 @@ signals:
     void languageChanged();
 
 private:
-    void _initService();
-    void _syncState();
-
-    std::unique_ptr<core::IpcClient> _ipcClient;
-    std::shared_ptr<core::IDeviceService> _directService;
-    bool _usingIpc{false};
+    void _applySnapshot(const QByteArray& data);
+    void _send(const QString& method, const QJsonObject& params = {});
+    QThread _worker;
+    DeviceBackend* _backend{nullptr};
+    quint64 _generation{0};
+    bool _busy{true};
+    QString _lastError, _connectionState{"searching"}, _codec{"Unknown"};
+    QVariantMap _features;
+    QJsonObject _capabilities;
 
     // Cached UI state
     QString _deviceName{""};
     QString _deviceAddress{""};
     bool _connected{false};
-    int _batteryLevel{0};
+    int _batteryLevel{-1};
     bool _isCharging{false};
-    QString _noiseControlMode{"off"};
+    QString _noiseControlMode{"unknown"};
     int _ambientLevel{10};
     bool _focusOnVoice{false};
     int _equalizerPreset{0x00};

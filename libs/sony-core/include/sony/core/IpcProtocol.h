@@ -36,6 +36,7 @@ struct IpcResponse {
 
 class IpcProtocol {
 public:
+    static std::string executeLine(std::string_view line, IDeviceService& service);
     static IpcCommand parseCommand(std::string_view line);
     static std::string serializeResponse(const IpcResponse& response);
     static IpcResponse parseResponse(std::string_view line);

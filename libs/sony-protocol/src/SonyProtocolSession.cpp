@@ -65,7 +65,7 @@ void SonyProtocolSession::disconnect() noexcept {
 }
 
 bool SonyProtocolSession::isConnected() const noexcept {
-    return _transport && _transport->isConnected();
+    return _running.load() && _transport && _transport->isConnected();
 }
 
 transport::ITransport* SonyProtocolSession::transport() const noexcept {
@@ -298,7 +298,21 @@ void SonyProtocolSession::_writeFrame(const SonyFrame& frame) {
     auto encoded = FrameCodec::encode(frame);
     Logger::logTx(encoded, Logger::describePayload(frame.payload));
     std::span<const std::byte> byteSpan(reinterpret_cast<const std::byte*>(encoded.data()), encoded.size());
-    _transport->send(byteSpan);
+    try {
+        size_t sent = 0;
+        while (sent < byteSpan.size()) {
+            auto n = _transport->send(byteSpan.subspan(sent));
+            if (!n) throw SonyException(SonyErrorCode::Disconnected, "Bluetooth send returned EOF");
+            sent += n;
+        }
+    } catch (const SonyException& ex) {
+        if (ex.code() != SonyErrorCode::Timeout) {
+            _running = false; _ackCv.notify_all(); _responseCv.notify_all();
+        }
+        throw;
+    } catch (...) {
+        _running = false; _ackCv.notify_all(); _responseCv.notify_all(); throw;
+    }
 }
 
 void SonyProtocolSession::send(const SonyFrame& frame, std::chrono::milliseconds timeout) {

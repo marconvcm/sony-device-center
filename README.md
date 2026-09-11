@@ -63,9 +63,12 @@ real hardware.
 | WH-XB910N, WH-CH520 | V2 | 🟡 Untested | |
 | WH-XB900N, MDR-XB950BT, WI-1000X, WH-1000XM2 | V1 | 🟡 Untested | The V1 path is far less exercised than V2 |
 
-**Known to affect every device:** the app reads state once at startup and does not
-refresh, so changes made on the headset do not appear ([#9](../../issues/9)) and the
-initial noise-control mode can be wrong ([#8](../../issues/8)).
+**State and connection handling:** the Qt app now uses structured snapshots,
+updates from supported device notifications, and periodic refreshes. It shows
+unknown readings and command errors explicitly. The daemon retries unavailable
+headphones automatically. V1 noise-control readback remains undecoded; successful
+writes are shown, but an initial mode is not guessed. Model-specific XM6 protocol
+failures still need hardware verification. See [IPC and connection lifecycle](docs/ipc-and-lifecycle.md).
 
 Running something not listed, or listed as untested? Please
 [open a report](../../issues/new) with your model, firmware version and what worked —
@@ -131,7 +134,7 @@ Launch the Qt 6 application directly:
 ```bash
 ./build/apps/device-center/sony-device-center
 ```
-If `sonyd` is running, it connects over local IPC. If not, it opens a direct Bluetooth session to your connected headset automatically.
+On Unix, a running `sonyd` is used over local IPC. Otherwise the app opens a direct Bluetooth session. Windows currently uses direct sessions. Discovery and device I/O run off the GUI thread. Update the GUI and daemon together for the versioned IPC interface.
 
 ### 2. Command-Line Interface (`sonyctl`)
 
@@ -157,7 +160,7 @@ sonyctl eq custom 5 0 1 2 1 0   # Custom Clear Bass (+5) and bands: 400Hz, 1kHz,
 sonyctl dsee on                 # Enable DSEE audio upscaling
 sonyctl apo 3                   # Set Auto Power-Off preset (0=Off, 1=5m, 2=15m, 3=30m, 4=1h, 5=3h)
 
-# Standalone execution (without sonyd)
+# Standalone execution (stop sonyd first; only one Bluetooth owner is allowed)
 sonyctl --direct battery
 sonyctl --direct anc on
 ```
@@ -170,7 +173,9 @@ Run headless in the background or configure as a systemd user service:
 ./build/apps/sonyd/sonyd &
 
 # Run with custom socket path
-./build/apps/sonyd/sonyd -s /tmp/sony-device-center.sock
+mkdir -p "$HOME/.cache/sony-device-center"
+chmod 700 "$HOME/.cache/sony-device-center"
+./build/apps/sonyd/sonyd -s "$HOME/.cache/sony-device-center/ipc.sock"
 ```
 
 To run as a systemd service:
@@ -200,7 +205,7 @@ Packets transmitted over Bluetooth RFCOMM follow the Sony MDR framed format:
 
 ### Automated Test Suite
 
-The test suite runs 106 Catch2 unit and integration tests without requiring Bluetooth hardware:
+The CTest suite includes protocol, transport, service, Unix IPC, Qt worker, and simulated application tests without requiring Bluetooth hardware:
 - Frame framing, escaping, checksums, and corruption recovery
 - Fragmentation handling and multi-frame stream parsing
 - V1 vs. V2 command byte layouts and safe opcode handling

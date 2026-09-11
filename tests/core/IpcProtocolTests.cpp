@@ -7,6 +7,7 @@
 #include "sony/transport/FakeTransport.h"
 
 #include <algorithm>
+#include "../support/PrivateSocket.h"
 
 using namespace sony;
 using namespace sony::core;
@@ -258,12 +259,16 @@ TEST_CASE("IpcProtocol execution through DeviceService", "[core][ipc]") {
 }
 
 TEST_CASE("IpcServer and IpcClient end-to-end communication over socket", "[core][ipc]") {
+#ifdef _WIN32
+    SKIP("Unix IPC is not implemented on Windows");
+#endif
     auto transport = std::make_shared<AutoAckFakeTransport>();
     auto discovery = std::make_shared<FakeDeviceDiscovery>();
     auto service = std::make_shared<DeviceService>(transport, discovery);
     service->connect(DeviceAddress("11:22:33:44:55:66"), "WH-1000XM5");
 
-    std::string testSocket = "/tmp/sony-test-ipc-" + std::to_string(std::chrono::system_clock::now().time_since_epoch().count()) + ".sock";
+    PrivateSocket socket;
+    std::string testSocket = socket.path;
 
     IpcClient client(testSocket);
     CHECK_FALSE(client.isDaemonRunning());

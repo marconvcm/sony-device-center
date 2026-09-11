@@ -49,6 +49,16 @@ void SonyDevice::connect(const transport::DeviceAddress& address, std::string_vi
     _protocol.reset();
     _session.reset();
 
+    {
+        std::lock_guard lock(_stateMutex);
+        _state = {}; _refreshStep = 0;
+        const auto& c = _capabilities;
+        for (const auto& [name, supported] : std::initializer_list<std::pair<std::string, bool>>{
+            {"battery",c.battery},{"noiseControl",c.noiseCancelling || c.ambientSound},
+            {"equalizer",c.equalizer},{"dsee",c.dsee},{"codec",c.codecInfo},{"firmware",c.firmwareInfo},
+            {"speakToChat",c.speakToChat},{"adaptiveVolume",c.adaptiveVolume},{"autoPowerOff",c.autoPowerOff}})
+            _state.features[name].availability = supported ? "unknown" : "unsupported";
+    }
     _transport->connect(address);
     _setupSession();
 
@@ -75,6 +85,11 @@ void SonyDevice::disconnect() noexcept {
     if (_transport && _transport->isConnected()) {
         _transport->disconnect();
     }
+    {
+        std::lock_guard lock(_stateMutex);
+        for (auto& [name, status] : _state.features)
+            if (status.availability == "valid") status.availability = "stale";
+    }
     _dispatcher.dispatch(protocol::ConnectionChanged{
         .connected = false,
         .deviceAddress = ""
@@ -82,7 +97,7 @@ void SonyDevice::disconnect() noexcept {
 }
 
 bool SonyDevice::isConnected() const noexcept {
-    return _transport && _transport->isConnected();
+    return _session && _session->isConnected();
 }
 
 SonyProtocolVersion SonyDevice::protocolVersion() const noexcept {
@@ -131,8 +146,21 @@ void SonyDevice::_setupSession() {
 }
 
 void SonyDevice::_onNotification(const protocol::SonyFrame& frame) {
-    std::lock_guard lock(_stateMutex);
-    _dispatcher.parseNotification(frame, _state);
+    protocol::DeviceStateSnapshot updated;
+    std::string feature;
+    {
+        std::lock_guard lock(_stateMutex);
+        if (!_dispatcher.parseNotificationPayload(frame.payload, _state, false)) return;
+        const auto opcode = frame.payload[0];
+        feature = (opcode == 0x23 || opcode == 0x25) ? "battery" :
+            (opcode == 0x67 || opcode == 0x69) ? "noiseControl" : "equalizer";
+        _markSuccess(feature);
+        updated = std::make_shared<const protocol::DeviceState>(_state);
+    }
+    if (feature == "battery") _dispatcher.dispatch(protocol::BatteryChanged{updated->battery});
+    if (feature == "noiseControl") _dispatcher.dispatch(protocol::NoiseControlChanged{updated->noiseControl});
+    if (feature == "equalizer") _dispatcher.dispatch(protocol::EqualizerChanged{updated->equalizer});
+    _dispatcher.dispatch(protocol::DeviceStateChanged{updated});
 }
 
 void SonyDevice::refreshAll() {
@@ -144,59 +172,81 @@ void SonyDevice::refreshAll() {
 
 void SonyDevice::refreshBattery() {
     if (!_protocol) return;
+    if (!_capabilities.battery) return;
     try {
         auto bat = _protocol->getBattery();
+        if (!bat.main && !bat.left && !bat.right && !bat.caseBattery)
+            throw SonyException(SonyErrorCode::InvalidResponse, "No battery reading received");
         {
             std::lock_guard lock(_stateMutex);
             _state.battery = bat;
+        _markSuccess("battery");
         }
         _dispatcher.dispatch(protocol::BatteryChanged{bat});
         _dispatcher.dispatch(protocol::DeviceStateChanged{snapshot()});
     } catch (const SonyException& ex) {
+        _markError("battery", ex);
         Logger::debug(LogCategory::Device, "refreshBattery error: " + std::string(ex.what()));
     }
 }
 
 void SonyDevice::refreshNoiseControl() {
     if (!_protocol) return;
+    if (!_capabilities.noiseCancelling && !_capabilities.ambientSound) return;
+    // V1's protocol getter returns a local cache; its readback layout is not
+    // decoded. Preserve confirmed writes and never advertise the default as a read.
+    if (_version == SonyProtocolVersion::V1) {
+        std::lock_guard lock(_stateMutex);
+        if (!_state.features["noiseControl"].lastSuccessMs)
+            _state.features["noiseControl"].error = "Legacy noise-control readback is not decoded";
+        return;
+    }
     try {
         auto nc = _protocol->getNoiseControl();
         {
             std::lock_guard lock(_stateMutex);
             _state.noiseControl = nc;
+        _markSuccess("noiseControl");
         }
         _dispatcher.dispatch(protocol::NoiseControlChanged{nc});
         _dispatcher.dispatch(protocol::DeviceStateChanged{snapshot()});
     } catch (const SonyException& ex) {
+        _markError("noiseControl", ex);
         Logger::debug(LogCategory::Device, "refreshNoiseControl error: " + std::string(ex.what()));
     }
 }
 
 void SonyDevice::refreshEqualizer() {
     if (!_protocol) return;
+    if (!_capabilities.equalizer) return;
     try {
         auto eq = _protocol->getEqualizer();
         {
             std::lock_guard lock(_stateMutex);
             _state.equalizer = eq;
+        _markSuccess("equalizer");
         }
         _dispatcher.dispatch(protocol::EqualizerChanged{eq});
         _dispatcher.dispatch(protocol::DeviceStateChanged{snapshot()});
     } catch (const SonyException& ex) {
+        _markError("equalizer", ex);
         Logger::debug(LogCategory::Device, "refreshEqualizer error: " + std::string(ex.what()));
     }
 }
 
 void SonyDevice::refreshDsee() {
     if (!_protocol) return;
+    if (!_capabilities.dsee) return;
     try {
         bool dsee = _protocol->getDsee();
         {
             std::lock_guard lock(_stateMutex);
             _state.dsee = dsee;
+        _markSuccess("dsee");
         }
         _dispatcher.dispatch(protocol::DeviceStateChanged{snapshot()});
     } catch (const SonyException& ex) {
+        _markError("dsee", ex);
         Logger::debug(LogCategory::Device, "refreshDsee error: " + std::string(ex.what()));
     }
 }
@@ -207,6 +257,7 @@ void SonyDevice::setNoiseControl(const protocol::NoiseControlState& nc) {
     {
         std::lock_guard lock(_stateMutex);
         _state.noiseControl = nc;
+        _markSuccess("noiseControl");
     }
     _dispatcher.dispatch(protocol::NoiseControlChanged{nc});
     _dispatcher.dispatch(protocol::DeviceStateChanged{snapshot()});
@@ -234,8 +285,9 @@ void SonyDevice::setEqualizerPreset(int preset) {
     {
         std::lock_guard lock(_stateMutex);
         _state.equalizer.preset = preset;
+        _markSuccess("equalizer");
     }
-    _dispatcher.dispatch(protocol::EqualizerChanged{_state.equalizer});
+    _dispatcher.dispatch(protocol::EqualizerChanged{snapshot()->equalizer});
     _dispatcher.dispatch(protocol::DeviceStateChanged{snapshot()});
 }
 
@@ -247,8 +299,9 @@ void SonyDevice::setEqualizerCustom(int clearBass, const std::array<int, 5>& ban
         _state.equalizer.preset = 0xa0; // MANUAL
         _state.equalizer.clearBass = clearBass;
         _state.equalizer.bands = bands;
+        _markSuccess("equalizer");
     }
-    _dispatcher.dispatch(protocol::EqualizerChanged{_state.equalizer});
+    _dispatcher.dispatch(protocol::EqualizerChanged{snapshot()->equalizer});
     _dispatcher.dispatch(protocol::DeviceStateChanged{snapshot()});
 }
 
@@ -258,6 +311,7 @@ void SonyDevice::setDsee(bool enabled) {
     {
         std::lock_guard lock(_stateMutex);
         _state.dsee = enabled;
+        _markSuccess("dsee");
     }
     _dispatcher.dispatch(protocol::DeviceStateChanged{snapshot()});
 }
@@ -268,6 +322,7 @@ void SonyDevice::setAutoPowerOff(int index) {
     {
         std::lock_guard lock(_stateMutex);
         _state.autoPowerOff = index;
+        _markSuccess("autoPowerOff");
     }
     _dispatcher.dispatch(protocol::DeviceStateChanged{snapshot()});
 }
@@ -278,6 +333,7 @@ void SonyDevice::setSpeakToChat(bool enabled) {
     {
         std::lock_guard lock(_stateMutex);
         _state.speakToChat = enabled;
+        _markSuccess("speakToChat");
     }
     _dispatcher.dispatch(protocol::DeviceStateChanged{snapshot()});
 }
@@ -288,8 +344,50 @@ void SonyDevice::setAdaptiveVolume(bool enabled) {
     {
         std::lock_guard lock(_stateMutex);
         _state.adaptiveVolume = enabled;
+        _markSuccess("adaptiveVolume");
     }
     _dispatcher.dispatch(protocol::DeviceStateChanged{snapshot()});
 }
 
+void SonyDevice::_markSuccess(const std::string& feature) {
+    std::lock_guard lock(_stateMutex);
+    _state.features[feature] = {"valid", protocol::stateTimestamp(), {}};
+}
+void SonyDevice::_markError(const std::string& feature, const SonyException& ex) {
+    std::lock_guard lock(_stateMutex);
+    auto& status = _state.features[feature];
+    status.availability = ex.code() == SonyErrorCode::Unsupported ? "unsupported" : status.lastSuccessMs ? "stale" : "unknown";
+    status.error = ex.what();
+}
+void SonyDevice::refreshSettingsStep() {
+    if (!_protocol || !isConnected()) return;
+    // Nine steps, each scheduled separately. Optional features are never probed
+    // on profiles that don't advertise them.
+    const auto step = _refreshStep++ % 9;
+    if (step == 0) { refreshNoiseControl(); return; }
+    if (step == 1) { refreshEqualizer(); return; }
+    if (step == 2) { refreshDsee(); return; }
+    std::string feature;
+    try {
+        if (step == 3 && _capabilities.codecInfo) {
+            feature = "codec"; auto value = _protocol->getCodec();
+            if (value.empty()) throw SonyException(SonyErrorCode::InvalidResponse, "Codec not reported");
+            std::lock_guard lock(_stateMutex); _state.codec = value; _markSuccess(feature);
+        } else if (step == 4 && _capabilities.firmwareInfo) {
+            feature = "firmware"; auto value = _protocol->getFirmwareVersion();
+            if (value.empty()) throw SonyException(SonyErrorCode::InvalidResponse, "Firmware not reported");
+            std::lock_guard lock(_stateMutex); _state.firmware = value; _markSuccess(feature);
+        } else if (step == 5 && _capabilities.speakToChat) {
+            feature = "speakToChat"; auto value = _protocol->getSpeakToChat();
+            std::lock_guard lock(_stateMutex); _state.speakToChat = value; _markSuccess(feature);
+        } else if (step == 6 && _capabilities.adaptiveVolume) {
+            feature = "adaptiveVolume"; auto value = _protocol->getAdaptiveVolume();
+            std::lock_guard lock(_stateMutex); _state.adaptiveVolume = value; _markSuccess(feature);
+        } else if (step == 7 && _capabilities.autoPowerOff) {
+            feature = "autoPowerOff"; auto value = _protocol->getAutoPowerOff();
+            std::lock_guard lock(_stateMutex); _state.autoPowerOff = value; _markSuccess(feature);
+        }
+    } catch (const SonyException& ex) { if (!feature.empty()) _markError(feature, ex); }
+    _dispatcher.dispatch(protocol::DeviceStateChanged{snapshot()});
+}
 } // namespace sony::core

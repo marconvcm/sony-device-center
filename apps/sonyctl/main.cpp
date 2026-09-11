@@ -90,6 +90,11 @@ int main(int argc, char* argv[]) {
     }
     std::string commandLine = oss.str();
 
+    IpcClient daemon(socketPath);
+    if (direct && daemon.isDaemonRunning()) {
+        std::cerr << "Error: sonyd is running and may own the Bluetooth session. Stop sonyd before using --direct.\n";
+        return 1;
+    }
     // If direct execution requested or daemon not running, connect via local DeviceService
     if (!direct) {
         IpcClient client(socketPath);
@@ -110,7 +115,8 @@ int main(int argc, char* argv[]) {
     }
 
     // Fallback or Direct mode
-    std::cerr << "Notice: sonyd daemon is not running at " << socketPath << "\n"
+    if (direct) std::cerr << "Using a direct Bluetooth session (--direct).\n";
+    else std::cerr << "Notice: sonyd daemon is not running at " << socketPath << "\n"
               << "Starting direct session...\n";
 
     std::shared_ptr<ITransport> transport = transport::createPlatformTransport();

@@ -6,6 +6,11 @@
 #include <memory>
 #include <string>
 #include <thread>
+#include <mutex>
+#include <condition_variable>
+#include <deque>
+#include <future>
+#include <functional>
 
 namespace sony::core {
 
@@ -26,13 +31,20 @@ public:
 
 private:
     void _serverLoop();
-    void _handleClient(int clientFd);
+    void _executeLoop();
+    struct Job { std::string line; std::promise<std::string> result; std::atomic<bool> cancelled{false}; };
 
     std::shared_ptr<IDeviceService> _service;
     std::string _socketPath;
     std::atomic<bool> _running{false};
     int _listenFd{-1};
     std::thread _worker;
+    std::thread _executor;
+    std::mutex _queueMutex;
+    std::condition_variable _queueCv;
+    std::deque<std::shared_ptr<Job>> _jobs;
+    int _lockFd{-1};
+    unsigned long long _socketInode{0};
 };
 
 } // namespace sony::core

@@ -17,6 +17,8 @@ public:
     [[nodiscard]] bool isDaemonRunning(std::chrono::milliseconds timeout = std::chrono::milliseconds(200));
     IpcResponse sendCommand(std::string_view commandLine, std::chrono::milliseconds timeout = std::chrono::milliseconds(3000));
 
+    std::string request(std::string_view line, std::chrono::milliseconds timeout = std::chrono::seconds(30));
+
     [[nodiscard]] const std::string& socketPath() const noexcept;
 
 private:

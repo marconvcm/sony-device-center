@@ -1,4 +1,5 @@
 #pragma once
+#include <optional>
 #include <string>
 #include <vector>
 #include "Exceptions.h"
@@ -15,6 +16,8 @@ struct BluetoothDevice
 	//UTF-8
 	std::string name;
 	std::string mac;
+    std::optional<bool> paired;
+    std::optional<bool> connected;
 };
 
 /*

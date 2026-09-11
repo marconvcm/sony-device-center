@@ -29,6 +29,8 @@ endif()
 add_executable(sony-device-center
     main.cpp
     src/DeviceCenterController.cpp
+    src/DeviceBackend.cpp
+    include/DeviceBackend.h
     include/DeviceCenterController.h
     src/I18nManager.cpp
     include/I18nManager.h
@@ -109,3 +111,29 @@ if(WIN32)
     endif()
 endif()
 
+
+if(BUILD_TESTING)
+    find_package(Qt6 COMPONENTS Test QUIET)
+    if(TARGET Qt6::Test)
+        add_executable(sony-ui-tests
+            ../../tests/ui/DeviceControllerTests.cpp
+            src/DeviceCenterController.cpp include/DeviceCenterController.h
+            src/DeviceBackend.cpp include/DeviceBackend.h
+            src/I18nManager.cpp include/I18nManager.h)
+        target_include_directories(sony-ui-tests PRIVATE include)
+        target_compile_definitions(sony-ui-tests PRIVATE SONY_DEVICE_CENTER_VERSION="${SonyDeviceCenter_VERSION}")
+        target_link_libraries(sony-ui-tests PRIVATE Qt6::Test Qt6::Gui sony-core)
+        add_test(NAME "device-controller-worker-integration" COMMAND sony-ui-tests)
+        set_tests_properties("device-controller-worker-integration" PROPERTIES TIMEOUT 25)
+    endif()
+endif()
+
+if(BUILD_TESTING AND UNIX AND NOT APPLE)
+    find_package(Python3 COMPONENTS Interpreter QUIET)
+    if(Python3_FOUND)
+        add_test(NAME simulated-app-smoke
+            COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/../../tests/smoke/simulated.py
+                $<TARGET_FILE:sonyd> $<TARGET_FILE:sonyctl> $<TARGET_FILE:sony-device-center>)
+        set_tests_properties(simulated-app-smoke PROPERTIES TIMEOUT 50)
+    endif()
+endif()

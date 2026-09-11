@@ -542,3 +542,6 @@ CPackSourceConfig.cmake
 *.AppImage
 Client/resources/devices/output/
 
+
+# Local instrumented CMake builds
+/build-*/

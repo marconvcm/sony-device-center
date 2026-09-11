@@ -46,7 +46,7 @@ public:
                 if (frame.type == DataType::DataMdr) {
                     SonyFrame ackFrame{
                         .type = DataType::Ack,
-                        .sequence = frame.sequence,
+                        .sequence = static_cast<uint8_t>(1 - (frame.sequence & 1)),
                         .payload = {}
                     };
                     queueIncoming(FrameCodec::encode(ackFrame));
@@ -94,7 +94,7 @@ public:
 
 private:
     uint8_t _nextRespSeq() {
-        return _respSeq++;
+        return (_respSeq++ & 1);
     }
     uint8_t _respSeq{0};
 };
@@ -112,6 +112,7 @@ void printHelp() {
 } // namespace
 
 int main(int argc, char* argv[]) {
+    std::cout << std::unitbuf;
     std::string socketPath = defaultSocketPath();
     std::string deviceAddr;
     std::string deviceName;  // resolved from discovery; never guessed
@@ -156,32 +157,6 @@ int main(int argc, char* argv[]) {
 
     std::string targetAddress = deviceAddr;
 
-    // An address given with -d still needs its name resolved, because the name
-    // is what selects the protocol generation. Guessing it wrong on a legacy
-    // device powers the headphones off.
-    if (!targetAddress.empty() && discovery) {
-        for (const auto& dev : discovery->discover()) {
-            if (dev.address.str() == targetAddress) {
-                deviceName = dev.name;
-                break;
-            }
-        }
-        if (deviceName.empty()) {
-            std::cout << "[sonyd] " << targetAddress << " is not among the paired Sony devices; "
-                      << "treating it as a legacy (V1) device.\n";
-        }
-    }
-
-    if (targetAddress.empty() && discovery) {
-        auto devs = discovery->discover();
-        if (!devs.empty()) {
-            targetAddress = devs.front().address.str();
-            deviceName = devs.front().name;
-            std::cout << "[sonyd] Discovered " << devs.size() << " Sony device(s). Selecting: "
-                      << deviceName << " [" << targetAddress << "]\n";
-        }
-    }
-
     if (simulated) {
         auto fakeTransport = std::make_shared<SimulatedDaemonTransport>();
         auto fakeDiscovery = std::make_shared<FakeDeviceDiscovery>();
@@ -199,19 +174,7 @@ int main(int argc, char* argv[]) {
 
     auto service = std::make_shared<DeviceService>(transport, discovery);
 
-    // Auto-connect to device
-    if (!targetAddress.empty()) {
-        std::cout << "[sonyd] Initializing device connection to " << targetAddress << " (" << deviceName << ")...\n";
-        try {
-            service->connect(DeviceAddress(targetAddress), deviceName);
-            std::cout << "[sonyd] Connected successfully to " << deviceName << ".\n";
-        } catch (const std::exception& ex) {
-            std::cerr << "[sonyd] Warning: initial device connection deferred: " << ex.what() << "\n";
-        }
-    } else {
-        std::cout << "[sonyd] No paired Sony device found. Waiting for connection command via IPC...\n";
-    }
-
+    service->startAutoConnect(targetAddress);
 
     // Start IPC Server
     auto server = std::make_unique<IpcServer>(service, socketPath);

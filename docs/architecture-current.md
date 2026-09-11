@@ -1,3 +1,6 @@
+> This document records the legacy migration baseline. For the current daemon,
+> structured IPC, and Qt worker architecture, see [IPC and connection lifecycle](ipc-and-lifecycle.md).
+
 # Current SonyBridge architecture
 
 ## Scope and baseline

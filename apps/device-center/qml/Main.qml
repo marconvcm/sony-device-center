@@ -13,6 +13,21 @@ ApplicationWindow {
     title: "Sony Device Center — " + controller.deviceName
     color: bg
 
+    footer: Rectangle {
+        color: window.surface
+        height: statusText.implicitHeight + 24
+        Text {
+            id: statusText
+            anchors.fill: parent
+            anchors.margins: 12
+            textFormat: Text.PlainText
+            wrapMode: Text.Wrap
+            color: controller.lastError.length ? window.danger : window.txtDim
+            text: controller.lastError.length ? controller.lastError :
+                controller.busy ? "Working…" : "Connection: " + controller.connectionState
+        }
+    }
+
     property int navIndex: 0
 
     // Reactive i18n helper
@@ -327,6 +342,12 @@ ApplicationWindow {
     // Custom switch. The stock one belongs to a different app.
     component NeoSwitch: Switch {
         id: sw
+        property bool confirmedChecked: false
+        checked: confirmedChecked
+        Connections {
+            target: controller
+            function onStateChanged() { sw.checked = Qt.binding(function() { return sw.confirmedChecked }) }
+        }
         implicitWidth: 50
         implicitHeight: 28
         hoverEnabled: true
@@ -358,6 +379,12 @@ ApplicationWindow {
     // Horizontal slider with a gradient fill and a handle that reacts.
     component NeoSlider: Slider {
         id: sl
+        property real confirmedValue: 0
+        value: confirmedValue
+        Connections {
+            target: controller
+            function onStateChanged() { sl.value = Qt.binding(function() { return sl.confirmedValue }) }
+        }
         implicitHeight: 26
         hoverEnabled: true
 
@@ -427,6 +454,10 @@ ApplicationWindow {
             to: 10
             stepSize: 1
             value: band.value
+            Connections {
+                target: controller
+                function onStateChanged() { vs.value = Qt.binding(function() { return band.value }) }
+            }
             implicitWidth: 34
             hoverEnabled: true
             onMoved: band.moved(value)
@@ -602,7 +633,7 @@ ApplicationWindow {
                             Canvas {
                                 id: ring
                                 anchors.fill: parent
-                                property real level: controller.connected ? controller.batteryLevel : 0
+                                property real level: controller.connected ? Math.max(0, controller.batteryLevel) : 0
                                 Behavior on level { NumberAnimation { duration: 700; easing.type: Easing.OutCubic } }
                                 onLevelChanged: requestPaint()
 
@@ -647,7 +678,7 @@ ApplicationWindow {
                                 textFormat: Text.PlainText
                                 anchors.centerIn: parent
                                 visible: !controller.isCharging
-                                text: controller.connected ? controller.batteryLevel : "—"
+                                text: controller.connected && controller.batteryLevel >= 0 ? controller.batteryLevel : "—"
                                 color: window.txt
                                 font.pixelSize: 13
                                 font.weight: Font.DemiBold
@@ -831,6 +862,7 @@ ApplicationWindow {
         // CONTENT
         // ------------------------------------------------------
         StackLayout {
+            enabled: !controller.busy
             Layout.fillWidth: true
             Layout.fillHeight: true
             currentIndex: window.navIndex
@@ -867,9 +899,9 @@ ApplicationWindow {
                         // Compact status chips
                         Repeater {
                             model: [
-                                { k: "Codec", v: "LDAC" },
-                                { k: "Battery", v: controller.batteryLevel + "%" },
-                                { k: "Mode", v: controller.noiseControlMode === "cancelling" ? "ANC"
+                                { k: "Codec", v: controller.codec },
+                                { k: "Battery", v: controller.batteryLevel >= 0 ? controller.batteryLevel + "%" : "Unknown" },
+                                { k: "Mode", v: controller.noiseControlMode === "unknown" ? "Unknown" : controller.noiseControlMode === "cancelling" ? "ANC"
                                               : controller.noiseControlMode === "ambient" ? "Ambient" : "Off" }
                             ]
 
@@ -927,7 +959,7 @@ ApplicationWindow {
                                     anchors.centerIn: parent
                                     z: -1
                                     width: 470; height: 470
-                                    tint: controller.noiseControlMode === "cancelling" ? window.accent
+                                    tint: controller.noiseControlMode === "unknown" ? window.txtDim : controller.noiseControlMode === "cancelling" ? window.accent
                                         : controller.noiseControlMode === "ambient" ? window.ambientWarm
                                         : window.txtFaint
                                     strength: controller.noiseControlMode === "off" ? 0.05 : 0.18
@@ -1006,7 +1038,7 @@ ApplicationWindow {
                                 textFormat: Text.PlainText
                                 Layout.alignment: Qt.AlignHCenter
                                 Layout.topMargin: 10
-                                text: controller.noiseControlMode === "cancelling" ? "Noise Cancelling"
+                                text: controller.noiseControlMode === "unknown" ? "Unknown" : controller.noiseControlMode === "cancelling" ? "Noise Cancelling"
                                     : controller.noiseControlMode === "ambient" ? "Ambient Sound"
                                     : "Processing Off"
                                 color: window.txt
@@ -1019,7 +1051,7 @@ ApplicationWindow {
                                 textFormat: Text.PlainText
                                 Layout.alignment: Qt.AlignHCenter
                                 Layout.topMargin: 2
-                                text: controller.noiseControlMode === "cancelling" ? "The outside world is sealed out"
+                                text: controller.noiseControlMode === "unknown" ? "Unknown" : controller.noiseControlMode === "cancelling" ? "The outside world is sealed out"
                                     : controller.noiseControlMode === "ambient" ? "Level " + controller.ambientLevel + " · hearing your surroundings"
                                     : "Straight signal, no processing"
                                 color: window.txtFaint
@@ -1258,7 +1290,7 @@ ApplicationWindow {
                                 id: ambientSlider
                                 Layout.fillWidth: true
                                 from: 1; to: 20; stepSize: 1
-                                value: controller.ambientLevel
+                                confirmedValue: controller.ambientLevel
                                 onMoved: controller.setAmbient(Math.round(value), voiceSwitch.checked)
                             }
 
@@ -1284,7 +1316,7 @@ ApplicationWindow {
                                 }
                                 NeoSwitch {
                                     id: voiceSwitch
-                                    checked: controller.focusOnVoice
+                                    confirmedChecked: controller.focusOnVoice
                                     onToggled: controller.setAmbient(controller.ambientLevel, checked)
                                 }
                             }
@@ -1472,7 +1504,7 @@ ApplicationWindow {
                             NeoSlider {
                                 Layout.fillWidth: true
                                 from: -10; to: 10; stepSize: 1
-                                value: controller.clearBass
+                                confirmedValue: controller.clearBass
                                 onMoved: controller.setEqualizerCustom(Math.round(value), controller.equalizerBands)
                             }
 
@@ -1541,6 +1573,11 @@ ApplicationWindow {
                             delegate: Card {
                                 id: featCard
                                 required property var modelData
+                                readonly property string featureKey: modelData.key === "speak" ? "speakToChat" : modelData.key === "adaptive" ? "adaptiveVolume" : "dsee"
+                                readonly property var availability: controller.featureStatus[featureKey]
+                                readonly property bool known: controller.connected && availability && availability.availability === "valid"
+                                readonly property bool supported: modelData.key === "dsee" ? controller.hasDsee : modelData.key === "speak" ? controller.hasSpeakToChat : controller.hasAdaptiveVolume
+                                enabled: supported && controller.connected
                                 readonly property bool on: modelData.key === "dsee" ? controller.dsee
                                                          : modelData.key === "speak" ? controller.speakToChat
                                                          : controller.adaptiveVolume
@@ -1588,7 +1625,7 @@ ApplicationWindow {
                                         Text {
                                             textFormat: Text.PlainText
                                             Layout.fillWidth: true
-                                            text: featCard.modelData.desc
+                                            text: !featCard.supported ? "Not supported" : !featCard.known ? "State unknown — waiting for device" : featCard.modelData.desc
                                             color: window.txtFaint
                                             font.pixelSize: 11
                                             wrapMode: Text.WordWrap
@@ -1596,7 +1633,7 @@ ApplicationWindow {
                                     }
 
                                     NeoSwitch {
-                                        checked: featCard.on
+                                        confirmedChecked: featCard.on
                                         onToggled: {
                                             if (featCard.modelData.key === "dsee") controller.setDsee(checked)
                                             else if (featCard.modelData.key === "speak") controller.setSpeakToChat(checked)
@@ -1660,7 +1697,13 @@ ApplicationWindow {
                                     implicitWidth: 134
                                     implicitHeight: 38
                                     model: ["Off", "5 Minutes", "15 Minutes", "30 Minutes", "1 Hour", "3 Hours"]
-                                    currentIndex: controller.autoPowerOff
+                                    currentIndex: controller.featureStatus.autoPowerOff && controller.featureStatus.autoPowerOff.availability === "valid" ? controller.autoPowerOff : -1
+                                    Connections {
+                                        target: controller
+                                        function onStateChanged() { powerCombo.currentIndex = Qt.binding(function() {
+                                            return controller.featureStatus.autoPowerOff && controller.featureStatus.autoPowerOff.availability === "valid" ? controller.autoPowerOff : -1
+                                        }) }
+                                    }
                                     onActivated: controller.setAutoPowerOff(index)
 
                                     background: Rectangle {
@@ -1905,7 +1948,7 @@ ApplicationWindow {
                                 }
 
                                 NeoSwitch {
-                                    checked: controller.autostart
+                                    confirmedChecked: controller.autostart
                                     onToggled: controller.setAutostart(checked)
                                 }
                             }

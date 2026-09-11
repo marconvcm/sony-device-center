@@ -53,10 +53,18 @@ jobs:
         run: |
           ${{ matrix.install_deps }}
 
+      - name: Install Qt (Windows)
+        if: runner.os == 'Windows'
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.10.*'
+          arch: win64_msvc2022_64
+          cache: true
+
       - name: Configure CMake
         shell: bash
         run: |
-          cmake -B build -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DBUILD_TESTING=ON ${{ matrix.cmake_args }}
+          cmake -B build -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DBUILD_TESTING=ON -DSONY_REQUIRE_QT=ON ${{ matrix.cmake_args }}
 
       - name: Build all targets
         shell: bash

@@ -40,7 +40,8 @@ public:
                 if (isSony) {
                     result.push_back(DiscoveredDevice{
                         .name = d.name,
-                        .address = DeviceAddress(d.mac)
+                        .address = DeviceAddress(d.mac),
+                        .paired = d.paired, .connected = d.connected
                     });
                 }
             }
