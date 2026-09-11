@@ -56,6 +56,14 @@ cp "$build_dir/apps/sonyd/sonyd" "$build_dir/apps/sonyctl/sonyctl" "$app/Content
 echo "==> Deploying Qt into $(basename "$app")"
 "$macdeployqt" "$app" -qmldir="$root/apps/device-center/qml" -always-overwrite
 
+# macdeployqt ships every plugin of every framework it touches. The QML
+# import scan reaches QtSql through QtQuick.LocalStorage, and with it the
+# database drivers, whose Postgres/ODBC links then fail to resolve. There is
+# no database in this app.
+rm -rf "$app/Contents/PlugIns/sqldrivers" \
+       "$app/Contents/Frameworks/QtSql.framework" \
+       "$app/Contents/Resources/qml/QtQuick/LocalStorage"
+
 echo "==> Signing"
 if [ -n "${SONY_CODESIGN_IDENTITY:-}" ]; then
     codesign --force --deep --options runtime --timestamp \
