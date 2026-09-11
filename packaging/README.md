@@ -68,14 +68,49 @@ cpack --config build/CPackConfig.cmake -G NSIS -C Release
 
 ## 3. macOS Packaging
 
-### Application Bundle & DMG
+### Disk image
+One target, one script. It runs `macdeployqt`, folds `sonyd` and `sonyctl` into the
+bundle, signs, and writes the DMG with [dmgbuild](https://dmgbuild.readthedocs.io/)
+(no Finder scripting, so it works on a headless runner).
+
 ```bash
-cmake -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build --config Release
-
-# Generate Drag-and-Drop DMG
-cpack --config build/CPackConfig.cmake -G DragNDrop -C Release
-
-# Generate tarball
-cpack --config build/CPackConfig.cmake -G TGZ -C Release
+pipx install dmgbuild
+cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$(brew --prefix qt)"
+cmake --build build --parallel
+cmake --build build --target dmg              # or: packaging/macos/build-dmg.sh build
+packaging/macos/verify-dmg.sh build/*.dmg     # mounts it and checks what is inside
 ```
+
+The release workflow builds it universal with `-DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"`
+on the Qt archive from `install-qt-action`; Homebrew Qt gives you the host
+architecture only.
+
+Files in `packaging/macos/`:
+
+| File | Role |
+| :--- | :--- |
+| `build-dmg.sh` | The pipeline. Everything above in ~80 lines. |
+| `verify-dmg.sh` | Mounts a DMG and asserts Qt, QML modules, daemon, CLI, signature. CI gate. |
+| `dmgbuild.py` | Window geometry and icon positions for dmgbuild. |
+| `gragen.py` | Paints `dmg-background.png` / `@2x` from the app's palette. Standard library only. |
+| `Info.plist.in`, `AppIcon.icns` | Bundle metadata and icon, used by CMake. |
+
+### Signing and notarization
+Off by default. The script reads two environment variables and does the rest:
+
+```bash
+export SONY_CODESIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)"
+export SONY_NOTARY_PROFILE="notary"    # from: xcrun notarytool store-credentials notary
+cmake --build build --target dmg
+```
+
+With the identity set, the bundle is signed with hardened runtime and a secure
+timestamp; with the profile set, the DMG is submitted to Apple and the ticket
+stapled. To turn this on in CI, add the certificate and credentials as repository
+secrets and export those two variables in the `Package` step of
+`.github/workflows/release.yml`. Without them the bundle is ad-hoc signed, which
+Gatekeeper blocks on first launch (right-click → Open, or
+`xattr -d com.apple.quarantine "/Applications/Sony Device Center.app"`).
+
+### Tarball
+`cpack -G TGZ` still works but wraps the undeployed bundle; it is for developers, not users.

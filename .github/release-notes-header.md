@@ -23,6 +23,11 @@ sudo apt install ./sony-device-center-*-Linux.deb
 Windows: run the `.msi`, or unpack the `.zip`. The Windows packages bundle the Qt
 and MSVC runtimes; the Linux packages depend on system Qt 6.
 
+macOS (13+, Apple silicon and Intel): open the `.dmg` and drag **Sony Device
+Center** to Applications. The build is not yet signed with a Developer ID, so
+the first launch is right-click → **Open**. `sonyd` and `sonyctl` live inside
+the bundle at `Contents/MacOS`.
+
 ## Known limitations
 
 - **IPC is Unix-socket only.** On Windows `sonyd` cannot serve `sonyctl` or the GUI —
