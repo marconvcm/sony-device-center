@@ -90,6 +90,11 @@ install(TARGETS sony-device-center
     BUNDLE  DESTINATION .)
 
 if(WIN32)
+    # A console-subsystem binary pops a terminal window next to the GUI on
+    # every launch. The app has no console UI, so build it as a GUI-subsystem
+    # executable; Qt6::Core supplies the WinMain shim.
+    set_target_properties(sony-device-center PROPERTIES WIN32_EXECUTABLE ON)
+
     # A bare .exe cannot start without the Qt DLLs and QML module tree beside
     # it, so let windeployqt populate the install prefix at install time.
     get_target_property(_qt_qmake Qt6::qmake IMPORTED_LOCATION)
