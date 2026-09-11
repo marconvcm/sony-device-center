@@ -164,9 +164,60 @@ jobs:
           name: windows-packages
           path: dist/
 
+  macos:
+    name: macOS disk image (DMG)
+    needs: check-version
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      # Same Qt line as Windows, for the same CVE reasons. The macOS archive
+      # is universal, so one DMG serves Apple silicon and Intel.
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.10.*'
+          arch: 'clang_64'
+
+      - name: Install dmgbuild
+        run: pipx install dmgbuild
+
+      - name: Configure
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DBUILD_TESTING=OFF \
+                -DSONY_REQUIRE_QT=ON -DCMAKE_PREFIX_PATH="${QT_ROOT_DIR}" \
+                -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      # Unsigned until #7 lands. build-dmg.sh picks up SONY_CODESIGN_IDENTITY
+      # and SONY_NOTARY_PROFILE when they exist, so signing is a secrets
+      # change here, not a workflow rewrite.
+      - name: Package
+        run: cmake --build build --target dmg
+
+      - name: Verify the disk image is self-contained
+        run: packaging/macos/verify-dmg.sh build/*.dmg arm64 x86_64
+
+      - name: Collect
+        run: |
+          mkdir -p dist
+          cp build/*.dmg dist/
+          ls -la dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-packages
+          path: dist/
+
   publish:
     name: Publish GitHub release
-    needs: [linux, windows]
+    needs: [linux, windows, macos]
+    # A manual run builds everything and stops here; only a tag publishes.
+    if: github.ref_type == 'tag'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

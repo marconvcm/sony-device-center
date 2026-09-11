@@ -76,12 +76,23 @@ jobs:
         run: |
           ctest --test-dir build -C ${BUILD_TYPE} --output-on-failure --no-tests=error
 
+      # The DMG is built on every push so packaging breakage shows up in the
+      # PR, not at release time. It is also the download for macOS testers.
+      - name: Build and verify the disk image (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          pipx install dmgbuild
+          cmake --build build --target dmg
+          packaging/macos/verify-dmg.sh build/*.dmg
+
       - name: Package artifacts
         shell: bash
         run: |
           mkdir -p staging
           if [ "${{ matrix.os }}" = "windows-latest" ]; then
             find build -name "*.exe" -exec cp {} staging/ \; || true
+          elif [ "${{ matrix.os }}" = "macos-latest" ]; then
+            cp build/*.dmg staging/
           else
             find build/apps -maxdepth 3 -type f -executable -exec cp {} staging/ \; || true
           fi
