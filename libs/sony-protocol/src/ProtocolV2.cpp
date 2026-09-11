@@ -1,7 +1,11 @@
 #include "sony/protocol/ProtocolV2.h"
+#include "ProtocolHelpers.h"
 #include <algorithm>
 
 namespace sony::protocol {
+
+using detail::clampEqValue;
+using detail::codecName;
 
 namespace {
 
@@ -17,21 +21,6 @@ int apoIndexFromCode(uint8_t c0, uint8_t c1) {
         }
     }
     return 0;
-}
-
-std::string codecName(uint8_t code) {
-    switch (code) {
-        case 0x01: return "SBC";
-        case 0x02: return "AAC";
-        case 0x10: return "LDAC";
-        case 0x20: return "aptX";
-        case 0x21: return "aptX HD";
-        default:   return "";
-    }
-}
-
-uint8_t clampEqValue(int v) {
-    return static_cast<uint8_t>(std::max(-10, std::min(10, v)) + 10);
 }
 
 } // namespace

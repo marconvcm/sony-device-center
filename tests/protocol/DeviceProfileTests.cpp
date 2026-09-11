@@ -48,7 +48,10 @@ TEST_CASE("DeviceProfileRegistry: provides immediate capabilities for known mode
         REQUIRE(profile->capabilities.noiseCancelling == true);
         REQUIRE(profile->capabilities.ambientSound == true);
         REQUIRE(profile->capabilities.focusOnVoice == true);
-        REQUIRE(profile->capabilities.equalizer == false);
+        REQUIRE(profile->capabilities.equalizer == true);
+        REQUIRE(profile->capabilities.clearBass == true);
+        REQUIRE(profile->capabilities.firmwareInfo == true);
+        REQUIRE(profile->capabilities.codecInfo == true);
         REQUIRE(profile->capabilities.dsee == false);
         REQUIRE(profile->capabilities.wearSensor == true);
         REQUIRE(profile->capabilities.multipoint == true);

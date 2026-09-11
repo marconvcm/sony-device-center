@@ -7,8 +7,9 @@ no hardware verification or release publication is implied by the automated test
 ## Highest priority
 
 1. **Hardware acceptance and protocol gaps (#8–12).** Test reconnect, physical NC
-   button changes, battery refresh, and commands on XM3/XM5 hardware. V1 NC readback
-   is still undecoded and now honestly shown as unknown until a successful write.
+   button changes, battery refresh, and commands on XM3/XM5 hardware. V1 battery,
+   NC and EQ readback is decoded and verified on an XM4; the XM3 still needs a
+   re-test on the same path, and V1 DSEE / auto power-off remain unimplemented.
    XM6 EQ/read timeouts and MDR-1000X connectivity remain unresolved. Decode the
    reported captures and add literal packet fixtures before changing model claims.
    ACK receipt still cannot establish that an EQ change had an audible effect.

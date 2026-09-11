@@ -193,14 +193,6 @@ void SonyDevice::refreshBattery() {
 void SonyDevice::refreshNoiseControl() {
     if (!_protocol) return;
     if (!_capabilities.noiseCancelling && !_capabilities.ambientSound) return;
-    // V1's protocol getter returns a local cache; its readback layout is not
-    // decoded. Preserve confirmed writes and never advertise the default as a read.
-    if (_version == SonyProtocolVersion::V1) {
-        std::lock_guard lock(_stateMutex);
-        if (!_state.features["noiseControl"].lastSuccessMs)
-            _state.features["noiseControl"].error = "Legacy noise-control readback is not decoded";
-        return;
-    }
     try {
         auto nc = _protocol->getNoiseControl();
         {

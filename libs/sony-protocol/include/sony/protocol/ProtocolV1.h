@@ -2,10 +2,14 @@
 
 #include "IProtocol.h"
 #include "SonyProtocolSession.h"
-#include <mutex>
 
 namespace sony::protocol {
 
+// Legacy command set spoken by WH-1000XM3/XM4 and their contemporaries.
+//
+// Critical: opcode 0x22 is POWER OFF on this generation (it is BATTERY GET on
+// V2). Nothing in this class may ever emit it; the battery lives behind
+// 0x10/0x11 instead.
 class ProtocolV1 : public IProtocol {
 public:
     explicit ProtocolV1(SonyProtocolSession& session);
@@ -17,8 +21,6 @@ public:
 
     void initDevice() override;
 
-    // Critical: V1 does not support battery queries over MDR.
-    // Opcode 0x22 in V1 is Power Off, so getBattery() NEVER sends 0x22.
     BatteryState getBattery() override;
 
     NoiseControlState getNoiseControl() override;
@@ -49,9 +51,6 @@ public:
 
 private:
     SonyProtocolSession& _session;
-    std::mutex _mutex;
-    BatteryState _batteryState;
-    NoiseControlState _noiseControlState;
 };
 
 } // namespace sony::protocol

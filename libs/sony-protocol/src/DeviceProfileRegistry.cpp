@@ -40,6 +40,8 @@ const std::vector<DeviceProfile>& getStaticProfiles() {
             }
         },
         // WH-1000XM4 (V1 protocol, ANC/Ambient, Single battery, wear sensor, multipoint)
+        // Battery, EQ + Clear Bass, firmware and codec readback verified on
+        // hardware (firmware 3.0.1) over the legacy V1 opcodes.
         DeviceProfile{
             .model = SonyModel::WH1000XM4,
             .protocol = SonyProtocolVersion::V1,
@@ -49,14 +51,14 @@ const std::vector<DeviceProfile>& getStaticProfiles() {
                 .noiseCancelling = true,
                 .ambientSound = true,
                 .focusOnVoice = true,
-                .equalizer = false,
-                .clearBass = false,
+                .equalizer = true,
+                .clearBass = true,
                 .dsee = false,
                 .speakToChat = false,
                 .adaptiveVolume = false,
                 .autoPowerOff = false,
-                .firmwareInfo = false,
-                .codecInfo = false,
+                .firmwareInfo = true,
+                .codecInfo = true,
                 .wearSensor = true,
                 .multipoint = true
             }
