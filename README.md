@@ -116,6 +116,31 @@ that is the only way this table improves. `sonyctl -v info` output is ideal.
    ctest --test-dir build --output-on-failure
    ```
 
+### macOS
+
+1. **Install dependencies** with [Homebrew](https://brew.sh). You also need the Xcode Command Line Tools (`xcode-select --install`).
+   ```bash
+   brew install cmake qt
+   ```
+
+2. **Configure and compile**:
+   ```bash
+   cmake -B build -S . -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$(brew --prefix qt)"
+   cmake --build build --parallel
+   ```
+
+3. **Run tests**:
+   ```bash
+   ctest --test-dir build --output-on-failure
+   ```
+
+4. **Start the app**:
+   ```bash
+   open build/apps/device-center/sony-device-center.app
+   ```
+
+The build makes an app bundle that uses the Qt frameworks from Homebrew. The bundle runs only on a Mac with Homebrew Qt installed. There is no prebuilt macOS download at this time.
+
 ### Windows
 
 From a **Developer Command Prompt for VS 2022** (or PowerShell with MSVC):
@@ -134,6 +159,8 @@ Launch the Qt 6 application directly:
 ```bash
 ./build/apps/device-center/sony-device-center
 ```
+On macOS, open the app bundle with `open build/apps/device-center/sony-device-center.app`.
+
 On Unix, a running `sonyd` is used over local IPC. Otherwise the app opens a direct Bluetooth session. Windows currently uses direct sessions. Discovery and device I/O run off the GUI thread. Update the GUI and daemon together for the versioned IPC interface.
 
 ### 2. Command-Line Interface (`sonyctl`)
