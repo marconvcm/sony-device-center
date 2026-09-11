@@ -231,6 +231,14 @@ TEST_CASE("IpcProtocol execution through DeviceService", "[core][ipc]") {
         CHECK(eqResp.success);
         CHECK(service.snapshot()->equalizer.preset == 0x16);
 
+        for (const auto* preset : {"256", "272"}) {
+            auto invalidEqResp = IpcProtocol::execute(
+                IpcProtocol::parseCommand(std::string("eq preset ") + preset), service);
+            CHECK_FALSE(invalidEqResp.success);
+            CHECK(invalidEqResp.message == std::string("Unknown preset: ") + preset);
+            CHECK(service.snapshot()->equalizer.preset == 0x16);
+        }
+
         // EQ Get
         auto eqGetResp = IpcProtocol::execute(IpcProtocol::parseCommand("eq get"), service);
         CHECK(eqGetResp.success);

@@ -280,6 +280,7 @@ void SonyDevice::setAmbient(int level, bool focusOnVoice) {
 }
 
 void SonyDevice::setEqualizerPreset(int preset) {
+    if (preset < 0 || preset > 255) return;
     if (!_protocol) return;
     _protocol->setEqualizerPreset(preset);
     {
