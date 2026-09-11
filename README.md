@@ -95,23 +95,28 @@ that is the only way this table improves. `sonyctl -v info` output is ideal.
    # Ubuntu / Debian
    sudo apt update && sudo apt install -y \
        build-essential cmake git \
-       libbluetooth-dev libdbus-1-dev \
+       libbluetooth-dev libdbus-1-dev libglfw3-dev \
        qt6-base-dev qt6-declarative-dev qml6-module-qtquick-controls
 
    # Fedora
    sudo dnf install -y \
        gcc-c++ cmake git \
-       bluez-libs-devel dbus-devel \
+       bluez-libs-devel dbus-devel glfw-devel \
        qt6-qtbase-devel qt6-qtdeclarative-devel
    ```
 
-2. **Configure and compile**:
+2. **Install submodules**:
+   ```bash
+   git submodule update --init --recursive
+   ```
+
+3. **Configure and compile**:
    ```bash
    cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
    cmake --build build --parallel
    ```
 
-3. **Run tests**:
+4. **Run tests**:
    ```bash
    ctest --test-dir build --output-on-failure
    ```
