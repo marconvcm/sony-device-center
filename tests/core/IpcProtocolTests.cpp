@@ -195,6 +195,23 @@ TEST_CASE("IpcProtocol execution through DeviceService", "[core][ipc]") {
         CHECK(resp.message == "No device connected");
     }
 
+    SECTION("status distinguishes no selection from a dropped connection") {
+        auto status = IpcProtocol::parseCommand("status");
+        auto noSelection = IpcProtocol::execute(status, service);
+        CHECK_FALSE(noSelection.success);
+        CHECK(noSelection.message == "No device selected");
+        CHECK(noSelection.data.empty());
+
+        service.connect(DeviceAddress("11:22:33:44:55:66"), "WH-1000XM5");
+        REQUIRE(service.isConnected());
+        service.disconnect();
+
+        auto disconnected = IpcProtocol::execute(status, service);
+        CHECK_FALSE(disconnected.success);
+        CHECK(disconnected.message == "Device selected but disconnected");
+        CHECK(disconnected.data == "model=WH-1000XM5");
+    }
+
     SECTION("connected device executes commands") {
         service.connect(DeviceAddress("11:22:33:44:55:66"), "WH-1000XM5");
         REQUIRE(service.isConnected());

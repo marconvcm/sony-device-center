@@ -147,7 +147,23 @@ IpcResponse IpcProtocol::execute(const IpcCommand& cmd, IDeviceService& service)
     }
 
     auto* dev = service.activeDevice();
-    if (!dev || !dev->isConnected()) {
+
+    // Status is useful precisely when the transport is no longer connected.
+    // Keep it outside the general command guard so callers can distinguish a
+    // missing selection from a selected device whose link has dropped.
+    if (cmd.type == IpcCommandType::Status) {
+        if (!dev) {
+            resp.success = false;
+            resp.message = "No device selected";
+            return resp;
+        }
+        resp.success = service.isConnected();
+        resp.message = resp.success ? "Connected" : "Device selected but disconnected";
+        resp.data = "model=" + dev->name();
+        return resp;
+    }
+
+    if (!dev || !service.isConnected()) {
         resp.success = false;
         resp.message = "No device connected";
         return resp;
@@ -320,13 +336,6 @@ IpcResponse IpcProtocol::execute(const IpcCommand& cmd, IDeviceService& service)
             dev->setAutoPowerOff(idx);
             resp.success = true;
             resp.message = "Auto power off set to index " + std::to_string(idx);
-            return resp;
-        }
-
-        case IpcCommandType::Status: {
-            resp.success = true;
-            resp.message = "Connected";
-            resp.data = "model=" + dev->name();
             return resp;
         }
 
