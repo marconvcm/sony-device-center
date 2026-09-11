@@ -279,7 +279,7 @@ IpcResponse IpcProtocol::execute(const IpcCommand& cmd, IDeviceService& service)
                 presetName = cmd.args[1];
             }
             int preset = parsePresetName(presetName);
-            if (preset < 0) {
+            if (preset < 0 || preset > 255) {
                 resp.success = false;
                 resp.message = "Unknown preset: " + presetName;
                 return resp;

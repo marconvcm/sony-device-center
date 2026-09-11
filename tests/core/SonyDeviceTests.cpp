@@ -154,6 +154,14 @@ TEST_CASE("SonyDevice control methods and state updates", "[core][device]") {
         auto snap = dev.snapshot();
         CHECK(snap->equalizer.preset == 0x16);
         CHECK(eqChangeCount.load() >= 1);
+
+        for (int preset : {-1, 256, 272}) {
+            dev.setEqualizerPreset(preset);
+            auto unchanged = dev.snapshot();
+            CHECK(unchanged->equalizer.preset == snap->equalizer.preset);
+            CHECK(unchanged->equalizer.clearBass == snap->equalizer.clearBass);
+            CHECK(unchanged->equalizer.bands == snap->equalizer.bands);
+        }
     }
 
     SECTION("Equalizer custom control") {
