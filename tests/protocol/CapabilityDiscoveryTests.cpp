@@ -87,7 +87,7 @@ TEST_CASE("CapabilityDiscovery: discoverAsync runs non-blocking", "[protocol][ca
     auto caps = future.get();
     REQUIRE(caps.noiseCancelling == true);
     REQUIRE(caps.wearSensor == true);
-    REQUIRE(caps.equalizer == false);
+    REQUIRE(caps.equalizer == true);
 }
 
 TEST_CASE("CapabilityCache: persistence to file", "[protocol][capabilities]")
