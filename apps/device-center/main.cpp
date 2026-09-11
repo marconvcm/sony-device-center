@@ -1,12 +1,19 @@
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
+#include <QQuickStyle>
 #include <QIcon>
 
 #include "DeviceCenterController.h"
 
 int main(int argc, char *argv[]) {
     QGuiApplication app(argc, argv);
+
+    // Main.qml customises background/handle/indicator on its controls. The
+    // native "Windows" and "macOS" styles Qt picks by default there refuse
+    // that (one warning per control, and native-looking widgets), so pin the
+    // one style that honours customisation on every platform.
+    QQuickStyle::setStyle("Basic");
     app.setApplicationName("Sony Device Center");
     app.setOrganizationName("SonyBridge");
     app.setApplicationVersion(SONY_DEVICE_CENTER_VERSION);
