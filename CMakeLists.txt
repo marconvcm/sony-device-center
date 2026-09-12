@@ -1,4 +1,12 @@
 cmake_minimum_required(VERSION 3.14)
+
+# Qt 6.10 supports macOS 13 and up. Info.plist.in stamps this in as
+# LSMinimumSystemVersion, so an older Mac gets a clear refusal from Finder
+# instead of a dyld crash. Must precede project().
+if(APPLE AND NOT DEFINED CMAKE_OSX_DEPLOYMENT_TARGET)
+    set(CMAKE_OSX_DEPLOYMENT_TARGET "13.0" CACHE STRING "Minimum macOS version")
+endif()
+
 project(SonyDeviceCenter VERSION 0.1.4 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -89,7 +97,10 @@ elseif(WIN32)
     set(CPACK_PACKAGE_INSTALL_DIRECTORY "Sony Device Center")
     set(CPACK_PACKAGE_EXECUTABLES "sony-device-center" "Sony Device Center")
 elseif(APPLE)
-    set(CPACK_GENERATOR "TGZ;DragNDrop")
+    # The shipped artifact is the DMG from the `dmg` target in
+    # apps/device-center, which runs macdeployqt first. CPack's DragNDrop
+    # would wrap a bundle that still points at the build machine's Qt.
+    set(CPACK_GENERATOR "TGZ")
 endif()
 
 include(CPack)

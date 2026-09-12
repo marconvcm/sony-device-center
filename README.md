@@ -145,7 +145,20 @@ that is the only way this table improves. `sonyctl -v info` output is ideal.
    open build/apps/device-center/sony-device-center.app
    ```
 
-The build makes an app bundle that uses the Qt frameworks from Homebrew. The bundle runs only on a Mac with Homebrew Qt installed. There is no prebuilt macOS download at this time.
+That bundle still loads Qt from Homebrew, so it only runs on this Mac. To make
+the disk image that ships on the releases page:
+
+```bash
+pipx install dmgbuild
+cmake --build build --target dmg        # -> build/sony-device-center-<version>-macOS.dmg
+packaging/macos/verify-dmg.sh build/*.dmg
+```
+
+`Sony Device Center.app` inside the image carries its own Qt, plus `sonyd` and
+`sonyctl` in `Contents/MacOS`. The image is unsigned for now, so the first
+launch is right-click → **Open**, or `xattr -d com.apple.quarantine` on the app.
+See [packaging/README.md](packaging/README.md#3-macos-packaging) for the
+signing hooks.
 
 ### Windows
 

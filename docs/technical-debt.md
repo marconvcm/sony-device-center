@@ -81,7 +81,7 @@ no hardware verification or release publication is implied by the automated test
   is introduced. No new package-manager dependency is required for current builds.
 - Split the implementation into reviewable commits/PRs before merging. The changes
   are currently local workspace edits; no PRs or releases were published.
-- Release signing/attestation (#7), macOS distribution (#20), Main.qml extraction
+- Release signing/attestation (#7; the macOS DMG has the hooks, see packaging/README.md), Main.qml extraction
   (#21), AUR packaging (#22), and cosmetic work remain deferred.
 
 ## Local test instructions
