@@ -387,6 +387,15 @@ _pkginfo.txt
 *.appxbundle
 *.appxupload
 
+# Arch Linux makepkg build artifacts
+packaging/arch/src/
+packaging/arch/pkg/
+packaging/arch/*.pkg.tar.*
+packaging/arch/*.log
+# makepkg's local VCS source-cache when SRCDEST is unset (mirrors the
+# clone under the package name, e.g. sony-device-center-git/)
+packaging/arch/*-git/
+
 # Visual Studio cache files
 # files ending in .cache can be ignored
 *.[Cc]ache

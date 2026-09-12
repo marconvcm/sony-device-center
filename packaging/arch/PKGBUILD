@@ -1,0 +1,48 @@
+# There is no tagged release yet, so this tracks the main branch as a
+# -git VCS package (the standard AUR convention for unreleased software).
+# Once the project starts tagging releases, switch this to a regular
+# tarball-based PKGBUILD instead.
+# Add a `# Maintainer:` comment above pkgname before publishing to the AUR.
+
+pkgname=sony-device-center-git
+pkgver=0.1.5.r101.g2c1d89b
+pkgrel=1
+pkgdesc="Desktop suite and CLI/daemon for Sony headphones (ANC, Ambient Sound, Equalizer, DSEE, battery) over Bluetooth, without the mobile app"
+arch=('x86_64')
+url="https://github.com/marconvcm/sony-device-center"
+license=('MIT')
+depends=('qt6-base' 'qt6-declarative' 'bluez-libs' 'dbus')
+makedepends=('cmake' 'git' 'glfw' 'mesa')
+provides=('sony-device-center' 'sonyctl' 'sonyd')
+conflicts=('sony-device-center')
+source=("$pkgname::git+$url.git")
+sha256sums=('SKIP')
+
+pkgver() {
+    cd "$pkgname"
+    printf "%s.r%s.g%s" \
+        "$(sed -n 's/^project(SonyDeviceCenter VERSION \([0-9.]*\).*/\1/p' CMakeLists.txt)" \
+        "$(git rev-list --count HEAD)" \
+        "$(git rev-parse --short HEAD)"
+}
+
+prepare() {
+    cd "$pkgname"
+    # Client/imgui is a submodule needed by the legacy ImGui client target,
+    # which the top-level build still configures and compiles on Linux.
+    git submodule update --init --recursive
+}
+
+build() {
+    cmake -B build -S "$pkgname" \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX=/usr \
+        -DBUILD_TESTING=OFF \
+        -DSONY_REQUIRE_QT=ON
+    cmake --build build
+}
+
+package() {
+    DESTDIR="$pkgdir" cmake --install build
+    install -Dm644 "$pkgname/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
