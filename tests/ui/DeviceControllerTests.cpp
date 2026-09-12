@@ -32,6 +32,27 @@ private slots:
         QCOMPARE(controller.noiseControlMode(), QString("unknown"));
         QCOMPARE(controller.codec(), QString("Unknown"));
     }
+    void equalizerCapabilities_data() {
+        QTest::addColumn<QString>("model");
+        QTest::addColumn<bool>("tenBand");
+        QTest::newRow("WH-1000XM6") << QString("WH-1000XM6") << true;
+        QTest::newRow("WH-1000XM5") << QString("WH-1000XM5") << false;
+    }
+    void equalizerCapabilities() {
+        QFETCH(QString, model);
+        QFETCH(bool, tenBand);
+        auto transport = std::make_shared<ReplyTransport>();
+        auto service = std::make_shared<core::DeviceService>(transport);
+        service->connect(transport::DeviceAddress("11:22:33:44:55:66"), model.toStdString());
+        DeviceCenterController controller(nullptr, service);
+        QSignalSpy capabilitiesChanged(&controller, &DeviceCenterController::capabilitiesChanged);
+        QTRY_VERIFY_WITH_TIMEOUT(!controller.busy(), 2000);
+        QVERIFY(!capabilitiesChanged.isEmpty());
+        QVERIFY(controller.hasEqualizer());
+        QCOMPARE(controller.tenBandEqualizer(), tenBand);
+        QCOMPARE(controller.property("tenBandEqualizer"), QVariant(tenBand));
+        QCOMPARE(controller.hasClearBass(), !tenBand);
+    }
     void failedActionPreservesConfirmedValue() {
         auto transport = std::make_shared<ReplyTransport>();
         auto service = std::make_shared<core::DeviceService>(transport);

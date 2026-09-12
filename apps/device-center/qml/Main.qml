@@ -431,6 +431,11 @@ ApplicationWindow {
         id: band
         property string label: ""
         property real value: 0
+        property real from: -10
+        property real to: 10
+        property real stepSize: 1
+        property bool signedValues: true
+        readonly property real zeroPosition: (0 - from) / (to - from)
         signal moved(real v)
 
         spacing: 10
@@ -438,7 +443,7 @@ ApplicationWindow {
         Text {
             textFormat: Text.PlainText
             Layout.alignment: Qt.AlignHCenter
-            text: (band.value > 0 ? "+" : "") + Math.round(band.value)
+            text: (band.signedValues && band.value > 0 ? "+" : "") + Math.round(band.value)
             color: Math.round(band.value) === 0 ? window.txtFaint : window.accentSoft
             font.pixelSize: 12
             font.weight: Font.DemiBold
@@ -450,9 +455,9 @@ ApplicationWindow {
             Layout.alignment: Qt.AlignHCenter
             Layout.fillHeight: true
             orientation: Qt.Vertical
-            from: -10
-            to: 10
-            stepSize: 1
+            from: band.from
+            to: band.to
+            stepSize: band.stepSize
             value: band.value
             Connections {
                 target: controller
@@ -477,15 +482,15 @@ ApplicationWindow {
                     width: 14
                     height: 1
                     x: -4
-                    y: parent.height / 2
+                    y: parent.height * (1 - band.zeroPosition)
                     color: window.lineHi
                 }
 
                 Rectangle {
                     readonly property real p: 1 - vs.visualPosition
                     width: parent.width
-                    y: parent.height * (1 - Math.max(0.5, p))
-                    height: parent.height * Math.abs(p - 0.5)
+                    y: parent.height * (1 - Math.max(band.zeroPosition, p))
+                    height: parent.height * Math.abs(p - band.zeroPosition)
                     radius: 3
                     gradient: Gradient {
                         GradientStop { position: 0.0; color: window.accentSoft }
@@ -1349,7 +1354,8 @@ ApplicationWindow {
                         }
                         Text {
                             textFormat: Text.PlainText
-                            text: "Five bands, plus dedicated Clear Bass."
+                            text: controller.tenBandEqualizer ? "Ten bands, fine-grained."
+                                  : "Five bands, plus dedicated Clear Bass."
                             color: window.txtDim
                             font.pixelSize: 13
                         }
@@ -1361,7 +1367,10 @@ ApplicationWindow {
                         spacing: 8
 
                         Repeater {
-                            model: [
+                            model: controller.tenBandEqualizer ? [
+                                { id: 0x00, name: "Off" },
+                                { id: 0xa0, name: "Custom" }
+                            ] : [
                                 { id: 0x00, name: "Off" },
                                 { id: 0x16, name: "Bass Boost" },
                                 { id: 0x15, name: "Treble Boost" },
@@ -1413,7 +1422,7 @@ ApplicationWindow {
                         }
                     }
 
-                    // The five bands — the reason anyone opens this screen
+                    // Equalizer bands
                     Card {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
@@ -1425,7 +1434,7 @@ ApplicationWindow {
 
                             RowLayout {
                                 Layout.fillWidth: true
-                                Eyebrow { text: "5-Band · ±10 dB" }
+                                Eyebrow { text: controller.tenBandEqualizer ? "10-Band" : "5-Band · ±10 dB" }
                                 Item { Layout.fillWidth: true }
                                 Text {
                                     textFormat: Text.PlainText
@@ -1437,34 +1446,56 @@ ApplicationWindow {
                             }
 
                             RowLayout {
+                                id: eqBandRow
                                 Layout.fillWidth: true
                                 Layout.fillHeight: true
                                 spacing: 4
+                                readonly property int bandCount: controller.tenBandEqualizer ? 10 : 5
 
                                 Repeater {
-                                    model: ["400", "1k", "2.5k", "6.3k", "16k"]
+                                    // XM6 center frequencies are unverified; use band numbers.
+                                    model: controller.tenBandEqualizer
+                                           ? ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]
+                                           : ["400", "1k", "2.5k", "6.3k", "16k"]
 
                                     delegate: BandSlider {
                                         id: bandItem
                                         required property int index
                                         required property var modelData
 
-                                        Layout.fillWidth: true
+                                        // Pin each band to an equal 1/N share of the width the
+                                        // row actually has to fill. This must be derived from the
+                                        // row's PARENT width (externally fixed by the card), not
+                                        // from eqBandRow.width: the row width is itself the sum of
+                                        // these delegates, so binding to it feeds back on itself
+                                        // and collapses every band to its 34px implicit width,
+                                        // leaving them clustered at the left. A bare
+                                        // Layout.fillWidth is not honored for this custom
+                                        // ColumnLayout delegate, which is why the share is set
+                                        // explicitly.
+                                        Layout.preferredWidth: (eqBandRow.parent && eqBandRow.parent.width > 0)
+                                            ? Math.max(implicitWidth,
+                                                (eqBandRow.parent.width - (eqBandRow.bandCount - 1) * eqBandRow.spacing) / eqBandRow.bandCount)
+                                            : implicitWidth
                                         Layout.fillHeight: true
 
+                                        from: controller.tenBandEqualizer ? 0 : -10
+                                        to: controller.tenBandEqualizer ? 12 : 10
+                                        stepSize: 1
+                                        signedValues: !controller.tenBandEqualizer
                                         label: modelData
                                         value: (controller.equalizerBands && controller.equalizerBands[index] !== undefined)
                                                ? controller.equalizerBands[index] : 0
 
                                         onMoved: function(v) {
                                             var next = []
-                                            for (var i = 0; i < 5; ++i) {
+                                            for (var i = 0; i < (controller.tenBandEqualizer ? 10 : 5); ++i) {
                                                 next.push(i === bandItem.index
                                                     ? Math.round(v)
                                                     : ((controller.equalizerBands && controller.equalizerBands[i] !== undefined)
                                                         ? controller.equalizerBands[i] : 0))
                                             }
-                                            controller.setEqualizerCustom(controller.clearBass, next)
+                                            controller.setEqualizerCustom(controller.tenBandEqualizer ? 0 : controller.clearBass, next)
                                         }
                                     }
                                 }
@@ -1474,6 +1505,7 @@ ApplicationWindow {
 
                     // Clear Bass
                     Card {
+                        visible: controller.hasClearBass
                         Layout.fillWidth: true
                         Layout.preferredHeight: 96
 
