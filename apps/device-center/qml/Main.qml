@@ -1453,9 +1453,10 @@ ApplicationWindow {
                                 readonly property int bandCount: controller.tenBandEqualizer ? 10 : 5
 
                                 Repeater {
-                                    // XM6 center frequencies are unverified; use band numbers.
+                                    // 10-band center frequencies read off Sony Sound Connect's
+                                    // manual EQ for the WH-1000XM6 (standard ISO octave centers).
                                     model: controller.tenBandEqualizer
-                                           ? ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]
+                                           ? ["31", "63", "125", "250", "500", "1k", "2k", "4k", "8k", "16k"]
                                            : ["400", "1k", "2.5k", "6.3k", "16k"]
 
                                     delegate: BandSlider {
