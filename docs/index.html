@@ -6,11 +6,11 @@
 <title>Sony Device Center — Control your Sony headphones from your desktop</title>
 <link rel="icon" type="image/svg+xml" href="app-icon.svg">
 <link rel="alternate icon" type="image/png" href="app-icon.png">
-<meta name="description" content="Independent open-source desktop app for Sony headphones. Noise cancelling, ambient sound, EQ, DSEE and battery on Linux and Windows — no phone, no Sony account.">
+<meta name="description" content="Independent open-source desktop app for Sony headphones. Noise cancelling, ambient sound, EQ, DSEE and battery on Linux, Windows and macOS — no phone, no Sony account.">
 <meta name="theme-color" content="#0A0B0F">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Sony Device Center — Sony headphones on your desktop">
-<meta property="og:description" content="Noise cancelling, ambient sound, EQ, DSEE and battery on Linux and Windows. Independent, open-source, no phone needed.">
+<meta property="og:description" content="Noise cancelling, ambient sound, EQ, DSEE and battery on Linux, Windows and macOS. Independent, open-source, no phone needed.">
 <meta property="og:image" content="https://marconvcm.github.io/sony-device-center/screenshots/overview.png">
 <meta property="og:url" content="https://marconvcm.github.io/sony-device-center/">
 <meta name="twitter:card" content="summary_large_image">
@@ -245,7 +245,8 @@ section{padding:clamp(88px,13vw,150px) 0;position:relative}
    GRIDS / CARDS
    ============================================================ */
 .cards{display:grid;grid-template-columns:1fr;gap:20px;margin-top:44px}
-@media(min-width:720px){.cards{grid-template-columns:repeat(3,1fr)}}
+@media(min-width:720px){.cards{grid-template-columns:repeat(2,1fr)}}
+@media(min-width:1040px){.cards{grid-template-columns:repeat(4,1fr)}}
 .card{
   border:1px solid var(--line);border-radius:16px;padding:26px;
   background:linear-gradient(180deg,var(--surface),var(--sunk));
@@ -360,7 +361,7 @@ html.js .reveal.in{opacity:1;transform:none}
   <div class="aurora" data-par="-0.16"></div>
   <div class="wrap"><div class="grid">
     <div>
-      <span class="eyebrow reveal">Independent open source · Linux · Windows</span>
+      <span class="eyebrow reveal">Independent open source · Linux · Windows · macOS</span>
       <h1 class="h1 reveal d1">Your Sony headphones.<br><span class="g">Without the phone.</span></h1>
       <p class="lede reveal d2">Noise cancelling, ambient sound, a five&#8209;band equalizer, DSEE and battery — all from your desktop. No mobile app, no Sony account.</p>
       <div class="cta reveal d3">
@@ -577,6 +578,16 @@ html.js .reveal.in{opacity:1;transform:none}
     </div>
 
     <div class="card reveal d2">
+      <h4>
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.4 12.6c0-2.5 2-3.7 2.1-3.7-1.2-1.7-3-1.9-3.6-2-1.5-.2-3 .9-3.8.9-.8 0-2-.9-3.3-.8-1.7 0-3.2 1-4.1 2.5-1.8 3-.5 7.6 1.3 10.1.8 1.2 1.8 2.6 3.2 2.5 1.3 0 1.8-.8 3.3-.8 1.5 0 2 .8 3.3.8 1.4 0 2.3-1.3 3.1-2.5.9-1.4 1.3-2.7 1.4-2.8-.1 0-2.9-1.1-2.9-4.2ZM14 5.3c.7-.9 1.2-2 1.1-3.3-1 .1-2.3.7-3 1.6-.7.7-1.2 1.9-1.1 3.1 1.1.1 2.3-.6 3-1.4Z"/></svg>
+        macOS
+      </h4>
+      <p>Open the DMG and drag Sony Device Center to Applications. One universal build for Apple silicon and Intel, Qt included.</p>
+      <div class="meta">macOS 13+ · not yet signed with a Developer ID, so the first launch is right-click → Open</div>
+      <div style="margin-top:18px"><a class="btn btn-ghost btn-sm" href="https://github.com/marconvcm/sony-device-center/releases/latest" target="_blank" rel="noopener">Download DMG →</a></div>
+    </div>
+
+    <div class="card reveal d3">
       <h4>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6 3 12l5 6"/><path d="m16 6 5 6-5 6"/></svg>
         From source
