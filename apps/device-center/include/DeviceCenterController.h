@@ -45,6 +45,7 @@ class DeviceCenterController : public QObject {
     Q_PROPERTY(bool hasAmbient READ hasAmbient NOTIFY capabilitiesChanged)
     Q_PROPERTY(bool hasEqualizer READ hasEqualizer NOTIFY capabilitiesChanged)
     Q_PROPERTY(bool hasClearBass READ hasClearBass NOTIFY capabilitiesChanged)
+    Q_PROPERTY(bool tenBandEqualizer READ tenBandEqualizer NOTIFY capabilitiesChanged)
     Q_PROPERTY(bool hasDsee READ hasDsee NOTIFY capabilitiesChanged)
     Q_PROPERTY(bool hasSpeakToChat READ hasSpeakToChat NOTIFY capabilitiesChanged)
     Q_PROPERTY(bool hasAdaptiveVolume READ hasAdaptiveVolume NOTIFY capabilitiesChanged)
@@ -88,6 +89,7 @@ public:
     [[nodiscard]] bool hasAmbient() const;
     [[nodiscard]] bool hasEqualizer() const;
     [[nodiscard]] bool hasClearBass() const;
+    [[nodiscard]] bool tenBandEqualizer() const;
     [[nodiscard]] bool hasDsee() const;
     [[nodiscard]] bool hasSpeakToChat() const;
     [[nodiscard]] bool hasAdaptiveVolume() const;

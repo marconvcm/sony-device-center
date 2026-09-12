@@ -140,6 +140,8 @@ bool DeviceCenterController::hasEqualizer() const { return _capabilities.value("
 
 bool DeviceCenterController::hasClearBass() const { return _capabilities.value("clearBass").toBool(); }
 
+bool DeviceCenterController::tenBandEqualizer() const { return _capabilities.value("tenBandEqualizer").toBool(); }
+
 bool DeviceCenterController::hasDsee() const { return _capabilities.value("dsee").toBool(); }
 
 bool DeviceCenterController::hasSpeakToChat() const { return _capabilities.value("speakToChat").toBool(); }

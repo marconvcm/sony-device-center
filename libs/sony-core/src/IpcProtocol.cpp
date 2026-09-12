@@ -192,7 +192,7 @@ IpcResponse IpcProtocol::execute(const IpcCommand& cmd, IDeviceService& service)
             const auto& caps = dev->capabilities();
             if (caps.noiseCancelling) oss << "  ANC\n";
             if (caps.ambientSound) oss << "  Ambient Sound\n";
-            if (caps.equalizer) oss << "  Equalizer\n";
+            if (caps.equalizer) oss << (caps.tenBandEqualizer ? "  Equalizer (10-band)\n" : "  Equalizer\n");
             if (caps.clearBass) oss << "  Clear Bass\n";
             if (caps.dsee) oss << "  DSEE\n";
             if (caps.speakToChat) oss << "  Speak-to-Chat\n";
@@ -259,9 +259,11 @@ IpcResponse IpcProtocol::execute(const IpcCommand& cmd, IDeviceService& service)
 
         case IpcCommandType::EqGet: {
             std::ostringstream oss;
-            oss << "Preset: " << presetToString(snap->equalizer.preset) << "\n"
-                << "Clear Bass: " << snap->equalizer.clearBass << "\n"
-                << "Bands: [";
+            oss << "Preset: " << presetToString(snap->equalizer.preset) << "\n";
+            if (!dev->capabilities().tenBandEqualizer) {
+                oss << "Clear Bass: " << snap->equalizer.clearBass << "\n";
+            }
+            oss << "Bands: [";
             for (size_t i = 0; i < snap->equalizer.bands.size(); ++i) {
                 oss << snap->equalizer.bands[i];
                 if (i + 1 < snap->equalizer.bands.size()) oss << ", ";
@@ -291,21 +293,44 @@ IpcResponse IpcProtocol::execute(const IpcCommand& cmd, IDeviceService& service)
         }
 
         case IpcCommandType::EqCustom: {
-            int clearBass = 0;
-            std::array<int, 5> bands = {0, 0, 0, 0, 0};
-            // args: [custom, clearBass, b1, b2, b3, b4, b5] or [clearBass, b1..b5]
             size_t startIdx = (!cmd.args.empty() && toLower(cmd.args[0]) == "custom") ? 1 : 0;
-            if (cmd.args.size() > startIdx) {
-                try {
-                    clearBass = std::clamp(std::stoi(cmd.args[startIdx]), -10, 10);
-                } catch (...) {}
+
+            if (dev->capabilities().tenBandEqualizer) {
+                // 10-band devices (e.g. WH-1000XM6) have no separate Clear
+                // Bass slot: args are the 10 raw band values directly,
+                // "eq custom <b1> ... <b10>". Sound Connect's dB mapping for
+                // this scale hasn't been reverse-engineered, so all 10 must
+                // be given explicitly rather than defaulting unset ones to
+                // an unverified "flat" value -- see issue #10.
+                if (cmd.args.size() < startIdx + 10) {
+                    resp.success = false;
+                    resp.message = "This device has a 10-band equalizer with no Clear Bass "
+                                    "control: eq custom <b1> ... <b10> (raw 0-12 each)";
+                    return resp;
+                }
+                std::vector<int> bands(10, 0);
+                for (size_t i = 0; i < 10; ++i) {
+                    try {
+                        bands[i] = std::clamp(std::stoi(cmd.args[startIdx + i]), 0, 12);
+                    } catch (...) {}
+                }
+                dev->setEqualizerCustom(0, bands);
+            } else {
+                // args: [custom, clearBass, b1, b2, b3, b4, b5] or [clearBass, b1..b5]
+                int clearBass = 0;
+                std::vector<int> bands(5, 0);
+                if (cmd.args.size() > startIdx) {
+                    try {
+                        clearBass = std::clamp(std::stoi(cmd.args[startIdx]), -10, 10);
+                    } catch (...) {}
+                }
+                for (size_t i = 0; i < 5 && startIdx + 1 + i < cmd.args.size(); ++i) {
+                    try {
+                        bands[i] = std::clamp(std::stoi(cmd.args[startIdx + 1 + i]), -10, 10);
+                    } catch (...) {}
+                }
+                dev->setEqualizerCustom(clearBass, bands);
             }
-            for (size_t i = 0; i < 5 && startIdx + 1 + i < cmd.args.size(); ++i) {
-                try {
-                    bands[i] = std::clamp(std::stoi(cmd.args[startIdx + 1 + i]), -10, 10);
-                } catch (...) {}
-            }
-            dev->setEqualizerCustom(clearBass, bands);
             resp.success = true;
             resp.message = "Custom EQ applied";
             return resp;
