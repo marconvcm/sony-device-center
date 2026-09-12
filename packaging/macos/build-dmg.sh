@@ -64,6 +64,14 @@ rm -rf "$app/Contents/PlugIns/sqldrivers" \
        "$app/Contents/Frameworks/QtSql.framework" \
        "$app/Contents/Resources/qml/QtQuick/LocalStorage"
 
+# main.cpp pins the Basic style, so the other Controls styles are 20 MB the
+# app never loads. verify-dmg.sh launches the result to prove that.
+for style in Fusion Imagine Material Universal FluentWinUI3 macOS iOS Windows; do
+    rm -rf "$app/Contents/Frameworks/QtQuickControls2${style}.framework" \
+           "$app/Contents/Frameworks/QtQuickControls2${style}StyleImpl.framework" \
+           "$app/Contents/Resources/qml/QtQuick/Controls/${style}"
+done
+
 echo "==> Signing"
 if [ -n "${SONY_CODESIGN_IDENTITY:-}" ]; then
     codesign --force --deep --options runtime --timestamp \

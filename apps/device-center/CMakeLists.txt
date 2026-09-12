@@ -61,11 +61,16 @@ target_link_libraries(sony-device-center
         Threads::Threads
 )
 
-add_custom_command(TARGET sony-device-center POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${CMAKE_CURRENT_SOURCE_DIR}/../../Client/resources/devices"
-        "$<TARGET_FILE_DIR:sony-device-center>/resources/devices"
-    COMMENT "Copying device hero assets for device-center")
+# The hero images are compiled in through qml.qrc. On macOS this loose copy
+# would land inside the bundle at Contents/MacOS/resources, 21 MB the app
+# never reads, so it is skipped there.
+if(NOT APPLE)
+    add_custom_command(TARGET sony-device-center POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${CMAKE_CURRENT_SOURCE_DIR}/../../Client/resources/devices"
+            "$<TARGET_FILE_DIR:sony-device-center>/resources/devices"
+        COMMENT "Copying device hero assets for device-center")
+endif()
 
 if(APPLE)
     # Ships the brand icon inside the .app and makes the previously unused
