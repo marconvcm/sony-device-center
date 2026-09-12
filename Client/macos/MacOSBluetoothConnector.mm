@@ -1,4 +1,5 @@
 #include "MacOSBluetoothConnector.h"
+#include "SonyDiscovery.h"
 
 MacOSBluetoothConnector::MacOSBluetoothConnector()
 {
@@ -212,14 +213,23 @@ std::vector<BluetoothDevice> MacOSBluetoothConnector::getConnectedDevices()
 {
     // create the output vector
     std::vector<BluetoothDevice> res;
-    // List every paired device, not just ones macOS reports as connected: [isConnected] returns NO for
+    // Keep paired Sony candidates, not just ones macOS reports as connected: [isConnected] returns NO for
     // headsets connected only for audio/BLE (e.g. Sony ULT WEAR), which hid them from the picker. connect()
     // opens the RFCOMM link on demand, so a paired-but-"disconnected" device still works.
+    IOBluetoothSDPUUID *v1 = [IOBluetoothSDPUUID uuidWithBytes:(void*)SERVICE_UUID_IN_BYTES length:16];
+    IOBluetoothSDPUUID *v2 = [IOBluetoothSDPUUID uuidWithBytes:(void*)SERVICE_UUID_V2_IN_BYTES length:16];
     for (IOBluetoothDevice* device in [IOBluetoothDevice pairedDevices]) {
         if (![device addressString]) continue;
         BluetoothDevice dev;
         dev.mac = [[device addressString] UTF8String];
         dev.name = [device name] ? [[device name] UTF8String] : "Unknown Device";
+        // These lookups use cached service records; discovery must not initiate
+        // connections or SDP queries against every paired peripheral.
+        bool hasSonyService = [device getServiceRecordForUUID:v1] != nil
+            || [device getServiceRecordForUUID:v2] != nil;
+        if (!isSonyHeadsetCandidate(dev.name, hasSonyService)) continue;
+        dev.paired = true;
+        dev.connected = [device isConnected] == YES;
         res.push_back(dev);
     }
     
