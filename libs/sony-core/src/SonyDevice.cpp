@@ -135,7 +135,7 @@ void SonyDevice::_setupSession() {
     if (_version == SonyProtocolVersion::V1) {
         _protocol = std::make_unique<protocol::ProtocolV1>(*_session);
     } else {
-        _protocol = std::make_unique<protocol::ProtocolV2>(*_session);
+        _protocol = std::make_unique<protocol::ProtocolV2>(*_session, _capabilities.tenBandEqualizer);
     }
 
     _session->onNotification([this](const protocol::SonyFrame& frame) {
@@ -284,7 +284,7 @@ void SonyDevice::setEqualizerPreset(int preset) {
     _dispatcher.dispatch(protocol::DeviceStateChanged{snapshot()});
 }
 
-void SonyDevice::setEqualizerCustom(int clearBass, const std::array<int, 5>& bands) {
+void SonyDevice::setEqualizerCustom(int clearBass, const std::vector<int>& bands) {
     if (!_protocol) return;
     _protocol->setEqualizerCustom(clearBass, bands);
     {

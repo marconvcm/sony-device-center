@@ -181,14 +181,29 @@ bool DeviceEventDispatcher::parseNotificationPayload(const std::vector<uint8_t>&
         }
     }
 
-    // Equalizer notification: 0x57 or 0x59
+    // Equalizer notification: 0x57 or 0x59. payload[1] is the inquired type:
+    // 0x00/0x01 is the legacy 5-band + Clear Bass layout, 0x04 is the newer
+    // 10-band layout (e.g. WH-1000XM6) with no separate Clear Bass slot and
+    // raw, unbiased band values -- see issue #10. Blindly assuming the
+    // legacy shape here previously misparsed 10-band notifications (reading
+    // a raw band value as "clearBass = value - 10", etc).
     if (opcode == 0x57 || opcode == 0x59) {
-        if (payload.size() >= 3) {
+        if (payload.size() >= 4) {
             inOutState.equalizer.preset = static_cast<int>(payload[2]);
-            if (payload.size() >= 10) {
-                inOutState.equalizer.clearBass = static_cast<int>(payload[4]) - 10;
-                for (size_t i = 0; i < 5; ++i) {
-                    inOutState.equalizer.bands[i] = static_cast<int>(payload[5 + i]) - 10;
+            const size_t count = payload[3];
+            if (payload.size() >= 4 + count) {
+                if (payload[1] == 0x04) {
+                    inOutState.equalizer.clearBass = 0;
+                    inOutState.equalizer.bands.assign(count, 0);
+                    for (size_t i = 0; i < count; ++i) {
+                        inOutState.equalizer.bands[i] = static_cast<int>(payload[4 + i]);
+                    }
+                } else if (count >= 1) {
+                    inOutState.equalizer.clearBass = static_cast<int>(payload[4]) - 10;
+                    inOutState.equalizer.bands.assign(count - 1, 0);
+                    for (size_t i = 0; i + 1 < count; ++i) {
+                        inOutState.equalizer.bands[i] = static_cast<int>(payload[5 + i]) - 10;
+                    }
                 }
             }
             if (notify) dispatch(EqualizerChanged{inOutState.equalizer});

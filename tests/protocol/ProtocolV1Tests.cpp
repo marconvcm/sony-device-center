@@ -173,7 +173,7 @@ TEST_CASE("ProtocolV1: reads the equalizer behind inquired type 0x01", "[protoco
     REQUIRE(firstRequestPayload(fake) == std::vector<uint8_t>{0x56, 0x01});
     REQUIRE(eq.preset == 0x16);
     REQUIRE(eq.clearBass == 5);
-    REQUIRE(eq.bands == std::array<int, 5>{0, 1, 2, 3, 4});
+    REQUIRE(eq.bands == std::vector<int>{0, 1, 2, 3, 4});
 }
 
 TEST_CASE("ProtocolV1: writes equalizer presets and custom bands", "[protocol][v1]")
