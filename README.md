@@ -182,6 +182,8 @@ On macOS, open the app bundle with `open build/apps/device-center/sony-device-ce
 
 On Unix, a running `sonyd` is used over local IPC. Otherwise the app opens a direct Bluetooth session. Windows currently uses direct sessions. Discovery and device I/O run off the GUI thread. Update the GUI and daemon together for the versioned IPC interface.
 
+Discovery lists only Sony devices. A paired device stays in the list when its Bluetooth address starts with a Sony prefix (OUI), or when its name contains "Sony" or a model prefix such as `WH-`. If your device does not show, start `sonyd --device <address>`. The daemon then connects to that address without discovery.
+
 ### 2. Command-Line Interface (`sonyctl`)
 
 `sonyctl` provides instant control from your shell or keyboard shortcuts:

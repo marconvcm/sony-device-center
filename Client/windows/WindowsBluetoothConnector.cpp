@@ -108,10 +108,13 @@ std::vector<BluetoothDevice> WindowsBluetoothConnector::getConnectedDevices()
 	BLUETOOTH_FIND_RADIO_PARAMS radioSearchParams = { sizeof(BLUETOOTH_FIND_RADIO_PARAMS) };
 	HBLUETOOTH_RADIO_FIND radioFindHandle = NULL;
 
-	// Search only for connected devices
-	BLUETOOTH_DEVICE_SEARCH_PARAMS dev_search_params = {
-	  sizeof(BLUETOOTH_DEVICE_SEARCH_PARAMS), 0, 0, 0, 1, 0, 15, NULL
-	};
+	// Search for paired and connected devices, as the Linux and macOS connectors do. connect() opens
+	// the RFCOMM link on demand. SonyDeviceDiscovery in sony-transport keeps only the Sony devices.
+	BLUETOOTH_DEVICE_SEARCH_PARAMS dev_search_params = { sizeof(BLUETOOTH_DEVICE_SEARCH_PARAMS) };
+	dev_search_params.fReturnAuthenticated = TRUE;
+	dev_search_params.fReturnRemembered = TRUE;
+	dev_search_params.fReturnConnected = TRUE;
+	dev_search_params.fIssueInquiry = FALSE;
 
 	// Iterate for available bluetooth radio devices
 	radioFindHandle = BluetoothFindFirstRadio(&radioSearchParams, &radio);
@@ -227,7 +230,12 @@ std::vector<BluetoothDevice> WindowsBluetoothConnector::_findDevicesInRadio(BLUE
 
 	// Get the device info
 	do {
-		res.emplace_back(BluetoothDevice{ _wstringToUtf8(device_info.szName), MACBytesToString(device_info.Address.rgBytes) });
+		res.emplace_back(BluetoothDevice{
+			_wstringToUtf8(device_info.szName),
+			MACBytesToString(device_info.Address.rgBytes),
+			device_info.fAuthenticated != FALSE,
+			device_info.fConnected != FALSE
+		});
 	} while (BluetoothFindNextDevice(dev_find_handle, &device_info));
 
 	// NO more device, close the device handle

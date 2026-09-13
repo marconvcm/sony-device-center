@@ -1,11 +1,9 @@
 #include "sony/transport/PlatformTransport.h"
 #include "sony/transport/BluetoothConnectorTransport.h"
 #include "sony/transport/FakeTransport.h"
+#include "sony/transport/SonyDeviceFilter.h"
 
-#include <algorithm>
-#include <cctype>
 #include <memory>
-#include <string>
 #include <vector>
 
 #if defined(SONY_HAS_LINUX_BLUETOOTH)
@@ -22,28 +20,12 @@ public:
         std::vector<DiscoveredDevice> result;
         try {
             LinuxBluetoothConnector connector;
-            auto devs = connector.getConnectedDevices();
-            for (const auto& d : devs) {
-                std::string upper = d.name;
-                std::transform(upper.begin(), upper.end(), upper.begin(), [](unsigned char c) {
-                    return static_cast<char>(std::toupper(c));
+            for (const auto& d : connector.getConnectedDevices()) {
+                result.push_back(DiscoveredDevice{
+                    .name = d.name,
+                    .address = DeviceAddress(d.mac),
+                    .paired = d.paired, .connected = d.connected
                 });
-
-                bool isSony = (upper.find("WH-") != std::string::npos ||
-                               upper.find("WF-") != std::string::npos ||
-                               upper.find("WI-") != std::string::npos ||
-                               upper.find("MDR-") != std::string::npos ||
-                               upper.find("LINKBUDS") != std::string::npos ||
-                               upper.find("ULT WEAR") != std::string::npos ||
-                               upper.find("SONY") != std::string::npos);
-
-                if (isSony) {
-                    result.push_back(DiscoveredDevice{
-                        .name = d.name,
-                        .address = DeviceAddress(d.mac),
-                        .paired = d.paired, .connected = d.connected
-                    });
-                }
             }
         } catch (...) {}
         return result;
@@ -57,7 +39,7 @@ std::unique_ptr<ITransport> createPlatformTransport() {
 }
 
 std::unique_ptr<IDeviceDiscovery> createPlatformDiscovery() {
-    return std::make_unique<LinuxPlatformDiscovery>();
+    return std::make_unique<SonyDeviceDiscovery>(std::make_unique<LinuxPlatformDiscovery>());
 }
 
 } // namespace sony::transport
@@ -72,7 +54,8 @@ std::unique_ptr<ITransport> createPlatformTransport() {
 }
 
 std::unique_ptr<IDeviceDiscovery> createPlatformDiscovery() {
-    return std::make_unique<BluetoothConnectorDiscovery>(std::make_unique<WindowsBluetoothConnector>());
+    return std::make_unique<SonyDeviceDiscovery>(
+        std::make_unique<BluetoothConnectorDiscovery>(std::make_unique<WindowsBluetoothConnector>()));
 }
 
 } // namespace sony::transport
@@ -87,7 +70,8 @@ std::unique_ptr<ITransport> createPlatformTransport() {
 }
 
 std::unique_ptr<IDeviceDiscovery> createPlatformDiscovery() {
-    return std::make_unique<BluetoothConnectorDiscovery>(std::make_unique<MacOSBluetoothConnector>());
+    return std::make_unique<SonyDeviceDiscovery>(
+        std::make_unique<BluetoothConnectorDiscovery>(std::make_unique<MacOSBluetoothConnector>()));
 }
 
 } // namespace sony::transport
