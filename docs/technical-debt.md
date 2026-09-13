@@ -51,9 +51,14 @@ no hardware verification or release publication is implied by the automated test
   paths through common macOS aliases. Document canonical paths in native packaging.
   Consider directory-descriptor-relative operations for stronger protection against
   path replacement in exotic, writable custom ancestor directories.
-- **Discovery metadata.** Linux exposes paired/connected properties. Other platform
-  adapters currently leave missing hints unknown. Improve native discovery adapters
-  and bound D-Bus calls; consolidate repeated property queries into one snapshot.
+- **Discovery metadata.** The Linux and macOS connectors list paired and connected
+  devices and set the paired/connected hints. On macOS, `connected` comes from
+  `[isConnected]`, which is NO for headsets that connect only for audio or BLE. The
+  Windows connector lists only connected devices and leaves the hints unknown. `SonyDeviceDiscovery`
+  keeps a device only when its address prefix (OUI) or its name identifies Sony.
+  A renamed device with an address outside the OUI table disappears. Run
+  `update_sony_ouis.py` to update the table. Bound the D-Bus calls, and read the
+  repeated properties in one snapshot.
 - **Notification/polling efficiency.** Direct sessions consume notifications;
   daemon clients poll cached snapshots once per second. Add IPC subscriptions only
   after backpressure and per-client event limits are designed. Rotating hardware
