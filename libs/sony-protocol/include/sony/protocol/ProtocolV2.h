@@ -8,7 +8,12 @@ namespace sony::protocol {
 
 class ProtocolV2 : public IProtocol {
 public:
-    explicit ProtocolV2(SonyProtocolSession& session);
+    // tenBandEqualizer selects the newer 10-band equalizer wire format
+    // (inquired type 0x04, no separate Clear Bass slot) used by devices such
+    // as the WH-1000XM6, instead of the legacy 5-band + Clear Bass format
+    // (inquired type 0x00) shared with ProtocolV1. See DeviceProfile.h and
+    // issue #10.
+    explicit ProtocolV2(SonyProtocolSession& session, bool tenBandEqualizer = false);
     ~ProtocolV2() override = default;
 
     [[nodiscard]] ProtocolGeneration generation() const noexcept override {
@@ -25,7 +30,7 @@ public:
 
     EqualizerState getEqualizer() override;
     void setEqualizerPreset(int preset) override;
-    void setEqualizerCustom(int clearBass, const std::array<int, 5>& bands) override;
+    void setEqualizerCustom(int clearBass, const std::vector<int>& bands) override;
 
     bool getDsee() override;
     void setDsee(bool enabled) override;
@@ -45,6 +50,7 @@ public:
 private:
     SonyProtocolSession& _session;
     std::mutex _mutex;
+    bool _tenBandEqualizer;
 };
 
 } // namespace sony::protocol

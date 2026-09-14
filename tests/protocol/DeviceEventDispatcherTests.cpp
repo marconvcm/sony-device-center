@@ -173,6 +173,30 @@ TEST_CASE("DeviceEventDispatcher parses equalizer notifications", "[events]") {
     CHECK(receivedEq.bands[4] == -2);
 }
 
+TEST_CASE("DeviceEventDispatcher parses 10-band equalizer notifications (WH-1000XM6)", "[events]") {
+    // Previously this fell into the legacy 5-band + Clear Bass parse
+    // unconditionally, misreading raw band[0] as "clearBass - 10" and
+    // truncating the other nine bands -- see issue #10.
+    DeviceEventDispatcher dispatcher;
+    DeviceState state;
+
+    EqualizerState receivedEq;
+    int eqEventCount = 0;
+    dispatcher.onEqualizerChanged([&](const EqualizerChanged& evt) {
+        eqEventCount++;
+        receivedEq = evt.equalizer;
+    });
+
+    // Capture offset 51545: 59 04 20 0a 00 04 08 09 07 05 07 09 06 04
+    std::vector<uint8_t> eqPayload = {0x59, 0x04, 0x20, 0x0a, 0x00, 0x04, 0x08, 0x09, 0x07, 0x05, 0x07, 0x09, 0x06, 0x04};
+    bool handled = dispatcher.parseNotificationPayload(eqPayload, state);
+    CHECK(handled);
+    CHECK(eqEventCount == 1);
+    CHECK(receivedEq.preset == 0x20);
+    CHECK(receivedEq.clearBass == 0);
+    CHECK(receivedEq.bands == std::vector<int>{0, 4, 8, 9, 7, 5, 7, 9, 6, 4});
+}
+
 TEST_CASE("Headphones event-driven integration", "[events]") {
     auto connector = std::make_unique<DummyConnector>();
     BluetoothWrapper conn(std::move(connector));

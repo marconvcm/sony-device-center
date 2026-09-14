@@ -170,6 +170,7 @@ EqualizerState ProtocolV1::getEqualizer() {
     EqualizerState state;
     state.preset = static_cast<int>(resp.payload[2]);
     state.clearBass = static_cast<int>(resp.payload[4]) - 10;
+    state.bands.assign(5, 0);
     for (size_t i = 0; i < 5; ++i) {
         state.bands[i] = static_cast<int>(resp.payload[5 + i]) - 10;
     }
@@ -187,13 +188,16 @@ void ProtocolV1::setEqualizerPreset(int preset) {
     _session.send(SonyFrame{ .type = DataType::DataMdr, .payload = std::move(payload) });
 }
 
-void ProtocolV1::setEqualizerCustom(int clearBass, const std::array<int, 5>& bands) {
-    // SET custom: 58 01 A0 06 <clearBass+10> <b1..b5 +10>
+void ProtocolV1::setEqualizerCustom(int clearBass, const std::vector<int>& bands) {
+    // SET custom: 58 01 A0 <1+bands.size()> <clearBass+10> <b1..bN +10>
+    // (bands.size() is always 5 on this generation, but the count byte is
+    // computed rather than hardcoded so a mismatched caller fails on the
+    // wire instead of silently sending a malformed frame.)
     std::vector<uint8_t> payload = {
         0x58,
         kEqInquired,
         0xa0,
-        0x06,
+        static_cast<uint8_t>(1 + bands.size()),
         clampEqValue(clearBass)
     };
     for (int b : bands) {

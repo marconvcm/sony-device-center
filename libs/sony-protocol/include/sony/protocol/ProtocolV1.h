@@ -28,7 +28,7 @@ public:
 
     EqualizerState getEqualizer() override;
     void setEqualizerPreset(int preset) override;
-    void setEqualizerCustom(int clearBass, const std::array<int, 5>& bands) override;
+    void setEqualizerCustom(int clearBass, const std::vector<int>& bands) override;
 
     bool getDsee() override;
     void setDsee(bool enabled) override;

@@ -1,8 +1,8 @@
 #pragma once
 
 #include "SemanticTypes.h"
-#include <array>
 #include <string>
+#include <vector>
 
 namespace sony::protocol {
 
@@ -26,7 +26,9 @@ public:
 
     virtual EqualizerState getEqualizer() = 0;
     virtual void setEqualizerPreset(int preset) = 0;
-    virtual void setEqualizerCustom(int clearBass, const std::array<int, 5>& bands) = 0;
+    // bands.size() is 5 for legacy devices, 10 for tenBandEqualizer devices
+    // (clearBass is ignored by implementations in the latter case).
+    virtual void setEqualizerCustom(int clearBass, const std::vector<int>& bands) = 0;
 
     virtual bool getDsee() = 0;
     virtual void setDsee(bool enabled) = 0;

@@ -264,6 +264,32 @@ TEST_CASE("IpcProtocol execution through DeviceService", "[core][ipc]") {
         service.disconnect();
         CHECK_FALSE(service.isConnected());
     }
+
+    SECTION("WH-1000XM6 uses the 10-band equalizer, not Clear Bass") {
+        service.connect(DeviceAddress("11:22:33:44:55:66"), "WH-1000XM6");
+        REQUIRE(service.isConnected());
+
+        auto infoResp = IpcProtocol::execute(IpcProtocol::parseCommand("info"), service);
+        CHECK(infoResp.success);
+        CHECK(infoResp.data.find("Equalizer (10-band)") != std::string::npos);
+        CHECK(infoResp.data.find("Clear Bass") == std::string::npos);
+
+        // Too few values is rejected rather than silently defaulting the
+        // rest to an unverified "flat" value.
+        auto shortResp = IpcProtocol::execute(IpcProtocol::parseCommand("eq custom 1 2 3"), service);
+        CHECK_FALSE(shortResp.success);
+
+        auto custResp = IpcProtocol::execute(
+            IpcProtocol::parseCommand("eq custom 7 7 7 7 6 6 3 7 3 8"), service);
+        CHECK(custResp.success);
+        CHECK(service.snapshot()->equalizer.bands == std::vector<int>{7, 7, 7, 7, 6, 6, 3, 7, 3, 8});
+
+        auto eqGetResp = IpcProtocol::execute(IpcProtocol::parseCommand("eq get"), service);
+        CHECK(eqGetResp.success);
+        CHECK(eqGetResp.data.find("Clear Bass") == std::string::npos);
+
+        service.disconnect();
+    }
 }
 
 TEST_CASE("IpcServer and IpcClient end-to-end communication over socket", "[core][ipc]") {

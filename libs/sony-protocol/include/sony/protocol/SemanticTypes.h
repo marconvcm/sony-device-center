@@ -1,9 +1,9 @@
 #pragma once
 
-#include <array>
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <vector>
 
 namespace sony::protocol {
 
@@ -30,7 +30,10 @@ struct NoiseControlState {
 struct EqualizerState {
     int preset{0};
     int clearBass{0};
-    std::array<int, 5> bands{0, 0, 0, 0, 0};
+    // 5 elements (+ clearBass) on legacy devices; 10 elements, no separate
+    // clearBass, on newer devices such as the WH-1000XM6 -- see
+    // DeviceCapabilities::tenBandEqualizer.
+    std::vector<int> bands{0, 0, 0, 0, 0};
 };
 
 } // namespace sony::protocol

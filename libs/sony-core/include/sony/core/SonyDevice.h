@@ -54,7 +54,7 @@ public:
     void setAnc(bool enabled);
     void setAmbient(int level, bool focusOnVoice = false);
     void setEqualizerPreset(int preset);
-    void setEqualizerCustom(int clearBass, const std::array<int, 5>& bands);
+    void setEqualizerCustom(int clearBass, const std::vector<int>& bands);
     void setDsee(bool enabled);
     void setAutoPowerOff(int index);
     void setSpeakToChat(bool enabled);

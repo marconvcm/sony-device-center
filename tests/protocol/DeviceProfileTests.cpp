@@ -77,6 +77,19 @@ TEST_CASE("DeviceProfileRegistry: provides immediate capabilities for known mode
         REQUIRE(profile->capabilities.codecInfo == true);
     }
 
+    SECTION("WH-1000XM6 (V2, 10-band equalizer, no Clear Bass)")
+    {
+        auto profile = DeviceProfileRegistry::getProfile(SonyModel::WH1000XM6);
+        REQUIRE(profile.has_value());
+        REQUIRE(profile->model == SonyModel::WH1000XM6);
+        REQUIRE(profile->protocol == SonyProtocolVersion::V2);
+        REQUIRE(profile->capabilities.equalizer == true);
+        // No separate Clear Bass slot on the wire in the 10-band layout --
+        // see issue #10.
+        REQUIRE(profile->capabilities.clearBass == false);
+        REQUIRE(profile->capabilities.tenBandEqualizer == true);
+    }
+
     SECTION("WF-1000XM5 (TWS Earbuds, V2)")
     {
         auto profile = DeviceProfileRegistry::getProfile(SonyModel::WF1000XM5);

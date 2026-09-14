@@ -5,6 +5,7 @@
 namespace sony::protocol {
 
 using detail::clampEqValue;
+using detail::clampEqValueRaw;
 using detail::codecName;
 
 namespace {
@@ -25,8 +26,8 @@ int apoIndexFromCode(uint8_t c0, uint8_t c1) {
 
 } // namespace
 
-ProtocolV2::ProtocolV2(SonyProtocolSession& session)
-    : _session(session) {}
+ProtocolV2::ProtocolV2(SonyProtocolSession& session, bool tenBandEqualizer)
+    : _session(session), _tenBandEqualizer(tenBandEqualizer) {}
 
 void ProtocolV2::initDevice() {
     // V2 handshake init: 0x00 0x00 -> RET 0x01
@@ -142,47 +143,77 @@ void ProtocolV2::setNoiseControl(const NoiseControlState& state) {
 }
 
 EqualizerState ProtocolV2::getEqualizer() {
-    // GET: 56 00 -> RET: 57 00 <preset> 06 <bass+10> <b1..b5 +10>
+    // Legacy: GET 56 00 -> RET 57 00 <preset> 06 <bass+10> <b1..b5 +10>
+    // 10-band (e.g. WH-1000XM6): GET 56 04 -> RET 57 04 <preset> 0a <b1..b10>,
+    // no separate Clear Bass slot. Reverse-engineered from a Sound Connect
+    // btsnoop capture -- see issue #10.
+    const uint8_t inquired = _tenBandEqualizer ? 0x04 : 0x00;
     auto resp = _session.sendAndAwaitResponse(
-        SonyFrame{ .type = DataType::DataMdr, .payload = {0x56, 0x00} },
+        SonyFrame{ .type = DataType::DataMdr, .payload = {0x56, inquired} },
         0x57,
         -1,
         std::chrono::milliseconds(1000)
     );
 
-    if (resp.payload.size() < 10 || resp.payload[1] != 0)
+    if (resp.payload.size() < 4 || resp.payload[1] != inquired)
         throw SonyException(SonyErrorCode::InvalidResponse, "Incomplete equalizer response");
     EqualizerState state;
-    if (resp.payload.size() >= 3) {
-        state.preset = static_cast<int>(resp.payload[2]);
-        if (resp.payload.size() >= 10) {
-            state.clearBass = static_cast<int>(resp.payload[4]) - 10;
-            for (size_t i = 0; i < 5; ++i) {
-                state.bands[i] = static_cast<int>(resp.payload[5 + i]) - 10;
-            }
+    state.preset = static_cast<int>(resp.payload[2]);
+    const size_t count = resp.payload[3];
+    if (resp.payload.size() < 4 + count)
+        throw SonyException(SonyErrorCode::InvalidResponse, "Truncated equalizer response");
+    if (_tenBandEqualizer) {
+        // <preset> 0a <b1..b10>, raw units, no bias.
+        state.clearBass = 0;
+        state.bands.assign(count, 0);
+        for (size_t i = 0; i < count; ++i) {
+            state.bands[i] = static_cast<int>(resp.payload[4 + i]);
+        }
+    } else if (count >= 1) {
+        // <preset> 06 <bass+10> <b1..b5 +10>
+        state.clearBass = static_cast<int>(resp.payload[4]) - 10;
+        state.bands.assign(count - 1, 0);
+        for (size_t i = 0; i + 1 < count; ++i) {
+            state.bands[i] = static_cast<int>(resp.payload[5 + i]) - 10;
         }
     }
     return state;
 }
 
 void ProtocolV2::setEqualizerPreset(int preset) {
-    // SET preset: 58 00 <preset> 00
+    // SET preset: 58 <inquired> <preset> 00 -- same shape on both layouts,
+    // only the inquired-type byte differs.
     std::vector<uint8_t> payload = {
         0x58,
-        0x00,
+        static_cast<uint8_t>(_tenBandEqualizer ? 0x04 : 0x00),
         static_cast<uint8_t>(preset),
         0x00
     };
     _session.send(SonyFrame{ .type = DataType::DataMdr, .payload = std::move(payload) });
 }
 
-void ProtocolV2::setEqualizerCustom(int clearBass, const std::array<int, 5>& bands) {
-    // SET custom: 58 00 A0 06 <clearBass+10> <b1..b5 +10>
+void ProtocolV2::setEqualizerCustom(int clearBass, const std::vector<int>& bands) {
+    if (_tenBandEqualizer) {
+        // SET custom: 58 04 A0 <bands.size()> <b1..bN>, raw units, no bias,
+        // no separate Clear Bass slot (clearBass is ignored).
+        std::vector<uint8_t> payload = {
+            0x58,
+            0x04,
+            0xa0,
+            static_cast<uint8_t>(bands.size())
+        };
+        for (int b : bands) {
+            payload.push_back(clampEqValueRaw(b));
+        }
+        _session.send(SonyFrame{ .type = DataType::DataMdr, .payload = std::move(payload) });
+        return;
+    }
+    // SET custom: 58 00 A0 <1+bands.size()> <clearBass+10> <b1..bN +10>
     std::vector<uint8_t> payload = {
         0x58,
         0x00,
         0xa0,
-        0x06,
+        static_cast<uint8_t>(1 + bands.size()),
         clampEqValue(clearBass)
     };
     for (int b : bands) {

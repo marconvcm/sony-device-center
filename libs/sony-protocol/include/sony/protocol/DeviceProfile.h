@@ -41,6 +41,11 @@ struct DeviceCapabilities
 
     bool equalizer = false;
     bool clearBass = false;
+    // True on devices that speak the newer 10-band equalizer layout (inquired
+    // type 0x04, no separate Clear Bass slot) instead of the legacy 5-band +
+    // Clear Bass layout (inquired type 0x00/0x01). Verified on the WH-1000XM6
+    // via a Sound Connect btsnoop capture -- see issue #10.
+    bool tenBandEqualizer = false;
 
     bool dsee = false;
 
@@ -72,6 +77,7 @@ struct DeviceProfile
         case SonyModel::WH1000XM6: return "WH-1000XM6";
         case SonyModel::WF1000XM4: return "WF-1000XM4";
         case SonyModel::WF1000XM5: return "WF-1000XM5";
+        case SonyModel::WF1000XM6: return "WF-1000XM6";
         case SonyModel::WHCH720N:  return "WH-CH720N";
         case SonyModel::ULTWear:    return "ULT WEAR";
         case SonyModel::LinkBudsS:  return "LinkBuds S";

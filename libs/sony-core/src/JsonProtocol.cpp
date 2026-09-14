@@ -28,7 +28,8 @@ Json JsonProtocol::snapshot(IDeviceService& service) {
         {"address", service.selectedAddress()}, {"name", dev ? dev->name() : ""},
         {"lastError", service.lastError()}, {"protocol", dev ? std::string(protocol::to_string(dev->protocolVersion())) : "unknown"},
         {"capabilities", {{"anc", c.noiseCancelling}, {"ambient", c.ambientSound}, {"focusOnVoice", c.focusOnVoice},
-            {"equalizer", c.equalizer}, {"clearBass", c.clearBass}, {"dsee", c.dsee}, {"battery", c.battery},
+            {"equalizer", c.equalizer}, {"clearBass", c.clearBass}, {"tenBandEqualizer", c.tenBandEqualizer},
+            {"dsee", c.dsee}, {"battery", c.battery},
             {"speakToChat", c.speakToChat}, {"adaptiveVolume", c.adaptiveVolume}, {"autoPowerOff", c.autoPowerOff}}},
         {"features", features},
         {"battery", {{"main", optional(s->battery.main)}, {"left", optional(s->battery.left)}, {"right", optional(s->battery.right)},
@@ -88,10 +89,20 @@ Json JsonProtocol::execute(const Json& request, IDeviceService& service) {
                 dev->setEqualizerPreset(preset);
             } else if (method == "eqCustom") {
                 supported(c.equalizer); const auto& values = params.at("bands");
-                if (!values.is_array() || values.size() != 5) throw std::invalid_argument("Expected five equalizer bands");
-                std::array<int, 5> bands{};
-                for (size_t i=0; i<5; ++i) bands[i] = integer(Json{{"value",values[i]}}, "value", -10, 10);
-                dev->setEqualizerCustom(integer(params, "clearBass", -10, 10), bands);
+                if (c.tenBandEqualizer) {
+                    // 10-band devices (e.g. WH-1000XM6) have no separate
+                    // Clear Bass slot; "bands" carries all ten raw device
+                    // values directly (0-12, see issue #10).
+                    if (!values.is_array() || values.size() != 10) throw std::invalid_argument("Expected ten equalizer bands");
+                    std::vector<int> bands(10);
+                    for (size_t i=0; i<10; ++i) bands[i] = integer(Json{{"value",values[i]}}, "value", 0, 12);
+                    dev->setEqualizerCustom(0, bands);
+                } else {
+                    if (!values.is_array() || values.size() != 5) throw std::invalid_argument("Expected five equalizer bands");
+                    std::vector<int> bands(5);
+                    for (size_t i=0; i<5; ++i) bands[i] = integer(Json{{"value",values[i]}}, "value", -10, 10);
+                    dev->setEqualizerCustom(integer(params, "clearBass", -10, 10), bands);
+                }
             } else if (method == "dsee") { supported(c.dsee); dev->setDsee(params.at("enabled").get<bool>()); }
             else if (method == "speakToChat") { supported(c.speakToChat); dev->setSpeakToChat(params.at("enabled").get<bool>()); }
             else if (method == "adaptiveVolume") { supported(c.adaptiveVolume); dev->setAdaptiveVolume(params.at("enabled").get<bool>()); }
