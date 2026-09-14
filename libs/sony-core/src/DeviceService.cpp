@@ -131,6 +131,18 @@ void DeviceService::tick() {
             DiscoveredDevice selected{.address = _target};
             if (found != candidates.end()) selected = *found;
             candidates = {selected};
+        } else {
+            // Pairing is a saved relationship, not evidence that a headset is
+            // present. Only automatically open a system-connected device;
+            // manual selection can still try paired/unknown devices.
+            std::erase_if(candidates, [](const auto& d) { return !d.connected.value_or(false); });
+            if (candidates.empty()) {
+                _connectionState = "waiting_for_device";
+                _lastError.clear();
+                _retrySeconds = 1;
+                _nextAttempt = _now() + std::chrono::seconds(5);
+                return;
+            }
         }
         _connectionState = "searching";
         for (const auto& candidate : candidates) {

@@ -24,7 +24,9 @@ ApplicationWindow {
             wrapMode: Text.Wrap
             color: controller.lastError.length ? window.danger : window.txtDim
             text: controller.lastError.length ? controller.lastError :
-                controller.busy ? "Working…" : "Connection: " + controller.connectionState
+                controller.busy ? "Working…"
+                : controller.connectionState === "waiting_for_device" ? "No connected headset. Connect one in Bluetooth settings or select a paired device."
+                : "Connection: " + controller.connectionState
         }
     }
 
@@ -1781,7 +1783,7 @@ ApplicationWindow {
                             delegate: Card {
                                 id: devCard
                                 required property var modelData
-                                readonly property bool current: modelData.name === controller.deviceName
+                                readonly property bool current: controller.connected && modelData.address === controller.deviceAddress
 
                                 Layout.fillWidth: true
                                 Layout.preferredHeight: 84
@@ -1834,7 +1836,11 @@ ApplicationWindow {
                                             }
                                             Text {
                                                 textFormat: Text.PlainText
-                                                text: devCard.current ? window.tr("connected") : window.tr("available")
+                                                text: devCard.current ? window.tr("connected")
+                                                    : devCard.modelData.systemConnected === true ? "Connected to system"
+                                                    : devCard.modelData.systemConnected === false ? (devCard.modelData.paired === true ? "Paired · not connected to system" : "Not connected to system")
+                                                    : devCard.modelData.paired === true ? "Paired · connection unknown"
+                                                    : "Connection unknown"
                                                 color: devCard.current ? window.success : window.txtFaint
                                                 font.pixelSize: 11
                                                 font.weight: Font.Medium

@@ -28,7 +28,8 @@ void DeviceBackend::start() {
         _timer->setInterval(_usingIpc ? 1000 : 500);
         connect(_timer, &QTimer::timeout, this, &DeviceBackend::poll);
         _timer->start();
-        poll();
+        // Startup is complete before maintenance attempts any Bluetooth I/O.
+        // The timer handles connection work after the initial snapshot is shown.
     } catch (const std::exception& ex) { emit error(QString::fromUtf8(ex.what()), _generation); }
     emit completed(_generation);
 }

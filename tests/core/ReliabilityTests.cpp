@@ -24,10 +24,11 @@ TEST_CASE("Lifecycle retries with backoff and rediscovers without a restart", "[
     auto discovery = std::make_shared<FakeDeviceDiscovery>();
     DeviceService service(transport, discovery, [&] { return now; });
     service.startAutoConnect(); service.tick();
-    CHECK(service.connectionState() == "retrying");
+    CHECK(service.connectionState() == "waiting_for_device");
+    CHECK(service.lastError().empty());
     discovery->addDevice({"WH-1000XM3", DeviceAddress("11:22:33:44:55:66"), true, true});
     service.tick(); CHECK(transport->attempts.empty());
-    now += std::chrono::seconds(1); service.tick();
+    now += std::chrono::seconds(5); service.tick();
     REQUIRE(service.isConnected());
     CHECK(transport->attempts.size() == 1);
     transport->simulateDisconnect(); service.tick();
@@ -51,17 +52,36 @@ TEST_CASE("Lifecycle prefers connected candidates and honors explicit selection"
         service.startAutoConnect(); service.tick();
         CHECK(service.selectedAddress() == "22:22:33:44:55:66");
     }
-    SECTION("Failed candidate falls through") {
+    SECTION("Failed connected candidate does not fall through to an absent headset") {
         transport->failAddress = "22:22:33:44:55:66";
         service.startAutoConnect(); service.tick();
-        CHECK(service.selectedAddress() == "11:22:33:44:55:66");
-        CHECK(transport->attempts.size() == 2);
+        CHECK(service.selectedAddress() == "22:22:33:44:55:66");
+        CHECK(transport->attempts.size() == 1);
     }
     SECTION("Explicit address is the only candidate") {
         service.startAutoConnect("11:22:33:44:55:66"); service.tick();
         CHECK(service.selectedAddress() == "11:22:33:44:55:66");
         CHECK(transport->attempts.size() == 1);
     }
+}
+TEST_CASE("Automatic discovery waits without opening absent or unknown devices", "[core][recovery]") {
+    auto now = DeviceService::Clock::time_point{};
+    auto transport = std::make_shared<ReplyTransport>();
+    auto discovery = std::make_shared<FakeDeviceDiscovery>();
+    discovery->setDevices({{"ULT WEAR",DeviceAddress("11:22:33:44:55:66"),true,false},
+        {"WH-1000XM3",DeviceAddress("22:22:33:44:55:66"),true,std::nullopt}});
+    DeviceService service(transport, discovery, [&] { return now; });
+    service.startAutoConnect();
+    for (int i = 0; i < 12; ++i) {
+        service.tick();
+        CHECK(transport->attempts.empty());
+        CHECK(service.connectionState() == "waiting_for_device");
+        now += std::chrono::seconds(5);
+    }
+    REQUIRE(service.discoverDevices().size() == 2);
+    service.connect(DeviceAddress("22:22:33:44:55:66"), "WH-1000XM3");
+    CHECK(transport->attempts.size() == 1);
+    CHECK(service.isConnected());
 }
 TEST_CASE("Retry delay doubles and is capped at thirty seconds", "[core][recovery]") {
     auto now = DeviceService::Clock::time_point{};

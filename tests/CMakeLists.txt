@@ -71,6 +71,9 @@ add_executable(sony-transport-tests
     "${SONYBRIDGE_CLIENT_DIR}/BluetoothWrapper.cpp"
 )
 target_compile_features(sony-transport-tests PRIVATE cxx_std_20)
+if(APPLE)
+    target_sources(sony-transport-tests PRIVATE transport/MacOSBluetoothLifecycleTests.mm)
+endif()
 target_include_directories(sony-transport-tests PRIVATE "${SONYBRIDGE_CLIENT_DIR}")
 target_link_libraries(sony-transport-tests PRIVATE Catch2::Catch2WithMain Threads::Threads sony-transport sony-protocol)
 catch_discover_tests(sony-transport-tests PROPERTIES TIMEOUT 10)

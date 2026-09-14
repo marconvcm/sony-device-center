@@ -36,7 +36,11 @@ public:
     SonyProtocolVersion protocolVersion = SonyProtocolVersion::V1;
 
 private:
+    friend struct MacOSBluetoothConnectorTestAccess;
+    void retainChannel(void* channel);
+    std::recursive_mutex channelMutex;
     void *rfcommDevice = nullptr;
     void *rfcommchannel = nullptr;
+    void *rfcommDelegate = nullptr;
     std::thread uthread;
 };

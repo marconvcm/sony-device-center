@@ -1,5 +1,6 @@
 #include <QtTest>
 #include "DeviceCenterController.h"
+#include "DeviceBackend.h"
 #include "sony/core/DeviceService.h"
 #include "../support/ReplyTransport.h"
 #include <chrono>
@@ -7,7 +8,8 @@ using namespace sony;
 using namespace sony::devicecenter;
 class SlowService : public core::IDeviceService {
 public:
-    void tick() override { std::this_thread::sleep_for(std::chrono::milliseconds(200)); }
+    int ticks = 0;
+    void tick() override { ++ticks; std::this_thread::sleep_for(std::chrono::milliseconds(200)); }
     std::vector<core::DiscoveredDevice> discoverDevices() override { return {}; }
     void connect(const transport::DeviceAddress&, std::string_view) override {}
     void disconnect() noexcept override {}
@@ -18,6 +20,15 @@ public:
 class DeviceControllerTests : public QObject {
     Q_OBJECT
 private slots:
+    void startupCompletesBeforeBluetoothMaintenance() {
+        auto service = std::make_shared<SlowService>();
+        DeviceBackend backend(service);
+        QSignalSpy completed(&backend, &DeviceBackend::completed);
+        backend.start();
+        QCOMPARE(completed.count(), 1);
+        QCOMPARE(service->ticks, 0);
+        backend.shutdown();
+    }
     void startupDoesNotBlockGui() {
         auto service = std::make_shared<SlowService>();
         QElapsedTimer elapsed; elapsed.start();

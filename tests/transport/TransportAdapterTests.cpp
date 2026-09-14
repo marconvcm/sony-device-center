@@ -7,6 +7,7 @@
 #include "sony/transport/MacOSBluetoothTransport.h"
 #include "BluetoothWrapper.h"
 #include "CommandSerializer.h"
+#include "macos/SonyDiscovery.h"
 
 #include <algorithm>
 #include <array>
@@ -63,6 +64,39 @@ public:
 };
 
 } // namespace
+
+TEST_CASE("macOS discovery recognizes headset candidates without accepting unrelated peripherals", "[transport][discovery]")
+{
+    for (auto name : {"WH-1000XM5", "wf-1000xm4", "WI-C100", "MDR-1000X",
+                      "LinkBuds", "LinkBuds S", "LinkBuds Open", "ULT WEAR", "Sony WH-CH720N", "LE_WH-1000XM5"}) {
+        INFO(name);
+        CHECK(isSonyHeadsetCandidate(name, false));
+    }
+    for (auto name : {"", "Unknown Device", "Magic Mouse", "Keyboard", "iPhone", "AirPods",
+                      "Sony BRAVIA", "Sony Controller", "WH-", "LINKBUDSTV", "Not WH-1000XM5"}) {
+        INFO(name);
+        CHECK_FALSE(isSonyHeadsetCandidate(name, false));
+    }
+    CHECK(isSonyHeadsetCandidate("Renamed headphones", true));
+    CHECK(isSonyHeadsetCandidate("", true));
+}
+
+TEST_CASE("Discovery preserves disconnected and unknown state for paired headset candidates", "[transport][discovery]")
+{
+    MockConnector connector;
+    connector.devices = {
+        {"ULT WEAR", "11:22:33:44:55:66", true, false},
+        {"WH-1000XM5", "11:22:33:44:55:77", true, true},
+        {"LinkBuds S", "11:22:33:44:55:88", true, std::nullopt}
+    };
+    BluetoothConnectorDiscovery discovery(&connector);
+    auto devices = discovery.discover();
+    REQUIRE(devices.size() == 3);
+    CHECK(devices[0].paired == true);
+    CHECK(devices[0].connected == false);
+    CHECK(devices[1].connected == true);
+    CHECK_FALSE(devices[2].connected.has_value());
+}
 
 TEST_CASE("BluetoothConnectorTransport wraps an IBluetoothConnector as ITransport", "[transport][adapter]")
 {
