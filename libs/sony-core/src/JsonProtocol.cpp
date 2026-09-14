@@ -27,6 +27,7 @@ Json JsonProtocol::snapshot(IDeviceService& service) {
         {"connected", connected}, {"connectionState", service.connectionState()},
         {"address", service.selectedAddress()}, {"name", dev ? dev->name() : ""},
         {"lastError", service.lastError()}, {"protocol", dev ? std::string(protocol::to_string(dev->protocolVersion())) : "unknown"},
+        {"maxAmbientLevel", dev && dev->protocolVersion() == protocol::SonyProtocolVersion::V1 ? 19 : 20},
         {"capabilities", {{"anc", c.noiseCancelling}, {"ambient", c.ambientSound}, {"focusOnVoice", c.focusOnVoice},
             {"equalizer", c.equalizer}, {"clearBass", c.clearBass}, {"dsee", c.dsee}, {"battery", c.battery},
             {"speakToChat", c.speakToChat}, {"adaptiveVolume", c.adaptiveVolume}, {"autoPowerOff", c.autoPowerOff}}},
@@ -58,6 +59,10 @@ Json JsonProtocol::execute(const Json& request, IDeviceService& service) {
         if (!params.is_object()) throw std::invalid_argument("params must be an object");
         Json data;
         if (method == "snapshot") data = snapshot(service);
+        else if (method == "preferredConnect") {
+            service.startPreferredConnect(params.value("address", std::string{}));
+            data = snapshot(service);
+        }
         else if (method == "devices") {
             data = Json::array();
             for (const auto& d : service.discoverDevices())
@@ -81,7 +86,8 @@ Json JsonProtocol::execute(const Json& request, IDeviceService& service) {
             else if (method == "ambient") {
                 supported(c.ambientSound); const bool voice = params.value("focusOnVoice", false);
                 if (voice) supported(c.focusOnVoice);
-                dev->setAmbient(integer(params, "level", 1, 20), voice);
+                const int maxLevel = dev->protocolVersion() == protocol::SonyProtocolVersion::V1 ? 19 : 20;
+                dev->setAmbient(integer(params, "level", 1, maxLevel), voice);
             } else if (method == "eqPreset") {
                 supported(c.equalizer); const int preset = integer(params, "preset", 0, 255);
                 if (protocol::equalizerPresetId(preset).empty()) throw std::invalid_argument("Unknown equalizer preset");

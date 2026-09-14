@@ -23,6 +23,7 @@ public:
 
     virtual void tick() {}
     virtual void startAutoConnect(std::string address = {}) {}
+    virtual void startPreferredConnect(std::string address = {}) { startAutoConnect(address); }
     virtual std::string connectionState() const { return isConnected() ? "connected" : "disconnected"; }
     virtual std::string selectedAddress() const { return {}; }
     virtual std::string lastError() const { return {}; }

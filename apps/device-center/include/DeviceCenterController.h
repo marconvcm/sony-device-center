@@ -30,6 +30,7 @@ class DeviceCenterController : public QObject {
     Q_PROPERTY(bool isCharging READ isCharging NOTIFY stateChanged)
     Q_PROPERTY(QString noiseControlMode READ noiseControlMode NOTIFY stateChanged)
     Q_PROPERTY(int ambientLevel READ ambientLevel NOTIFY stateChanged)
+    Q_PROPERTY(int maxAmbientLevel READ maxAmbientLevel NOTIFY stateChanged)
     Q_PROPERTY(bool focusOnVoice READ focusOnVoice NOTIFY stateChanged)
     Q_PROPERTY(int equalizerPreset READ equalizerPreset NOTIFY stateChanged)
     Q_PROPERTY(QString equalizerPresetName READ equalizerPresetName NOTIFY stateChanged)
@@ -73,6 +74,7 @@ public:
     [[nodiscard]] bool isCharging() const;
     [[nodiscard]] QString noiseControlMode() const;
     [[nodiscard]] int ambientLevel() const;
+    [[nodiscard]] int maxAmbientLevel() const;
     [[nodiscard]] bool focusOnVoice() const;
     [[nodiscard]] int equalizerPreset() const;
     [[nodiscard]] QString equalizerPresetName() const;
@@ -144,6 +146,7 @@ private:
     bool _isCharging{false};
     QString _noiseControlMode{"unknown"};
     int _ambientLevel{10};
+    int _maxAmbientLevel{20};
     bool _focusOnVoice{false};
     int _equalizerPreset{0x00};
     QString _equalizerPresetName{"Off"};

@@ -17,7 +17,40 @@ public:
 };
 class DeviceControllerTests : public QObject {
     Q_OBJECT
+    QTemporaryDir settingsDirectory;
 private slots:
+    void initTestCase() {
+        QSettings::setDefaultFormat(QSettings::IniFormat);
+        QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, settingsDirectory.path());
+    }
+    void init() { QSettings(QSettings::defaultFormat(), QSettings::UserScope, "SonyBridge", "SonyDeviceCenter").clear(); }
+    void remembersOnlySuccessfulConnections() {
+        QSettings settings(QSettings::defaultFormat(), QSettings::UserScope, "SonyBridge", "SonyDeviceCenter");
+        const QString remembered("33:22:33:44:55:66");
+        settings.setValue("lastConnectedAddress", remembered);
+        auto transport = std::make_shared<ReplyTransport>();
+        transport->failAddress = "22:22:33:44:55:66";
+        auto discovery = std::make_shared<sony::transport::FakeDeviceDiscovery>();
+        discovery->addDevice({"WH-1000XM5",sony::transport::DeviceAddress(transport->failAddress),true,true});
+        auto service = std::make_shared<core::DeviceService>(transport, discovery);
+        DeviceCenterController controller(nullptr, service);
+        QTRY_COMPARE_WITH_TIMEOUT(controller.connectionState(), QString("selection_required"), 4000);
+        QCOMPARE(settings.value("lastConnectedAddress").toString(), remembered);
+        transport->failAddress.clear();
+        controller.connectDevice("22:22:33:44:55:66", "WH-1000XM5");
+        QTRY_VERIFY_WITH_TIMEOUT(!controller.busy() && controller.isConnected(), 3000);
+        QCOMPARE(settings.value("lastConnectedAddress").toString(), QString("22:22:33:44:55:66"));
+    }
+    void startupReusesSavedHeadsetWhenOffline() {
+        QSettings(QSettings::defaultFormat(), QSettings::UserScope, "SonyBridge", "SonyDeviceCenter").setValue("lastConnectedAddress", "33:22:33:44:55:66");
+        auto transport = std::make_shared<ReplyTransport>();
+        auto discovery = std::make_shared<sony::transport::FakeDeviceDiscovery>();
+        discovery->addDevice({"WH-1000XM5",sony::transport::DeviceAddress("33:22:33:44:55:66"),true,false});
+        auto service = std::make_shared<core::DeviceService>(transport, discovery);
+        DeviceCenterController controller(nullptr, service);
+        QTRY_VERIFY_WITH_TIMEOUT(controller.isConnected(), 3000);
+        QCOMPARE(controller.deviceAddress(), QString("33:22:33:44:55:66"));
+    }
     void startupDoesNotBlockGui() {
         auto service = std::make_shared<SlowService>();
         QElapsedTimer elapsed; elapsed.start();
@@ -58,6 +91,23 @@ private slots:
         transport->notify({0x69,0x17,1,1,1,0,12});
         QTRY_COMPARE_WITH_TIMEOUT(controller.noiseControlMode(),QString("ambient"),1000);
         QCOMPARE(controller.ambientLevel(),12);
+    }
+    void ambientUsesV1MaximumWhenDeviceReportsLevel20() {
+        auto transport = std::make_shared<ReplyTransport>();
+        auto service = std::make_shared<core::DeviceService>(transport);
+        service->connect(transport::DeviceAddress("11:22:33:44:55:66"),"WH-1000XM4");
+        transport->queueIncoming(sony::protocol::FrameCodec::encode({sony::protocol::DataType::Ack, 0, {}}));
+        service->activeDevice()->setAmbient(20, false);
+
+        DeviceCenterController controller(nullptr, service);
+        QTRY_COMPARE_WITH_TIMEOUT(controller.ambientLevel(), 20, 2000);
+        const auto sentBefore = transport->sentCount();
+        controller.setAmbient(controller.ambientLevel(), false);
+        QTRY_VERIFY_WITH_TIMEOUT(!controller.busy(), 2000);
+        QCOMPARE(controller.lastError(), QString());
+        QCOMPARE(transport->sentCount(), sentBefore + 1);
+        const auto frame = sony::protocol::FrameCodec::decode(transport->lastSentFrame());
+        QCOMPARE(frame.payload.back(), static_cast<uint8_t>(19));
     }
     void destructionDrainsWorkerAndCallbacks() {
         auto service = std::make_shared<SlowService>();

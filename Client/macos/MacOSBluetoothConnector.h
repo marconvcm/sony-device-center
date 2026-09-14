@@ -21,6 +21,7 @@ public:
     virtual int recv(char* buf, size_t length) noexcept(false);
     virtual void disconnect() noexcept;
     virtual bool isConnected() noexcept;
+    void channelOpenComplete(IOReturn status) noexcept;
     virtual void closeConnection();
     virtual SonyProtocolVersion getProtocolVersion() noexcept;
 
@@ -31,6 +32,10 @@ public:
     std::atomic<bool> running = false;
     std::mutex disconnectionMutex;
     std::condition_variable disconnectionConditionVariable;
+    std::mutex channelOpenMutex;
+    std::condition_variable channelOpenConditionVariable;
+    bool channelOpenFinished = false;
+    IOReturn channelOpenStatus = kIOReturnError;
     //Set on the connectToMac background thread before the connect promise resolves; safe to read from
     //any thread afterwards (the future's get() synchronizes-with the promise's set_value()).
     SonyProtocolVersion protocolVersion = SonyProtocolVersion::V1;

@@ -2,6 +2,7 @@
 #include "sony/core/DeviceService.h"
 #include "sony/transport/PlatformTransport.h"
 #include <QMetaObject>
+#include <QSettings>
 namespace sony::devicecenter {
 DeviceBackend::DeviceBackend(std::shared_ptr<core::IDeviceService> service) : _service(std::move(service)) {}
 DeviceBackend::~DeviceBackend() { shutdown(); }
@@ -19,8 +20,11 @@ void DeviceBackend::start() {
             _usingIpc = _ipc.isDaemonRunning();
             if (!_usingIpc) {
                 _service = std::make_shared<core::DeviceService>(transport::createPlatformTransport(), transport::createPlatformDiscovery());
-                _service->startAutoConnect();
             }
+        }
+        if (!request("snapshot").value("connected", false)) {
+            QSettings settings(QSettings::defaultFormat(), QSettings::UserScope, "SonyBridge", "SonyDeviceCenter");
+            request("preferredConnect", {{"address", settings.value("lastConnectedAddress").toString().toStdString()}});
         }
         publish();
         discover();
@@ -49,7 +53,16 @@ DeviceBackend::Json DeviceBackend::request(const std::string& method, const Json
     }
     return response.at("data");
 }
-void DeviceBackend::publish() { emit snapshotReady(QByteArray::fromStdString(request("snapshot").dump()), _generation); }
+void DeviceBackend::publish() {
+    const auto data = request("snapshot");
+    if (data.value("connected", false)) {
+        QSettings settings(QSettings::defaultFormat(), QSettings::UserScope, "SonyBridge", "SonyDeviceCenter");
+        const auto address = QString::fromStdString(data.value("address", std::string{}));
+        if (!address.isEmpty() && settings.value("lastConnectedAddress").toString() != address)
+            settings.setValue("lastConnectedAddress", address);
+    }
+    emit snapshotReady(QByteArray::fromStdString(data.dump()), _generation);
+}
 void DeviceBackend::subscribe() {
     if (!_service) return;
     auto* device = _service->activeDevice();
@@ -80,9 +93,9 @@ void DeviceBackend::command(QByteArray bytes, quint64 generation) {
     if (_stopped) return;
     try {
         const auto cmd = Json::parse(bytes.toStdString());
-        const auto data = request(cmd.at("method").get<std::string>(), cmd.value("params",Json::object()));
+        request(cmd.at("method").get<std::string>(), cmd.value("params",Json::object()));
         subscribe();
-        emit snapshotReady(QByteArray::fromStdString(data.dump()), _generation);
+        publish();
     } catch (const std::exception& ex) { emit error(QString::fromUtf8(ex.what()), _generation); }
     emit completed(_generation);
 }

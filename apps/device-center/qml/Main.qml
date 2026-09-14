@@ -24,11 +24,28 @@ ApplicationWindow {
             wrapMode: Text.Wrap
             color: controller.lastError.length ? window.danger : window.txtDim
             text: controller.lastError.length ? controller.lastError :
+                controller.connectionState === "connecting" ? "Connecting to " + connectionTarget() + "…" :
                 controller.busy ? "Working…" : "Connection: " + controller.connectionState
         }
     }
 
     property int navIndex: 0
+    function connectionTarget() {
+        for (var i = 0; i < controller.pairedDevices.length; ++i) {
+            var device = controller.pairedDevices[i]
+            if (device.address === controller.deviceAddress) return device.name
+        }
+        return controller.deviceAddress
+    }
+    Connections {
+        target: controller
+        property bool selectionShown: false
+        function onStateChanged() {
+            var needsSelection = controller.connectionState === "selection_required"
+            if (needsSelection && !selectionShown) window.navIndex = 4
+            selectionShown = needsSelection
+        }
+    }
 
     // Reactive i18n helper
     function tr(key) {
@@ -1289,7 +1306,7 @@ ApplicationWindow {
                             NeoSlider {
                                 id: ambientSlider
                                 Layout.fillWidth: true
-                                from: 1; to: 20; stepSize: 1
+                                from: 1; to: controller.maxAmbientLevel; stepSize: 1
                                 confirmedValue: controller.ambientLevel
                                 onMoved: controller.setAmbient(Math.round(value), voiceSwitch.checked)
                             }
@@ -1781,7 +1798,7 @@ ApplicationWindow {
                             delegate: Card {
                                 id: devCard
                                 required property var modelData
-                                readonly property bool current: modelData.name === controller.deviceName
+                                readonly property bool current: controller.connected && modelData.address === controller.deviceAddress
 
                                 Layout.fillWidth: true
                                 Layout.preferredHeight: 84
@@ -1834,7 +1851,11 @@ ApplicationWindow {
                                             }
                                             Text {
                                                 textFormat: Text.PlainText
-                                                text: devCard.current ? window.tr("connected") : window.tr("available")
+                                                text: devCard.current ? window.tr("connected")
+                                                    : devCard.modelData.systemConnected === true ? "Connected to system"
+                                                    : devCard.modelData.systemConnected === false ? (devCard.modelData.paired === true ? "Paired · not connected to system" : "Not connected to system")
+                                                    : devCard.modelData.paired === true ? "Paired · connection unknown"
+                                                    : "Connection unknown"
                                                 color: devCard.current ? window.success : window.txtFaint
                                                 font.pixelSize: 11
                                                 font.weight: Font.Medium

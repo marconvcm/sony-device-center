@@ -119,3 +119,20 @@ Run `cmake --build build --parallel` followed by
 `ctest --test-dir build --output-on-failure`. Unix integration tests need permission
 to bind local sockets. Physical-headset, native Windows, and native macOS validation
 must be recorded separately; the simulator does not establish model compatibility.
+
+### Preferred connection on app startup
+
+The app stores `lastConnectedAddress` in its existing SonyBridge/SonyDeviceCenter
+settings only after a successful connection. On startup, if disconnected, it sends
+`preferredConnect` with that address. The service tries the remembered headset if
+system-connected, then other system-connected candidates, then the remembered
+headset if still paired but offline. Other offline devices remain available for
+manual selection. macOS discovery filters candidates using Sony names or cached
+Sony service records and supplies the current system connection state.
+
+Each attempt is preceded by a `connecting` snapshot with the candidate address.
+After candidates fail (or none qualify), `selection_required` and `lastError`
+direct the app to its device picker. Automatic startup scanning stops there.
+Explicit selection overrides this search; the existing reconnection behavior
+continues after success. A running daemon must support `preferredConnect` (build
+it together with the app). An already-connected daemon is left connected.

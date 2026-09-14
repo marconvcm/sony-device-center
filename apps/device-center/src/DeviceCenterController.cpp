@@ -62,6 +62,8 @@ void DeviceCenterController::_applySnapshot(const QByteArray& data) {
     const auto s = QJsonDocument::fromJson(data).object();
     _connected = s.value("connected").toBool();
     _connectionState = s.value("connectionState").toString("disconnected");
+    if (_connectionState == "selection_required") _lastError = s.value("lastError").toString();
+    _maxAmbientLevel = s.value("maxAmbientLevel").toInt(20);
     if (s.contains("name")) _deviceName = s.value("name").toString();
     if (s.contains("address")) _deviceAddress = s.value("address").toString();
     if (!s.contains("features")) {
@@ -96,6 +98,7 @@ int DeviceCenterController::batteryLevel() const { return _batteryLevel; }
 bool DeviceCenterController::isCharging() const { return _isCharging; }
 QString DeviceCenterController::noiseControlMode() const { return _noiseControlMode; }
 int DeviceCenterController::ambientLevel() const { return _ambientLevel; }
+int DeviceCenterController::maxAmbientLevel() const { return _maxAmbientLevel; }
 bool DeviceCenterController::focusOnVoice() const { return _focusOnVoice; }
 int DeviceCenterController::equalizerPreset() const { return _equalizerPreset; }
 QString DeviceCenterController::equalizerPresetName() const { return _equalizerPresetName; }
@@ -149,7 +152,7 @@ bool DeviceCenterController::hasAdaptiveVolume() const { return _capabilities.va
 QVariantList DeviceCenterController::pairedDevices() const { return _pairedDevices; }
 
 void DeviceCenterController::setAnc(bool enabled) { _send("anc", {{"enabled",enabled}}); }
-void DeviceCenterController::setAmbient(int level, bool voice) { _send("ambient", {{"level",level},{"focusOnVoice",voice}}); }
+void DeviceCenterController::setAmbient(int level, bool voice) { _send("ambient", {{"level",std::clamp(level, 1, _maxAmbientLevel)},{"focusOnVoice",voice}}); }
 void DeviceCenterController::setNoiseControlOff() { setAnc(false); }
 void DeviceCenterController::setEqualizerPreset(int preset) { _send("eqPreset", {{"preset",preset}}); }
 void DeviceCenterController::setEqualizerCustom(int bass, const QVariantList& bands) {

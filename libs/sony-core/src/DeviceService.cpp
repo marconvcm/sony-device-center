@@ -39,7 +39,7 @@ std::vector<DiscoveredDevice> DeviceService::discoverDevices() {
 
 void DeviceService::connect(const transport::DeviceAddress& address, std::string_view name) {
     std::lock_guard lock(_mutex);
-    _target = address.str(); _automatic = true; _retrySeconds = 1;
+    _preferredSearch = false; _target = address.str(); _automatic = true; _retrySeconds = 1;
     try { _connect(address, name); }
     catch (const std::exception& ex) {
         _wasConnected = false;
@@ -67,7 +67,7 @@ void DeviceService::_connect(const transport::DeviceAddress& address, std::strin
 
 void DeviceService::disconnect() noexcept {
     std::lock_guard lock(_mutex);
-    _automatic = false; _wasConnected = false; _connectionState = "manually_disconnected";
+    _preferredSearch = false; _automatic = false; _wasConnected = false; _connectionState = "manually_disconnected";
     if (_device) {
         _device->disconnect();
     }
@@ -93,7 +93,7 @@ protocol::DeviceStateSnapshot DeviceService::snapshot() const {
 
 void DeviceService::startAutoConnect(std::string address) {
     std::lock_guard lock(_mutex);
-    _target = std::move(address); _automatic = true; _retrySeconds = 1;
+    _preferredSearch = false; _target = std::move(address); _automatic = true; _retrySeconds = 1;
     _nextAttempt = _now(); _connectionState = "searching";
 }
 std::string DeviceService::connectionState() const {
@@ -102,6 +102,20 @@ std::string DeviceService::connectionState() const {
 }
 std::string DeviceService::selectedAddress() const { std::lock_guard lock(_mutex); return _selected; }
 std::string DeviceService::lastError() const { std::lock_guard lock(_mutex); return _lastError; }
+void DeviceService::startPreferredConnect(std::string address) {
+    std::lock_guard lock(_mutex);
+    if (isConnected()) return;
+    _candidates = discoverDevices();
+    std::erase_if(_candidates, [&](const auto& d) {
+        return !d.connected.value_or(false) && d.address != address;
+    });
+    std::stable_sort(_candidates.begin(), _candidates.end(), [&](const auto& a, const auto& b) {
+        auto rank = [&](const auto& d) { return d.connected.value_or(false) ? (d.address == address ? 0 : 1) : 2; };
+        return rank(a) < rank(b);
+    });
+    _preferredSearch = true; _automatic = false; _candidateReady = false; _candidateIndex = 0;
+    _lastError.clear(); _selected.clear(); _connectionState = "searching";
+}
 void DeviceService::tick() {
     std::lock_guard lock(_mutex);
     if (isConnected()) {
@@ -112,6 +126,28 @@ void DeviceService::tick() {
         }
         if (_now() >= _nextBattery) {
             _device->refreshBattery(); _nextBattery = _now() + std::chrono::seconds(30);
+        }
+        return;
+    }
+    if (_preferredSearch) {
+        if (_candidateIndex == _candidates.size()) {
+            _preferredSearch = false; _connectionState = "selection_required";
+            if (_lastError.empty()) _lastError = "Select a paired Sony headset to connect";
+            return;
+        }
+        const auto& candidate = _candidates[_candidateIndex];
+        // Publish the candidate on one tick before the next tick opens Bluetooth.
+        if (!_candidateReady) {
+            _selected = candidate.address; _connectionState = "connecting"; _candidateReady = true;
+            return;
+        }
+        try {
+            _connect(transport::DeviceAddress(candidate.address), candidate.name);
+            _preferredSearch = false; _automatic = true; _target = candidate.address;
+        } catch (const std::exception& ex) {
+            _lastError = candidate.name + ": " + ex.what();
+            if (_device) _device->disconnect();
+            ++_candidateIndex; _candidateReady = false;
         }
         return;
     }

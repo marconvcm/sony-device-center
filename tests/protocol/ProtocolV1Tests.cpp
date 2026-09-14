@@ -161,6 +161,19 @@ TEST_CASE("ProtocolV1: sets noise control with V1 packet layout", "[protocol][v1
     }
 }
 
+TEST_CASE("ProtocolV1 clamps ambient level 20 to the V1 maximum", "[protocol][v1]")
+{
+    FakeTransport fake;
+    SonyProtocolSession session(&fake);
+    session.connect("11:22:33:44:55:66");
+    fake.queueIncoming(FrameCodec::encode(SonyFrame{ .type = DataType::Ack, .sequence = 0 }));
+
+    ProtocolV1 v1(session);
+    v1.setNoiseControl({ .mode = NoiseControlMode::Ambient, .ambientLevel = 20, .focusOnVoice = false });
+    const auto sent = FrameCodec::decode(fake.lastSentFrame());
+    REQUIRE(sent.payload[7] == 19);
+}
+
 TEST_CASE("ProtocolV1: reads the equalizer behind inquired type 0x01", "[protocol][v1]")
 {
     FakeTransport fake;

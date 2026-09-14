@@ -141,7 +141,8 @@ void ProtocolV1::setNoiseControl(const NoiseControlState& state) {
     // client has always sent and what the headset echoes back on GET.
     const bool off = state.mode == NoiseControlMode::Off;
     const bool ambient = state.mode == NoiseControlMode::Ambient;
-    const uint8_t level = ambient ? static_cast<uint8_t>(std::clamp(state.ambientLevel, 1, 20)) : 0;
+    // V1 headsets expose ambient levels 1-19; level 20 is a V2-only value.
+    const uint8_t level = ambient ? static_cast<uint8_t>(std::clamp(state.ambientLevel, 1, 19)) : 0;
 
     std::vector<uint8_t> payload = {
         0x68,

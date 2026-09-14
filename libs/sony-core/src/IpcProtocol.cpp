@@ -246,7 +246,8 @@ IpcResponse IpcProtocol::execute(const IpcCommand& cmd, IDeviceService& service)
             int level = 10;
             if (!cmd.args.empty()) {
                 try {
-                    level = std::clamp(std::stoi(cmd.args[0]), 1, 20);
+                    const int maxLevel = dev->protocolVersion() == SonyProtocolVersion::V1 ? 19 : 20;
+                    level = std::clamp(std::stoi(cmd.args[0]), 1, maxLevel);
                 } catch (...) {
                     level = 10;
                 }

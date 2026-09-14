@@ -19,6 +19,7 @@ public:
     ~DeviceService() override;
 
     void tick() override;
+    void startPreferredConnect(std::string address = {}) override;
     void startAutoConnect(std::string address = {}) override;
     std::string connectionState() const override;
     std::string selectedAddress() const override;
@@ -38,6 +39,9 @@ private:
     mutable std::recursive_mutex _mutex;
     Now _now;
     bool _automatic{false};
+    bool _preferredSearch{false}, _candidateReady{false};
+    std::vector<DiscoveredDevice> _candidates;
+    size_t _candidateIndex{0};
     bool _wasConnected{false};
     unsigned _retrySeconds{1};
     Clock::time_point _nextAttempt{}, _nextSettings{}, _nextBattery{};
