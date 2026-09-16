@@ -83,4 +83,7 @@ add_executable(sony-core-tests
 )
 target_compile_features(sony-core-tests PRIVATE cxx_std_20)
 target_link_libraries(sony-core-tests PRIVATE Catch2::Catch2WithMain Threads::Threads sony-transport sony-protocol sony-core)
-catch_discover_tests(sony-core-tests PROPERTIES TIMEOUT 10)
+# The lifecycle tests connect a V1 device through a transport that leaves
+# some queries unanswered, so they legitimately spend ~9 s in protocol
+# timeouts; 10 s trips on the macOS runner.
+catch_discover_tests(sony-core-tests PROPERTIES TIMEOUT 30)
