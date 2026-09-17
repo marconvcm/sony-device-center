@@ -309,6 +309,11 @@ void SonyDevice::setDsee(bool enabled) {
     _dispatcher.dispatch(protocol::DeviceStateChanged{snapshot()});
 }
 
+void SonyDevice::powerOff() {
+    if (!_protocol) return;
+    _protocol->powerOff();
+}
+
 void SonyDevice::setAutoPowerOff(int index) {
     if (!_protocol) return;
     _protocol->setAutoPowerOff(index);

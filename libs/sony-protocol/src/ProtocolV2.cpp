@@ -320,4 +320,14 @@ void ProtocolV2::setAdaptiveVolume(bool enabled) {
     _session.send(SonyFrame{ .type = DataType::DataMdr, .payload = std::move(payload) });
 }
 
+void ProtocolV2::powerOff() {
+    // POWER_SET 24, inquired type POWER_OFF 03, value 01.
+    try {
+        _session.send(SonyFrame{ .type = DataType::DataMdr, .payload = {0x24, 0x03, 0x01} });
+    } catch (const SonyException& ex) {
+        // The headset may drop the link before the ACK arrives; that is success.
+        if (ex.code() != SonyErrorCode::Disconnected) throw;
+    }
+}
+
 } // namespace sony::protocol

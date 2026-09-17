@@ -8,6 +8,7 @@ add_library(sony-core
     src/IpcServer.cpp
     src/IpcClient.cpp
     src/JsonProtocol.cpp
+    src/SimulatedDevice.cpp
 )
 
 target_compile_features(sony-core PUBLIC cxx_std_20)

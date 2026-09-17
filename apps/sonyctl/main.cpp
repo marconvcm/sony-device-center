@@ -35,6 +35,7 @@ void printHelp() {
               << "  eq <preset>                Shorthand for eq preset <preset>\n"
               << "  dsee on|off|auto           Toggle DSEE sound enhancement\n"
               << "  apo <0-5>                  Set Auto-Power-Off duration preset index\n"
+              << "  power off                  Turn the headphones off\n"
               << "  status                     Display connection status\n\n"
               << "Options:\n"
               << "  -s, --socket <path>        Custom Unix domain socket path for sonyd\n"

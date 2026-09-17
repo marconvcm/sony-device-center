@@ -1,6 +1,36 @@
 <RCC>
     <qresource prefix="/">
         <file>qml/Main.qml</file>
+        <file>qml/Theme.qml</file>
+        <file>qml/qmldir</file>
+        <file>qml/components/Glyph.qml</file>
+        <file>qml/components/BrandMark.qml</file>
+        <file>qml/components/BrandTile.qml</file>
+        <file>qml/components/Card.qml</file>
+        <file>qml/components/Bloom.qml</file>
+        <file>qml/components/Eyebrow.qml</file>
+        <file>qml/components/PillButton.qml</file>
+        <file>qml/components/NeoSwitch.qml</file>
+        <file>qml/components/NeoSlider.qml</file>
+        <file>qml/components/BandSlider.qml</file>
+        <file>qml/components/ViewPage.qml</file>
+        <file>qml/components/DotText.qml</file>
+        <file>qml/components/DeviceHeader.qml</file>
+        <file>qml/components/SectionTitle.qml</file>
+        <file>qml/DotGlyphs.js</file>
+        <file alias="fonts/Manrope-Regular.ttf">../../assets/fonts/Manrope/Manrope-Regular.ttf</file>
+        <file alias="fonts/Manrope-Medium.ttf">../../assets/fonts/Manrope/Manrope-Medium.ttf</file>
+        <file alias="fonts/Manrope-SemiBold.ttf">../../assets/fonts/Manrope/Manrope-SemiBold.ttf</file>
+        <file alias="fonts/Manrope-Bold.ttf">../../assets/fonts/Manrope/Manrope-Bold.ttf</file>
+        <file>qml/components/DotValue.qml</file>
+        <file>qml/pages/Overview.qml</file>
+        <file>qml/pages/NoiseControl.qml</file>
+        <file>qml/pages/Equalizer.qml</file>
+        <file>qml/pages/Features.qml</file>
+        <file>qml/pages/DeviceSwitcher.qml</file>
+        <file>qml/pages/Battery.qml</file>
+        <file>qml/pages/Settings.qml</file>
+        <file>qml/Sidebar.qml</file>
         <file alias="resources/brand/mark.svg">../../assets/mark.svg</file>
         <file alias="resources/brand/lockup.svg">../../assets/lockup.svg</file>
         <file alias="resources/brand/app-icon.svg">../../assets/app-icon.svg</file>

@@ -9,8 +9,8 @@
 // SonyProtocolImplV1. Every GET was additionally replayed against a
 // WH-1000XM4 on firmware 3.0.1 before being trusted here.
 //
-// CRITICAL: opcode 0x22 is POWER OFF on this generation. It must never be
-// sent from this file; ProtocolV1Tests pins that for the battery path.
+// CRITICAL: opcode 0x22 is POWER OFF on this generation. The only place that
+// may emit it is powerOff() below; ProtocolV1Tests pins that for every query.
 
 namespace sony::protocol {
 
@@ -274,6 +274,17 @@ void ProtocolV1::setSoundPosition(int preset) {
         static_cast<uint8_t>(preset)
     };
     _session.send(SonyFrame{ .type = DataType::DataMdr, .payload = std::move(payload) });
+}
+
+void ProtocolV1::powerOff() {
+    // POWER_OFF: 22 00 01 (Gadgetbridge SonyProtocolImplV1). Not yet replayed
+    // on V1 hardware; the byte layout is the only documented one.
+    try {
+        _session.send(SonyFrame{ .type = DataType::DataMdr, .payload = {0x22, 0x00, 0x01} });
+    } catch (const SonyException& ex) {
+        // The headset may drop the link before the ACK arrives; that is success.
+        if (ex.code() != SonyErrorCode::Disconnected) throw;
+    }
 }
 
 } // namespace sony::protocol

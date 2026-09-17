@@ -96,6 +96,7 @@ Json JsonProtocol::execute(const Json& request, IDeviceService& service) {
             else if (method == "speakToChat") { supported(c.speakToChat); dev->setSpeakToChat(params.at("enabled").get<bool>()); }
             else if (method == "adaptiveVolume") { supported(c.adaptiveVolume); dev->setAdaptiveVolume(params.at("enabled").get<bool>()); }
             else if (method == "autoPowerOff") { supported(c.autoPowerOff); dev->setAutoPowerOff(integer(params, "index", 0, 5)); }
+            else if (method == "powerOff") { dev->powerOff(); }
             else throw std::invalid_argument("Unknown method: " + method);
             data = snapshot(service);
         }

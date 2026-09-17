@@ -42,6 +42,10 @@ public:
 
     virtual bool getAdaptiveVolume() = 0;
     virtual void setAdaptiveVolume(bool enabled) = 0;
+
+    // Turns the headset off. The link drops right after; callers must expect
+    // the session to report a disconnect rather than a reply.
+    virtual void powerOff() = 0;
 };
 
 } // namespace sony::protocol

@@ -27,7 +27,15 @@ Sony locks headphone settings and telemetry behind their mobile-only apps (*Sony
 | :---: | :---: | :---: |
 | ![Noise Control](docs/screenshots/noise-control.png) | ![Equalizer](docs/screenshots/equalizer.png) | ![Audio Features](docs/screenshots/audio-features.png) |
 
-<sub>Captured on Linux/Wayland against `sonyd --simulated`, the daemon's built-in device simulator.</sub>
+| Battery History | Device Switcher | Settings |
+| :---: | :---: | :---: |
+| ![Battery History](docs/screenshots/battery.png) | ![Device Switcher](docs/screenshots/device-switcher.png) | ![Settings](docs/screenshots/settings.png) |
+
+| Dark theme | Dark theme, earbuds |
+| :---: | :---: |
+| ![Overview, dark](docs/screenshots/overview-dark.png) | ![Overview, dark, WF-1000XM5](docs/screenshots/overview-dark-earbuds.png) |
+
+<sub>Captured on Windows with `sony-device-center --simulated` and `SONY_UI_SCREENSHOTS`, the app's built-in page walk over the device simulator.</sub>
 
 ---
 
@@ -37,6 +45,7 @@ Sony locks headphone settings and telemetry behind their mobile-only apps (*Sony
 - 🗣️ **Focus on Voice** — Toggle speech-priority voice passthrough while suppressing low-frequency noise.
 - 🎛️ **Full Equalizer** — Switch between built-in presets (Bright, Excited, Vocal, Bass Boost, Treble Boost, etc.) or dial in custom 5-band frequencies and Clear Bass (-10 to +10).
 - ✨ **DSEE Extreme** — Enable or disable Sony's AI-based audio upscaling for compressed audio.
+- ⏻ **Power Off** — Switch the headphones off from the app or `sonyctl power off`.
 - 🔋 **Live Battery & Charging State** — Real-time telemetry for over-ear models, plus individual Left, Right, and Case battery levels for True Wireless (TWS) earbuds.
 - 🧩 **Advanced Audio Features** — Speak-to-Chat, Adaptive Volume, and Auto Power-Off timeouts (dynamically enabled based on device capability profiles).
 - 🧬 **Dual Protocol Support** — Automatically detects and communicates with both **Protocol V1** (legacy models) and **Protocol V2** (modern models with alternating-bit Stop-and-Wait ARQ).
@@ -260,6 +269,18 @@ The CTest suite includes protocol, transport, service, Unix IPC, Qt worker, and 
 
 ```bash
 ctest --test-dir build --output-on-failure
+```
+
+### Running Without Hardware
+
+Both the daemon and the desktop app ship a built-in device simulator that
+behaves like a WH-1000XM5: it acknowledges commands, answers the V2 queries,
+applies changes and raises notifications.
+
+```bash
+sonyd --simulated                 # daemon + sonyctl + GUI over IPC (Linux/macOS)
+sony-device-center --simulated    # the GUI alone, in-process; works on Windows too
+sony-device-center --simulated --simulated-history   # plus a synthetic week of battery history
 ```
 
 ---

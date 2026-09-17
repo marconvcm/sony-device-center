@@ -44,6 +44,7 @@ public:
 
     bool getAdaptiveVolume() override;
     void setAdaptiveVolume(bool enabled) override;
+    void powerOff() override;
 
     // V1-specific surround & positioning commands
     void setVpt(int preset);

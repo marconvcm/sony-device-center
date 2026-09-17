@@ -18,6 +18,7 @@ enum class IpcCommandType {
     EqCustom,
     Dsee,
     AutoPowerOff,
+    PowerOff,
     Status,
     Unknown
 };

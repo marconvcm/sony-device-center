@@ -59,6 +59,8 @@ public:
     void setAutoPowerOff(int index);
     void setSpeakToChat(bool enabled);
     void setAdaptiveVolume(bool enabled);
+    // Asks the headset to switch off. The link drops shortly after.
+    void powerOff();
 
 private:
     unsigned _refreshStep{0};

@@ -37,7 +37,7 @@ This document tracks hardware-level verification and protocol capability support
 - Noise control / ambient via `0x66` / `0x67` / `0x68` with inquired type `0x02`: effect byte, then dual/single (`0x02` = NC, `0x00` = ambient at the trailing level).
 - 5-band equalizer with Clear Bass via `0x56` / `0x57` / `0x58` with inquired type `0x01` (V2 uses `0x00`).
 - Firmware `0x04 0x02` (returns `0x05`), codec `0x18 0x00` (returns `0x19`).
-- **Opcode `0x22` is POWER OFF** — must NEVER be transmitted to a V1 device to query battery.
+- **Opcode `0x22` is POWER OFF** — must NEVER be transmitted to a V1 device to query battery. The only legitimate use is `powerOff()`, which sends `0x22 0x00 0x01` (Gadgetbridge layout; not yet verified on V1 hardware).
 - DSEE (`0xe6 0x02`) and auto power-off (`0xf6 0x04`) do answer on a WH-1000XM4 but are not decoded or exposed yet.
 
 ### Protocol V2 (e.g. WH-1000XM5, WF-1000XM4/M5, LinkBuds, ULT WEAR)
@@ -49,6 +49,7 @@ This document tracks hardware-level verification and protocol capability support
 - DSEE Extreme toggle (`0xe6` / `0xe7` / `0xe8`).
 - Speak-to-Chat toggle (`0xf6` / `0xf7` / `0xf8`).
 - Auto Power-Off configuration (`0x26` / `0x27` / `0x28`).
+- Power off: `0x24 0x03 0x01` (verified on WH-1000XM5).
 
 ---
 

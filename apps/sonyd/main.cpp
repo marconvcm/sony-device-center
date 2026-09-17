@@ -1,12 +1,10 @@
 #include "sony/core/DeviceService.h"
 #include "sony/core/IpcServer.h"
-#include "sony/protocol/FrameCodec.h"
-#include "sony/transport/FakeTransport.h"
+#include "sony/core/SimulatedDevice.h"
 #include "sony/transport/PlatformTransport.h"
 #include "sony/transport/Logger.h"
 
 
-#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <csignal>
@@ -31,73 +29,6 @@ void signalHandler(int sig) {
         g_shutdown.store(true);
     }
 }
-
-class SimulatedDaemonTransport : public FakeTransport {
-public:
-    size_t send(std::span<const std::byte> data) override {
-        size_t res = FakeTransport::send(data);
-        if (!data.empty()) {
-            std::vector<uint8_t> bytes(data.size());
-            std::transform(data.begin(), data.end(), bytes.begin(), [](std::byte b) {
-                return static_cast<uint8_t>(b);
-            });
-            try {
-                auto frame = FrameCodec::decode(bytes);
-                if (frame.type == DataType::DataMdr) {
-                    SonyFrame ackFrame{
-                        .type = DataType::Ack,
-                        .sequence = static_cast<uint8_t>(1 - (frame.sequence & 1)),
-                        .payload = {}
-                    };
-                    queueIncoming(FrameCodec::encode(ackFrame));
-
-                    // Auto-respond to known inquiry requests
-                    if (!frame.payload.empty()) {
-                        uint8_t op = frame.payload[0];
-                        if (op == 0x00) { // Init
-                            queueIncoming(FrameCodec::encode(SonyFrame{
-                                .type = DataType::DataMdr,
-                                .sequence = _nextRespSeq(),
-                                .payload = {0x01, 0x00}
-                            }));
-                        } else if (op == 0x22) { // Battery query
-                            queueIncoming(FrameCodec::encode(SonyFrame{
-                                .type = DataType::DataMdr,
-                                .sequence = _nextRespSeq(),
-                                .payload = {0x23, 0x00, 87, 0x00} // 87%
-                            }));
-                        } else if (op == 0x66) { // NC query
-                            queueIncoming(FrameCodec::encode(SonyFrame{
-                                .type = DataType::DataMdr,
-                                .sequence = _nextRespSeq(),
-                                .payload = {0x67, 0x17, 0x01, 0x01, 0x00, 0x00, 0x00} // ANC
-                            }));
-                        } else if (op == 0x56) { // EQ query
-                            queueIncoming(FrameCodec::encode(SonyFrame{
-                                .type = DataType::DataMdr,
-                                .sequence = _nextRespSeq(),
-                                .payload = {0x57, 0x00, 0x16, 0x06, 0x0e, 0x0a, 0x0a, 0x0a, 0x0a, 0x0a} // Bass Boost
-                            }));
-                        } else if (op == 0xe6) { // DSEE query
-                            queueIncoming(FrameCodec::encode(SonyFrame{
-                                .type = DataType::DataMdr,
-                                .sequence = _nextRespSeq(),
-                                .payload = {0xe7, 0x01, 0x01} // DSEE on
-                            }));
-                        }
-                    }
-                }
-            } catch (...) {}
-        }
-        return res;
-    }
-
-private:
-    uint8_t _nextRespSeq() {
-        return (_respSeq++ & 1);
-    }
-    uint8_t _respSeq{0};
-};
 
 void printHelp() {
     std::cout << "Usage: sonyd [options]\n\n"
@@ -158,18 +89,11 @@ int main(int argc, char* argv[]) {
     std::string targetAddress = deviceAddr;
 
     if (simulated) {
-        auto fakeTransport = std::make_shared<SimulatedDaemonTransport>();
-        auto fakeDiscovery = std::make_shared<FakeDeviceDiscovery>();
-        fakeDiscovery->addDevice(transport::DiscoveredDevice{
-            .name = deviceName.empty() ? "WH-1000XM5" : deviceName,
-            .address = DeviceAddress(targetAddress.empty() ? "CC:98:8B:00:11:22" : targetAddress)
-        });
-        transport = fakeTransport;
-        discovery = fakeDiscovery;
-        if (targetAddress.empty()) {
-            targetAddress = "CC:98:8B:00:11:22";
-            deviceName = "WH-1000XM5";
-        }
+        auto simulatedDevice = createSimulatedDevice(deviceName, targetAddress);
+        transport = simulatedDevice.transport;
+        discovery = simulatedDevice.discovery;
+        targetAddress = simulatedDevice.address;
+        deviceName = simulatedDevice.name;
     }
 
     auto service = std::make_shared<DeviceService>(transport, discovery);

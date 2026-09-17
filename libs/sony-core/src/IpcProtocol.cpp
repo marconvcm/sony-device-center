@@ -84,6 +84,8 @@ IpcCommand IpcProtocol::parseCommand(std::string_view line) {
         cmd.type = IpcCommandType::Dsee;
     } else if (verb == "autopoweroff" || verb == "apo") {
         cmd.type = IpcCommandType::AutoPowerOff;
+    } else if (verb == "power" && tokens.size() > 1 && toLower(tokens[1]) == "off") {
+        cmd.type = IpcCommandType::PowerOff;
     } else if (verb == "status") {
         cmd.type = IpcCommandType::Status;
     }
@@ -333,6 +335,13 @@ IpcResponse IpcProtocol::execute(const IpcCommand& cmd, IDeviceService& service)
             dev->setAutoPowerOff(idx);
             resp.success = true;
             resp.message = "Auto power off set to index " + std::to_string(idx);
+            return resp;
+        }
+
+        case IpcCommandType::PowerOff: {
+            dev->powerOff();
+            resp.success = true;
+            resp.message = "Power off sent";
             return resp;
         }
 

@@ -41,6 +41,7 @@ public:
 
     bool getAdaptiveVolume() override;
     void setAdaptiveVolume(bool enabled) override;
+    void powerOff() override;
 
 private:
     SonyProtocolSession& _session;

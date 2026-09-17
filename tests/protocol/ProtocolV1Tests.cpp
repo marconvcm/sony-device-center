@@ -255,3 +255,18 @@ TEST_CASE("ProtocolV1: unsupported features throw Unsupported", "[protocol][v1]"
     REQUIRE_THROWS_AS(v1.getAutoPowerOff(), SonyException);
     REQUIRE(fake.sentCount() == 0);
 }
+
+TEST_CASE("ProtocolV1: powerOff is the only path that emits opcode 0x22", "[protocol][v1]")
+{
+    ReplyingFakeTransport fake;
+    SonyProtocolSession session(&fake);
+    session.connect("11:22:33:44:55:66");
+    ProtocolV1 v1(session);
+
+    fake.queueReply({ SonyFrame{ .type = DataType::Ack, .sequence = 0 } });
+    v1.powerOff();
+
+    REQUIRE(fake.sentCount() == 1);
+    auto sent = FrameCodec::decode(fake.lastSentFrame());
+    REQUIRE(sent.payload == std::vector<uint8_t>{0x22, 0x00, 0x01});
+}

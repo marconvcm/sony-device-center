@@ -8,6 +8,7 @@
 #include <memory>
 #include <string>
 
+#include "BatteryHistory.h"
 #include "sony/core/IDeviceService.h"
 #include "sony/core/IpcClient.h"
 
@@ -28,6 +29,17 @@ class DeviceCenterController : public QObject {
     Q_PROPERTY(bool connected READ isConnected NOTIFY stateChanged)
     Q_PROPERTY(int batteryLevel READ batteryLevel NOTIFY stateChanged)
     Q_PROPERTY(bool isCharging READ isCharging NOTIFY stateChanged)
+    // Earbuds: per-side and case levels, -1 when the device does not report them.
+    Q_PROPERTY(int batteryLeft READ batteryLeft NOTIFY stateChanged)
+    Q_PROPERTY(int batteryRight READ batteryRight NOTIFY stateChanged)
+    Q_PROPERTY(int batteryCase READ batteryCase NOTIFY stateChanged)
+    Q_PROPERTY(bool hasDualBattery READ hasDualBattery NOTIFY stateChanged)
+    // Time-left estimate from the current discharge session. Minutes are -1
+    // and the text empty while there is not enough data (or while charging).
+    Q_PROPERTY(int batteryMinutesLeft READ batteryMinutesLeft NOTIFY stateChanged)
+    Q_PROPERTY(QString batteryTimeLeft READ batteryTimeLeft NOTIFY stateChanged)
+    Q_PROPERTY(double batteryDischargeRate READ batteryDischargeRate NOTIFY stateChanged)
+    Q_PROPERTY(double batterySessionStart READ batterySessionStart NOTIFY stateChanged)
     Q_PROPERTY(QString noiseControlMode READ noiseControlMode NOTIFY stateChanged)
     Q_PROPERTY(int ambientLevel READ ambientLevel NOTIFY stateChanged)
     Q_PROPERTY(bool focusOnVoice READ focusOnVoice NOTIFY stateChanged)
@@ -51,13 +63,25 @@ class DeviceCenterController : public QObject {
 
     Q_PROPERTY(QVariantList pairedDevices READ pairedDevices NOTIFY pairedDevicesChanged)
 
+    Q_PROPERTY(bool iconAntialiasing READ iconAntialiasing WRITE setIconAntialiasing NOTIFY appearanceChanged)
+    Q_PROPERTY(QString themeMode READ themeMode WRITE setThemeMode NOTIFY appearanceChanged)
+    Q_PROPERTY(bool animationsEnabled READ animationsEnabled WRITE setAnimationsEnabled NOTIFY appearanceChanged)
+    Q_PROPERTY(bool systemReducedMotion READ systemReducedMotion NOTIFY appearanceChanged)
     Q_PROPERTY(bool autostart READ autostart WRITE setAutostart NOTIFY autostartChanged)
+    Q_PROPERTY(bool minimizeToTray READ minimizeToTray WRITE setMinimizeToTray NOTIFY minimizeToTrayChanged)
+    Q_PROPERTY(bool notifyLowBattery READ notifyLowBattery WRITE setNotifyLowBattery NOTIFY notificationSettingsChanged)
+    Q_PROPERTY(bool notifyConnection READ notifyConnection WRITE setNotifyConnection NOTIFY notificationSettingsChanged)
+    Q_PROPERTY(bool notifyCharged READ notifyCharged WRITE setNotifyCharged NOTIFY notificationSettingsChanged)
+    Q_PROPERTY(int lowBatteryThreshold READ lowBatteryThreshold WRITE setLowBatteryThreshold NOTIFY notificationSettingsChanged)
     Q_PROPERTY(QString appVersion READ appVersion CONSTANT)
     Q_PROPERTY(QString currentLanguage READ currentLanguage WRITE setLanguage NOTIFY languageChanged)
     Q_PROPERTY(QVariantList availableLanguages READ availableLanguages CONSTANT)
 
 public:
-    explicit DeviceCenterController(QObject* parent = nullptr, std::shared_ptr<core::IDeviceService> service = {});
+    // historyDir: where per-device battery logs live; defaults to
+    // AppLocalDataLocation. Tests point it at a temporary directory.
+    explicit DeviceCenterController(QObject* parent = nullptr, std::shared_ptr<core::IDeviceService> service = {},
+                                    const QString& historyDir = {});
     ~DeviceCenterController() override;
 
     bool busy() const { return _busy; }
@@ -71,6 +95,19 @@ public:
     [[nodiscard]] bool isConnected() const;
     [[nodiscard]] int batteryLevel() const;
     [[nodiscard]] bool isCharging() const;
+    [[nodiscard]] int batteryLeft() const;
+    [[nodiscard]] int batteryRight() const;
+    [[nodiscard]] int batteryCase() const;
+    [[nodiscard]] bool hasDualBattery() const;
+    [[nodiscard]] int batteryMinutesLeft() const;
+    [[nodiscard]] QString batteryTimeLeft() const;
+    [[nodiscard]] double batteryDischargeRate() const;
+    [[nodiscard]] double batterySessionStart() const;
+    // Logged samples at or after sinceMs (Unix ms), oldest first.
+    Q_INVOKABLE QVariantList batterySamples(double sinceMs) const;
+    // "5 h 20 min" in the current language; minutes only under an hour.
+    Q_INVOKABLE QString formatDuration(int minutes) const;
+    BatteryHistory& batteryHistory() { return *_history; }
     [[nodiscard]] QString noiseControlMode() const;
     [[nodiscard]] int ambientLevel() const;
     [[nodiscard]] bool focusOnVoice() const;
@@ -108,8 +145,26 @@ public:
     Q_INVOKABLE void setSpeakToChat(bool enabled);
     Q_INVOKABLE void setAdaptiveVolume(bool enabled);
     Q_INVOKABLE void setAutoPowerOff(int index);
+    Q_INVOKABLE void powerOff();
 
+    bool iconAntialiasing() const { return _iconAntialiasing; }
+    Q_INVOKABLE void setIconAntialiasing(bool enabled);
+    QString themeMode() const { return _themeMode; }
+    bool animationsEnabled() const { return _animationsEnabled; }
+    bool systemReducedMotion() const { return _systemReducedMotion; }
+    Q_INVOKABLE void setThemeMode(const QString& mode);
+    Q_INVOKABLE void setAnimationsEnabled(bool enabled);
     Q_INVOKABLE void setAutostart(bool enable);
+    [[nodiscard]] bool minimizeToTray() const;
+    Q_INVOKABLE void setMinimizeToTray(bool enable);
+    [[nodiscard]] bool notifyLowBattery() const { return _notifyLowBattery; }
+    [[nodiscard]] bool notifyConnection() const { return _notifyConnection; }
+    [[nodiscard]] bool notifyCharged() const { return _notifyCharged; }
+    [[nodiscard]] int lowBatteryThreshold() const { return _lowBatteryThreshold; }
+    Q_INVOKABLE void setNotifyLowBattery(bool enable);
+    Q_INVOKABLE void setNotifyConnection(bool enable);
+    Q_INVOKABLE void setNotifyCharged(bool enable);
+    Q_INVOKABLE void setLowBatteryThreshold(int percent);
     Q_INVOKABLE void setLanguage(const QString& langCode);
     Q_INVOKABLE QString t(const QString& key) const;
     Q_INVOKABLE void openUrl(const QString& url);
@@ -120,14 +175,20 @@ public:
 
 signals:
     void stateChanged();
+    void batteryHistoryChanged();
     void capabilitiesChanged();
     void pairedDevicesChanged();
     void autostartChanged();
+    void minimizeToTrayChanged();
+    void notificationSettingsChanged();
     void languageChanged();
+    void appearanceChanged();
 
 private:
     void _applySnapshot(const QByteArray& data);
     void _send(const QString& method, const QJsonObject& params = {});
+    QList<QPair<QString, QJsonObject>> _pending;
+    std::unique_ptr<BatteryHistory> _history;
     QThread _worker;
     DeviceBackend* _backend{nullptr};
     quint64 _generation{0};
@@ -141,6 +202,7 @@ private:
     QString _deviceAddress{""};
     bool _connected{false};
     int _batteryLevel{-1};
+    int _batteryLeft{-1}, _batteryRight{-1}, _batteryCase{-1};
     bool _isCharging{false};
     QString _noiseControlMode{"unknown"};
     int _ambientLevel{10};
@@ -154,7 +216,14 @@ private:
     bool _adaptiveVolume{false};
     int _autoPowerOff{0};
     QVariantList _pairedDevices;
+    QString _themeMode{"dark"};
+    bool _animationsEnabled{true};
+    bool _iconAntialiasing{true};
+    bool _systemReducedMotion{false};
     QString _currentLanguage{"en"};
+    bool _minimizeToTray{true};
+    bool _notifyLowBattery{true}, _notifyConnection{true}, _notifyCharged{false};
+    int _lowBatteryThreshold{20};
 
 };
 
