@@ -39,6 +39,18 @@ flatpak-builder --force-clean build-dir packaging/linux/com.github.sonybridge.so
 flatpak-builder --run build-dir packaging/linux/com.github.sonybridge.sony-device-center.yml sony-device-center
 ```
 
+### Arch Linux (PKGBUILD)
+No tagged release exists yet, so `packaging/arch/PKGBUILD` tracks `main` as a
+`-git` VCS package — the standard AUR convention for software without
+releases. Build and install it with `makepkg`:
+```bash
+cd packaging/arch
+makepkg -si
+```
+This registers the install with pacman (clean upgrades/removal via
+`sony-device-center-git`), unlike a manual `cmake --install`. Fill in the
+`# Maintainer` line before publishing it to the AUR.
+
 ### Systemd Service
 To run the `sonyd` background daemon automatically at user login:
 ```bash
