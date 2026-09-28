@@ -81,6 +81,7 @@ add_executable(sony-core-tests
     core/IpcProtocolTests.cpp
     core/ReliabilityTests.cpp
     core/ProtocolSafetyTests.cpp
+    core/SimulatedDeviceTests.cpp
 )
 target_compile_features(sony-core-tests PRIVATE cxx_std_20)
 target_link_libraries(sony-core-tests PRIVATE Catch2::Catch2WithMain Threads::Threads sony-transport sony-protocol sony-core)

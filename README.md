@@ -295,6 +295,17 @@ The CTest suite includes protocol, transport, service, Unix IPC, Qt worker, and 
 ctest --test-dir build --output-on-failure
 ```
 
+### Running Without Hardware
+
+Both the daemon and the desktop app ship a built-in device simulator that
+behaves like a WH-1000XM5: it acknowledges commands, answers the V2 queries,
+applies changes and raises notifications.
+
+```bash
+sonyd --simulated                 # daemon + sonyctl + GUI over IPC (Linux/macOS)
+sony-device-center --simulated    # the GUI alone, in-process; works on Windows too
+```
+
 ---
 
 ## 📚 References & Prior Art
