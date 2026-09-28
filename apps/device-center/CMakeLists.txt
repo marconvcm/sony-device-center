@@ -110,6 +110,13 @@ if(WIN32)
     # executable; Qt6::Core supplies the WinMain shim.
     set_target_properties(sony-device-center PROPERTIES WIN32_EXECUTABLE ON)
 
+    # Explorer, the taskbar and the installer's Start-menu shortcut all take
+    # the icon from the executable's resources, so the .ico has to be
+    # compiled in; setWindowIcon() only covers the running window.
+    enable_language(RC)
+    target_sources(sony-device-center PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../packaging/windows/sony-device-center.rc")
+
     # A bare .exe cannot start without the Qt DLLs and QML module tree beside
     # it, so let windeployqt populate the install prefix at install time.
     get_target_property(_qt_qmake Qt6::qmake IMPORTED_LOCATION)
