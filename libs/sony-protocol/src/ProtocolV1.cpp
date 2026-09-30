@@ -197,14 +197,15 @@ void ProtocolV1::setEqualizerPreset(int preset) {
 }
 
 void ProtocolV1::setEqualizerCustom(int clearBass, const std::vector<int>& bands) {
-    // SET custom: 58 01 A0 <1+bands.size()> <clearBass+10> <b1..bN +10>
+    // V1 custom-band write: 58 01 FF <1+bands.size()> <clearBass+10> <b1..bN +10>.
+    // On WH-1000XM4, a fresh GET reports the accepted result as Manual (0xA0).
     // (bands.size() is always 5 on this generation, but the count byte is
     // computed rather than hardcoded so a mismatched caller fails on the
     // wire instead of silently sending a malformed frame.)
     std::vector<uint8_t> payload = {
         0x58,
         kEqInquired,
-        0xa0,
+        0xff,
         static_cast<uint8_t>(1 + bands.size()),
         clampEqValue(clearBass)
     };
