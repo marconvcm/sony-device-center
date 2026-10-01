@@ -77,6 +77,7 @@ void DeviceCenterController::_applySnapshot(const QByteArray& data) {
     if (!s.contains("features")) {
         _batteryLevel = -1; _noiseControlMode = "unknown";
         _batteryLeft = _batteryRight = _batteryCase = -1;
+        _codec = "Unknown"; _firmware = "Unknown";
         emit stateChanged(); return;
     }
     _features = s.value("features").toObject().toVariantMap();
@@ -102,6 +103,7 @@ void DeviceCenterController::_applySnapshot(const QByteArray& data) {
     _dsee = s.value("dsee").toBool(); _speakToChat = s.value("speakToChat").toBool();
     _adaptiveVolume = s.value("adaptiveVolume").toBool(); _autoPowerOff = s.value("autoPowerOff").toInt();
     _codec = _connected && valid("codec") ? s.value("codec").toString("Unknown") : "Unknown";
+    _firmware = _connected && valid("firmware") ? s.value("firmware").toString("Unknown") : "Unknown";
     emit stateChanged(); emit capabilitiesChanged();
 }
 

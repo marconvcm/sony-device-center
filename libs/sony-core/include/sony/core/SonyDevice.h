@@ -62,6 +62,7 @@ public:
 
 private:
     bool _bleControl{false};
+    void _refreshMetadata();
     void _requireControlCapability(bool supported) const;
     unsigned _refreshStep{0};
     void _markSuccess(const std::string& feature);

@@ -61,7 +61,7 @@ void LinuxBleTransport::disconnect() noexcept {
     _connected = false;
     cancelPending();
     {
-        std::scoped_lock lock(_readMutex, _writeMutex);
+        std::scoped_lock lock(_readMutex, _writeMutex, _metadataMutex);
         closeFd(_readFd); closeFd(_writeFd); _pending.clear();
         _client->release();
     }
@@ -70,6 +70,12 @@ void LinuxBleTransport::disconnect() noexcept {
 }
 bool LinuxBleTransport::isConnected() const noexcept { return _ble ? _connected.load() : _classic->isConnected(); }
 ControlBearer LinuxBleTransport::controlBearer() const noexcept { return _ble ? ControlBearer::BleGatt : ControlBearer::Rfcomm; }
+
+DeviceMetadata LinuxBleTransport::deviceMetadata() {
+    std::lock_guard lock(_metadataMutex);
+    if (!_ble || !_connected) return {};
+    return _client->deviceMetadata();
+}
 
 void LinuxBleTransport::waitFor(int fd, short events) {
     pollfd fds[] = {{fd, events, 0}, {_cancelFd, POLLIN, 0}};

@@ -22,6 +22,7 @@ class DeviceCenterController : public QObject {
     Q_PROPERTY(QString lastError READ lastError NOTIFY stateChanged)
     Q_PROPERTY(QString connectionState READ connectionState NOTIFY stateChanged)
     Q_PROPERTY(QString codec READ codec NOTIFY stateChanged)
+    Q_PROPERTY(QString firmware READ firmware NOTIFY stateChanged)
     Q_PROPERTY(QVariantMap featureStatus READ featureStatus NOTIFY stateChanged)
     Q_PROPERTY(QString deviceName READ deviceName NOTIFY stateChanged)
     Q_PROPERTY(QString deviceAddress READ deviceAddress NOTIFY stateChanged)
@@ -70,6 +71,7 @@ public:
     QString lastError() const { return _lastError; }
     QString connectionState() const { return _connectionState; }
     QString codec() const { return _codec; }
+    QString firmware() const { return _firmware; }
     QVariantMap featureStatus() const { return _features; }
     Q_INVOKABLE void clearError() { _lastError.clear(); emit stateChanged(); }
     [[nodiscard]] QString deviceName() const;
@@ -148,7 +150,7 @@ private:
     quint64 _generation{0};
     bool _busy{true};
     bool _bleControlEnabled{false};
-    QString _lastError, _connectionState{"searching"}, _codec{"Unknown"};
+    QString _lastError, _connectionState{"searching"}, _codec{"Unknown"}, _firmware{"Unknown"};
     QVariantMap _features;
     QJsonObject _capabilities;
 

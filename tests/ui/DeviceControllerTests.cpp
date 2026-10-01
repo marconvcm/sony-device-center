@@ -175,6 +175,39 @@ private slots:
         QCOMPARE(controller.batteryLevel(), -1);
         QCOMPARE(controller.noiseControlMode(), QString("unknown"));
         QCOMPARE(controller.codec(), QString("Unknown"));
+        QCOMPARE(controller.firmware(), QString("Unknown"));
+    }
+    void metadataDisplaysOnlyWhileValidAndConnected() {
+        class MetadataService : public SlowService {
+        public:
+            std::atomic<bool> connected{true}, stale{false};
+            void tick() override {}
+            bool isConnected() const noexcept override { return connected; }
+            protocol::DeviceStateSnapshot snapshot() const override {
+                auto state = std::make_shared<protocol::DeviceState>();
+                state->battery.main = 12;
+                state->codec = "LC3";
+                state->firmware = "3.1.5";
+                for (const auto* feature : {"battery", "codec", "firmware"})
+                    state->features[feature].availability = stale ? "stale" : "valid";
+                return state;
+            }
+        };
+        auto service = std::make_shared<MetadataService>();
+        DeviceCenterController controller(nullptr, service);
+        QTRY_COMPARE(controller.batteryLevel(), 12);
+        QCOMPARE(controller.codec(), QString("LC3"));
+        QCOMPARE(controller.firmware(), QString("3.1.5"));
+        service->stale = true;
+        QTRY_COMPARE(controller.batteryLevel(), -1);
+        QCOMPARE(controller.codec(), QString("Unknown"));
+        QCOMPARE(controller.firmware(), QString("Unknown"));
+        service->stale = false;
+        QTRY_COMPARE(controller.firmware(), QString("3.1.5"));
+        service->connected = false;
+        QTRY_COMPARE(controller.batteryLevel(), -1);
+        QCOMPARE(controller.codec(), QString("Unknown"));
+        QCOMPARE(controller.firmware(), QString("Unknown"));
     }
     void equalizerCapabilities_data() {
         QTest::addColumn<QString>("model");

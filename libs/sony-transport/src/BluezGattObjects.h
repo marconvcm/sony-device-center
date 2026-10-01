@@ -4,6 +4,7 @@
 #include "sony/transport/SonyError.h"
 #include <algorithm>
 #include <cctype>
+#include <cstdint>
 #include <map>
 
 namespace sony::transport::detail {
@@ -16,6 +17,7 @@ struct BluezObject {
     std::map<std::string, std::string> strings;
     std::map<std::string, bool> booleans;
     std::map<std::string, std::vector<std::string>> arrays;
+    std::map<std::string, uint8_t> bytes;
 
     std::string string(const char* key) const {
         const auto value = strings.find(key);
@@ -65,7 +67,7 @@ inline std::optional<GattEndpoint> selectGattEndpoint(
             object.string("org.bluez.GattService1/UUID") == SonyControlService)
             servicePath = path;
     }
-    GattEndpoint endpoint;
+    GattEndpoint endpoint{{}, {}, devicePath};
     for (const auto& [path, object] : objects) {
         if (servicePath.empty() || object.string("org.bluez.GattCharacteristic1/Service") != servicePath)
             continue;
@@ -82,6 +84,55 @@ inline std::optional<GattEndpoint> selectGattEndpoint(
     // connection. The complete device-scoped endpoints are enough to attempt
     // acquisition; AcquireNotify/AcquireWrite still verify that GATT is usable.
     return endpoint;
+}
+
+inline bool hasConnectedGatt(const BluezObject& device) {
+    return device.boolean("org.bluez.Device1/Connected") &&
+        (device.boolean("org.bluez.Device1/ServicesResolved") ||
+         device.boolean("org.bluez.Bearer.LE1/Connected"));
+}
+
+inline std::string firmwareCharacteristic(const std::map<std::string, BluezObject>& objects,
+                                          const std::string& devicePath) {
+    for (const auto& [path, object] : objects) {
+        if (object.string("org.bluez.GattCharacteristic1/UUID") != "00002a26-0000-1000-8000-00805f9b34fb" ||
+            !object.hasFlag("read")) continue;
+        const auto service = objects.find(object.string("org.bluez.GattCharacteristic1/Service"));
+        if (service != objects.end() && service->second.string("org.bluez.GattService1/Device") == devicePath &&
+            service->second.string("org.bluez.GattService1/UUID") == "0000180a-0000-1000-8000-00805f9b34fb")
+            return path;
+    }
+    return {};
+}
+
+inline std::string firmwareString(std::string value) {
+    if (value.empty() || value.size() > 64 ||
+        !std::all_of(value.begin(), value.end(), [](unsigned char c) { return c >= 32 && c <= 126; })) return {};
+    return value;
+}
+
+inline DeviceMetadata readDeviceMetadata(const std::map<std::string, BluezObject>& objects,
+                                         const std::string& devicePath) {
+    DeviceMetadata result;
+    const auto device = objects.find(devicePath);
+    if (devicePath.empty() || device == objects.end() || !hasConnectedGatt(device->second)) return result;
+    const auto battery = device->second.bytes.find("org.bluez.Battery1/Percentage");
+    if (battery != device->second.bytes.end() && battery->second <= 100)
+        result.batteryPercentage = battery->second;
+    for (const auto& [path, object] : objects) {
+        if (object.string("org.bluez.MediaTransport1/Device") != devicePath ||
+            object.string("org.bluez.MediaTransport1/State") != "active") continue;
+        const auto uuid = object.string("org.bluez.MediaTransport1/UUID");
+        const auto codec = object.bytes.find("org.bluez.MediaTransport1/Codec");
+        // Codec numbers are profile-specific: 0x06 means LC3 only for BAP.
+        if ((uuid == "00002bcb-0000-1000-8000-00805f9b34fb" ||
+             uuid == "00002bc9-0000-1000-8000-00805f9b34fb") &&
+            codec != object.bytes.end() && codec->second == 0x06) result.codec = "LC3";
+    }
+    const auto firmware = objects.find(firmwareCharacteristic(objects, devicePath));
+    if (firmware != objects.end())
+        result.firmware = firmwareString(firmware->second.string("org.bluez.GattCharacteristic1/Value"));
+    return result;
 }
 
 } // namespace sony::transport::detail

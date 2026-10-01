@@ -18,6 +18,7 @@ public:
     bool useBle{true}, failWrite{false};
     int rxPeer{-1}, txPeer{-1};
     std::vector<bool> acquired;
+    DeviceMetadata deviceMetadata() override { return {42, "LC3", "3.1.5"}; }
     std::optional<GattEndpoint> resolve(const DeviceAddress&) override {
         if (!useBle) return std::nullopt;
         return GattEndpoint{"write", "notify"};
@@ -49,13 +50,16 @@ TEST_CASE("Linux BLE transport routes Classic and acquires notification before w
         REQUIRE(raw->isConnected());
         REQUIRE(transport.controlBearer() == ControlBearer::Rfcomm);
         REQUIRE(gatt->acquired.empty());
+        REQUIRE_FALSE(transport.deviceMetadata().batteryPercentage);
     }
     SECTION("BLE") {
         transport.connect("11:22:33:44:55:66");
         REQUIRE_FALSE(raw->isConnected());
         REQUIRE(transport.controlBearer() == ControlBearer::BleGatt);
         REQUIRE(gatt->acquired == std::vector<bool>{true, false});
+        REQUIRE(transport.deviceMetadata().batteryPercentage == 42);
         transport.disconnect(); transport.disconnect();
+        REQUIRE_FALSE(transport.deviceMetadata().batteryPercentage);
         REQUIRE_FALSE(transport.isConnected());
         transport.connect("11:22:33:44:55:66");
         REQUIRE(transport.isConnected());
@@ -227,6 +231,90 @@ TEST_CASE("BlueZ routing selects only a ready XM6 LE control service", "[transpo
     SECTION("Characteristics must belong to this device's service") {
         objects["/notify"].strings["org.bluez.GattCharacteristic1/Service"] = "/other-service";
         REQUIRE_THROWS_AS(selectGattEndpoint(objects, address), SonyException);
+    }
+}
+TEST_CASE("BlueZ metadata belongs to the connected device and active BAP transport", "[transport][ble]") {
+    using namespace sony::transport::detail;
+    std::map<std::string, BluezObject> objects;
+    auto& device = objects["/device"];
+    device.booleans = {{"org.bluez.Device1/Connected", true}, {"org.bluez.Device1/ServicesResolved", true}};
+    device.bytes["org.bluez.Battery1/Percentage"] = 12;
+    auto& audio = objects["/audio"];
+    audio.strings = {{"org.bluez.MediaTransport1/Device", "/device"},
+                     {"org.bluez.MediaTransport1/UUID", "00002bcb-0000-1000-8000-00805f9b34fb"},
+                     {"org.bluez.MediaTransport1/State", "active"}};
+    audio.bytes["org.bluez.MediaTransport1/Codec"] = 6;
+    auto& service = objects["/info"];
+    service.strings = {{"org.bluez.GattService1/Device", "/device"},
+                       {"org.bluez.GattService1/UUID", "0000180a-0000-1000-8000-00805f9b34fb"}};
+    auto& firmware = objects["/version"];
+    firmware.strings = {{"org.bluez.GattCharacteristic1/Service", "/info"},
+                        {"org.bluez.GattCharacteristic1/UUID", "00002a26-0000-1000-8000-00805f9b34fb"}};
+    firmware.arrays["org.bluez.GattCharacteristic1/Flags"] = {"read"};
+    firmware.strings["org.bluez.GattCharacteristic1/Value"] = "3.1.5";
+    SECTION("Standard metadata") {
+        const auto metadata = readDeviceMetadata(objects, "/device");
+        REQUIRE(metadata.batteryPercentage == 12);
+        REQUIRE(metadata.codec == "LC3");
+        REQUIRE(metadata.firmware == "3.1.5");
+    }
+    SECTION("Live LE metadata is available despite an unresolved aggregate flag") {
+        device.booleans["org.bluez.Device1/ServicesResolved"] = false;
+        device.booleans["org.bluez.Bearer.LE1/Connected"] = true;
+        const auto metadata = readDeviceMetadata(objects, "/device");
+        REQUIRE(metadata.batteryPercentage == 12);
+        REQUIRE(metadata.codec == "LC3");
+        REQUIRE(metadata.firmware == "3.1.5");
+    }
+    SECTION("Unresolved cached metadata needs a live LE bearer") {
+        device.booleans["org.bluez.Device1/ServicesResolved"] = false;
+        const auto metadata = readDeviceMetadata(objects, "/device");
+        REQUIRE_FALSE(metadata.batteryPercentage);
+        REQUIRE(metadata.codec.empty());
+        REQUIRE(metadata.firmware.empty());
+    }
+    SECTION("No cached readings after disconnect or removal") {
+        device.booleans["org.bluez.Device1/Connected"] = false;
+        REQUIRE_FALSE(readDeviceMetadata(objects, "/device").batteryPercentage);
+        REQUIRE(readDeviceMetadata(objects, "/device").codec.empty());
+        REQUIRE(readDeviceMetadata(objects, "/device").firmware.empty());
+        REQUIRE_FALSE(readDeviceMetadata(objects, "/missing").batteryPercentage);
+    }
+    SECTION("Battery zero is valid, absent or invalid values are unknown") {
+        device.bytes["org.bluez.Battery1/Percentage"] = 0;
+        REQUIRE(readDeviceMetadata(objects, "/device").batteryPercentage == 0);
+        device.bytes["org.bluez.Battery1/Percentage"] = 255;
+        REQUIRE_FALSE(readDeviceMetadata(objects, "/device").batteryPercentage);
+        device.bytes.clear();
+        REQUIRE_FALSE(readDeviceMetadata(objects, "/device").batteryPercentage);
+    }
+    SECTION("Idle transport does not imply active LC3") {
+        audio.strings["org.bluez.MediaTransport1/State"] = "idle";
+        REQUIRE(readDeviceMetadata(objects, "/device").codec.empty());
+    }
+    SECTION("Codec 6 on A2DP is not LC3") {
+        audio.strings["org.bluez.MediaTransport1/UUID"] = "0000110b-0000-1000-8000-00805f9b34fb";
+        REQUIRE(readDeviceMetadata(objects, "/device").codec.empty());
+    }
+    SECTION("BAP source is recognized too") {
+        audio.strings["org.bluez.MediaTransport1/UUID"] = "00002bc9-0000-1000-8000-00805f9b34fb";
+        REQUIRE(readDeviceMetadata(objects, "/device").codec == "LC3");
+        audio.bytes["org.bluez.MediaTransport1/Codec"] = 255;
+        REQUIRE(readDeviceMetadata(objects, "/device").codec.empty());
+    }
+    SECTION("Other devices cannot supply firmware or codec") {
+        audio.strings["org.bluez.MediaTransport1/Device"] = "/other";
+        service.strings["org.bluez.GattService1/Device"] = "/other";
+        REQUIRE(readDeviceMetadata(objects, "/device").codec.empty());
+        REQUIRE(readDeviceMetadata(objects, "/device").firmware.empty());
+    }
+    SECTION("Uncached firmware can be read from the identified characteristic") {
+        firmware.strings.erase("org.bluez.GattCharacteristic1/Value");
+        REQUIRE(readDeviceMetadata(objects, "/device").firmware.empty());
+        REQUIRE(firmwareCharacteristic(objects, "/device") == "/version");
+        REQUIRE(firmwareString({}).empty());
+        REQUIRE(firmwareString({'3', 0, '5'}).empty());
+        REQUIRE(firmwareString(std::string(65, 'a')).empty());
     }
 }
 #endif

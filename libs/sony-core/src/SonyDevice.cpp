@@ -66,6 +66,9 @@ void SonyDevice::connect(const transport::DeviceAddress& address, std::string_vi
         _capabilities.noiseCancelling = true;
         _capabilities.ambientSound = true;
         _capabilities.focusOnVoice = true;
+        _capabilities.battery = true;
+        _capabilities.codecInfo = true;
+        _capabilities.firmwareInfo = true;
     }
 
     {
@@ -195,6 +198,7 @@ void SonyDevice::refreshAll() {
 
 void SonyDevice::refreshBattery() {
     if (!_protocol) return;
+    if (_bleControl) { _refreshMetadata(); return; }
     if (!_capabilities.battery) return;
     try {
         auto bat = _protocol->getBattery();
@@ -387,6 +391,30 @@ void SonyDevice::_markSuccess(const std::string& feature) {
     std::lock_guard lock(_stateMutex);
     _state.features[feature] = {"valid", protocol::stateTimestamp(), {}};
 }
+void SonyDevice::_refreshMetadata() {
+    try {
+        const auto metadata = _transport->deviceMetadata();
+        {
+            std::lock_guard lock(_stateMutex);
+            auto mark = [this](const char* feature, bool available) {
+                if (available) _markSuccess(feature);
+                else _markError(feature, SonyException(SonyErrorCode::InvalidResponse, "Not reported by BlueZ"));
+            };
+            _state.battery = {};
+            if (metadata.batteryPercentage && *metadata.batteryPercentage >= 0 && *metadata.batteryPercentage <= 100)
+                _state.battery.main = metadata.batteryPercentage;
+            _state.codec = metadata.codec;
+            _state.firmware = metadata.firmware;
+            mark("battery", _state.battery.main.has_value());
+            mark("codec", !_state.codec.empty());
+            mark("firmware", !_state.firmware.empty());
+        }
+        _dispatcher.dispatch(protocol::BatteryChanged{snapshot()->battery});
+    } catch (const SonyException& ex) {
+        for (const auto* feature : {"battery", "codec", "firmware"}) _markError(feature, ex);
+    }
+    _dispatcher.dispatch(protocol::DeviceStateChanged{snapshot()});
+}
 void SonyDevice::_markError(const std::string& feature, const SonyException& ex) {
     std::lock_guard lock(_stateMutex);
     auto& status = _state.features[feature];
@@ -401,6 +429,10 @@ void SonyDevice::refreshSettingsStep() {
     if (step == 0) { refreshNoiseControl(); return; }
     if (step == 1) { refreshEqualizer(); return; }
     if (step == 2) { refreshDsee(); return; }
+    if (_bleControl) {
+        if (step == 3) _refreshMetadata();
+        return;
+    }
     std::string feature;
     try {
         if (step == 3 && _capabilities.codecInfo) {

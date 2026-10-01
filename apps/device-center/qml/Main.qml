@@ -906,6 +906,13 @@ ApplicationWindow {
                                 color: window.txtDim
                                 font.pixelSize: 12
                             }
+                            Text {
+                                visible: controller.connected && controller.firmware !== "Unknown"
+                                textFormat: Text.PlainText
+                                text: "Firmware " + controller.firmware
+                                color: window.txtDim
+                                font.pixelSize: 11
+                            }
                         }
 
                         Item { Layout.fillWidth: true }
