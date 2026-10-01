@@ -48,6 +48,49 @@ for 250 ms after descriptor exhaustion (`EMFILE`/`ENFILE`), continuing to servic
 existing clients and shutdown without spinning. Discovery checks pairing before
 reading optional device names.
 
+
+## Linux XM6 control during LE Audio
+
+BLE control is experimental and **disabled by default**. On Linux, enable
+**Settings → Experimental XM6 BLE control**, then restart Sony Device Center
+(or `sonyd` when the GUI uses the daemon). The GUI, daemon and CLI read the same
+startup preference from `$XDG_CONFIG_HOME/sony-device-center/control.json`, or
+`~/.config/sony-device-center/control.json` when XDG_CONFIG_HOME is unset:
+
+```json
+{"bleControlEnabled": true}
+```
+
+Missing, malformed or non-boolean preferences leave BLE control disabled.
+Changing the preference does not reconnect an active session. With the option
+disabled, the existing RFCOMM transport is used without querying GATT endpoints.
+
+When enabled, a paired, connected `WH-1000XM6` with an active LE bearer uses
+Sony's Tandem GATT service (`5b833e20-6bc7-4802-8e9a-723ceca4bd8f`) instead of
+RFCOMM. If BlueZ does not expose per-bearer connection state, the backend falls
+back to `PreferredBearer=le`. Services must be resolved before control starts;
+cached GATT services alone do not select BLE. BlueZ's acquired write/notify
+descriptors carry the existing MDR frames. Releasing these descriptors does
+not disconnect the shared device or its LC3 audio transports.
+
+This BLE path exposes ANC, Ambient Sound, voice focus and Off only. It uses
+NCASM subtype `0x19`, preserves the two adaptation bytes and confirms writes
+through readback. Failed control transactions mark the cached reading stale or
+unknown. EQ and other unverified settings are unavailable; battery, firmware
+and codec remain Unknown. Missing or busy GATT endpoints produce an error
+without changing the audio bearer, pairing or trust configuration. Other
+models retain their existing control path.
+
+Validated on 2026-10-01 with WH-1000XM6 firmware 3.1.5, Ubuntu 26.04.1,
+kernel 7.3.0-070300rc3-generic and development BlueZ 5.87. The build used Qt
+6.4.2/GCC 13 in Ubuntu 24.04, based on `0bf9822` plus the working-tree changes
+on `feature/linux-xm6-ble-control`. With an isolated opt-in preference, the real
+Qt controller passed ANC/Ambient 12/Off both directly and through daemon IPC.
+LC3 playback and capture transports remained active after control release.
+The user confirmed audible switching during the initial protocol validation.
+The Settings page was checked at the minimum 980×660 window size. Broader
+firmware/model support and physical power-cycle recovery have not been verified.
+
 ## Endpoint protection
 
 The default Unix socket is `$XDG_RUNTIME_DIR/sony-device-center.sock`. If that variable

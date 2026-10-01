@@ -6,6 +6,11 @@
 
 namespace sony::core {
 
+void SonyDevice::_requireControlCapability(bool supported) const {
+    if (_bleControl && !supported)
+        throw SonyException(SonyErrorCode::Unsupported, "This setting is not supported by the BLE control connection");
+}
+
 SonyDevice::SonyDevice(
     std::shared_ptr<transport::ITransport> transport,
     SonyProtocolVersion version)
@@ -49,6 +54,20 @@ void SonyDevice::connect(const transport::DeviceAddress& address, std::string_vi
     _protocol.reset();
     _session.reset();
 
+    _bleControl = false;
+    _transport->connect(address);
+    _bleControl = _transport->controlBearer() == transport::ControlBearer::BleGatt;
+    if (_bleControl) {
+        if (_profile.model != protocol::SonyModel::WH1000XM6) {
+            _transport->disconnect();
+            throw SonyException(SonyErrorCode::Unsupported, "BLE control is only verified for WH-1000XM6");
+        }
+        _capabilities = {};
+        _capabilities.noiseCancelling = true;
+        _capabilities.ambientSound = true;
+        _capabilities.focusOnVoice = true;
+    }
+
     {
         std::lock_guard lock(_stateMutex);
         _state = {}; _refreshStep = 0;
@@ -59,7 +78,6 @@ void SonyDevice::connect(const transport::DeviceAddress& address, std::string_vi
             {"speakToChat",c.speakToChat},{"adaptiveVolume",c.adaptiveVolume},{"autoPowerOff",c.autoPowerOff}})
             _state.features[name].availability = supported ? "unknown" : "unsupported";
     }
-    _transport->connect(address);
     _setupSession();
 
     if (_protocol) {
@@ -136,8 +154,8 @@ void SonyDevice::_setupSession() {
         _protocol = std::make_unique<protocol::ProtocolV1>(*_session);
     } else {
         _protocol = std::make_unique<protocol::ProtocolV2>(*_session, _capabilities.tenBandEqualizer,
-                                                           _capabilities.noiseControlLayout,
-            _profile.model == protocol::SonyModel::WF1000XM4);
+            _bleControl ? protocol::NoiseControlLayout::Wh1000Xm6 : _capabilities.noiseControlLayout,
+            _profile.model == protocol::SonyModel::WF1000XM4, _bleControl);
     }
 
     _session->onNotification([this](const protocol::SonyFrame& frame) {
@@ -148,6 +166,9 @@ void SonyDevice::_setupSession() {
 }
 
 void SonyDevice::_onNotification(const protocol::SonyFrame& frame) {
+    if (_bleControl &&
+        (frame.payload.size() < 2 || (frame.payload[0] != 0x67 && frame.payload[0] != 0x69) ||
+         frame.payload[1] != 0x19)) return;
     protocol::DeviceStateSnapshot updated;
     std::string feature;
     {
@@ -247,13 +268,25 @@ void SonyDevice::refreshDsee() {
 
 void SonyDevice::setNoiseControl(const protocol::NoiseControlState& nc) {
     if (!_protocol) return;
-    _protocol->setNoiseControl(nc);
+    auto confirmed = nc;
+    try {
+        _protocol->setNoiseControl(nc);
+        if (_bleControl) {
+            confirmed = _protocol->getNoiseControl();
+            if (confirmed.mode != nc.mode || (nc.mode == protocol::NoiseControlMode::Ambient &&
+                (confirmed.ambientLevel != nc.ambientLevel || confirmed.focusOnVoice != nc.focusOnVoice)))
+                throw SonyException(SonyErrorCode::InvalidResponse, "Headset did not confirm the requested noise mode");
+        }
+    } catch (const SonyException& ex) {
+        if (_bleControl) _markError("noiseControl", ex);
+        throw;
+    }
     {
         std::lock_guard lock(_stateMutex);
-        _state.noiseControl = nc;
+        _state.noiseControl = confirmed;
         _markSuccess("noiseControl");
     }
-    _dispatcher.dispatch(protocol::NoiseControlChanged{nc});
+    _dispatcher.dispatch(protocol::NoiseControlChanged{confirmed});
     _dispatcher.dispatch(protocol::DeviceStateChanged{snapshot()});
 }
 
@@ -274,6 +307,7 @@ void SonyDevice::setAmbient(int level, bool focusOnVoice) {
 }
 
 void SonyDevice::setEqualizerPreset(int preset) {
+    _requireControlCapability(_capabilities.equalizer);
     if (preset < 0 || preset > 255) return;
     if (!_protocol) return;
     _protocol->setEqualizerPreset(preset);
@@ -287,6 +321,7 @@ void SonyDevice::setEqualizerPreset(int preset) {
 }
 
 void SonyDevice::setEqualizerCustom(int clearBass, const std::vector<int>& bands) {
+    _requireControlCapability(_capabilities.equalizer);
     if (!_protocol) return;
     _protocol->setEqualizerCustom(clearBass, bands);
     {
@@ -301,6 +336,7 @@ void SonyDevice::setEqualizerCustom(int clearBass, const std::vector<int>& bands
 }
 
 void SonyDevice::setDsee(bool enabled) {
+    _requireControlCapability(_capabilities.dsee);
     if (!_protocol) return;
     _protocol->setDsee(enabled);
     {
@@ -312,6 +348,7 @@ void SonyDevice::setDsee(bool enabled) {
 }
 
 void SonyDevice::setAutoPowerOff(int index) {
+    _requireControlCapability(_capabilities.autoPowerOff);
     if (!_protocol) return;
     _protocol->setAutoPowerOff(index);
     {
@@ -323,6 +360,7 @@ void SonyDevice::setAutoPowerOff(int index) {
 }
 
 void SonyDevice::setSpeakToChat(bool enabled) {
+    _requireControlCapability(_capabilities.speakToChat);
     if (!_protocol) return;
     _protocol->setSpeakToChat(enabled);
     {
@@ -334,6 +372,7 @@ void SonyDevice::setSpeakToChat(bool enabled) {
 }
 
 void SonyDevice::setAdaptiveVolume(bool enabled) {
+    _requireControlCapability(_capabilities.adaptiveVolume);
     if (!_protocol) return;
     _protocol->setAdaptiveVolume(enabled);
     {

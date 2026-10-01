@@ -12,7 +12,9 @@ inline std::optional<NoiseControlState> decodeNoiseControl(std::span<const uint8
         if (p.size() != 8) return {};
         voice = 6; level = 7; // byte 5 is wind control, not voice focus
         if (p[3] > 1 || p[4] > 1 || p[voice] > 1 || p[level] > 20) return {};
-    } else if (p[1] != 0x17 && p[1] != 0x19) return {};
+    } else if (p[1] == 0x19) {
+        if (p.size() != 9 || p[3] > 1 || p[4] > 1 || p[voice] > 1 || p[level] > 20) return {};
+    } else if (p[1] != 0x17) return {};
     NoiseControlState result;
     result.mode = p[3] ? (p[4] ? NoiseControlMode::Ambient : NoiseControlMode::NoiseCancelling) : NoiseControlMode::Off;
     result.ambientLevel = p[4] ? p[level] : 0;

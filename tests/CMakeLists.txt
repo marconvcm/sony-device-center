@@ -77,6 +77,9 @@ if(APPLE)
 endif()
 target_include_directories(sony-transport-tests PRIVATE "${SONYBRIDGE_CLIENT_DIR}")
 target_link_libraries(sony-transport-tests PRIVATE Catch2::Catch2WithMain Threads::Threads sony-transport sony-protocol)
+if(UNIX AND NOT APPLE)
+    target_sources(sony-transport-tests PRIVATE transport/LinuxBleTransportTests.cpp)
+endif()
 catch_discover_tests(sony-transport-tests PROPERTIES TIMEOUT 10)
 
 add_executable(sony-core-tests
@@ -84,6 +87,7 @@ add_executable(sony-core-tests
     core/IpcProtocolTests.cpp
     core/ReliabilityTests.cpp
     core/ProtocolSafetyTests.cpp
+    core/BleNoiseControlTests.cpp
 )
 target_compile_features(sony-core-tests PRIVATE cxx_std_20)
 target_link_libraries(sony-core-tests PRIVATE Catch2::Catch2WithMain Threads::Threads sony-transport sony-protocol sony-core)

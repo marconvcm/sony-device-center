@@ -99,6 +99,12 @@ TEST_CASE("Developer diagnostic payload description", "[logger]") {
     CHECK(Logger::describePayload(dseeSet) == "DSEE_SET enabled=1");
 }
 
+TEST_CASE("Developer logging describes XM6 BLE noise modes", "[logger][ble]") {
+    CHECK(Logger::describePayload(std::vector<uint8_t>{0x68,0x19,1,0,0,0,1,0,0}) == "NCASM_SET mode=Off");
+    CHECK(Logger::describePayload(std::vector<uint8_t>{0x68,0x19,1,1,0,0,1,0,0}) == "NCASM_SET mode=NoiseCancelling");
+    CHECK(Logger::describePayload(std::vector<uint8_t>{0x67,0x19,1,1,1,0,12,0,0}) == "NCASM_RET mode=Ambient level=12");
+}
+
 TEST_CASE("Developer logging TX and RX formatting", "[logger]") {
     std::vector<std::string> logged;
     Logger::setLogSink([&](LogLevel, std::string_view, std::string_view msg) {

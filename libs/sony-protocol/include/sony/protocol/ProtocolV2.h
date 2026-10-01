@@ -15,9 +15,11 @@ public:
     // (inquired type 0x00) shared with ProtocolV1. See DeviceProfile.h and
     // issue #10. The noise-control layout is selected from the model profile.
     // detailedBattery collects L/R/case even when the aggregate reply succeeds.
+    // bleNoiseControl uses XM6 type 0x19 writes with preserved adaptation bytes;
+    // Classic XM6 control retains type 0x17 writes.
     explicit ProtocolV2(SonyProtocolSession& session, bool tenBandEqualizer = false,
                         NoiseControlLayout noiseControlLayout = NoiseControlLayout::Standard,
-                        bool detailedBattery = false);
+                        bool detailedBattery = false, bool bleNoiseControl = false);
     ~ProtocolV2() override = default;
 
     [[nodiscard]] ProtocolGeneration generation() const noexcept override {
@@ -57,6 +59,7 @@ private:
     bool _tenBandEqualizer;
     NoiseControlLayout _noiseControlLayout;
     bool _detailedBattery;
+    bool _bleNoiseControl;
     SonyFrame _queryNoiseControl();
 };
 
