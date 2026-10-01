@@ -1,5 +1,6 @@
 #include "DeviceBackend.h"
 #include "sony/core/DeviceService.h"
+#include "sony/core/ControlSettings.h"
 #include "sony/transport/PlatformTransport.h"
 #include <QMetaObject>
 namespace sony::devicecenter {
@@ -18,7 +19,7 @@ void DeviceBackend::start() {
         if (!_service) {
             _usingIpc = _ipc.isDaemonRunning();
             if (!_usingIpc) {
-                _service = std::make_shared<core::DeviceService>(transport::createPlatformTransport(), transport::createPlatformDiscovery());
+                _service = std::make_shared<core::DeviceService>(transport::createPlatformTransport(core::bleControlEnabled()), transport::createPlatformDiscovery());
                 _service->startAutoConnect();
             }
         }

@@ -1,4 +1,5 @@
 #include "sony/core/DeviceService.h"
+#include "sony/core/ControlSettings.h"
 #include "sony/core/IpcClient.h"
 #include "sony/core/IpcProtocol.h"
 #include "sony/protocol/FrameCodec.h"
@@ -119,7 +120,7 @@ int main(int argc, char* argv[]) {
     else std::cerr << "Notice: sonyd daemon is not running at " << socketPath << "\n"
               << "Starting direct session...\n";
 
-    std::shared_ptr<ITransport> transport = transport::createPlatformTransport();
+    std::shared_ptr<ITransport> transport = transport::createPlatformTransport(core::bleControlEnabled());
     std::shared_ptr<IDeviceDiscovery> discovery = transport::createPlatformDiscovery();
     DeviceService service(transport, discovery);
 

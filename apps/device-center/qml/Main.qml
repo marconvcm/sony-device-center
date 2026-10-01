@@ -897,6 +897,13 @@ ApplicationWindow {
                                 font.weight: Font.DemiBold
                                 font.letterSpacing: -0.7
                             }
+                            Text {
+                                visible: controller.connected && controller.firmware !== "Unknown"
+                                textFormat: Text.PlainText
+                                text: "Firmware " + controller.firmware
+                                color: window.txtDim
+                                font.pixelSize: 11
+                            }
                         }
 
                         Item { Layout.fillWidth: true }
@@ -1340,6 +1347,8 @@ ApplicationWindow {
                     anchors.fill: parent
                     anchors.margins: 36
                     spacing: 20
+                    enabled: controller.connected && controller.hasEqualizer
+                    opacity: enabled ? 1.0 : 0.42
 
                     ColumnLayout {
                         spacing: 5
@@ -1354,7 +1363,8 @@ ApplicationWindow {
                         }
                         Text {
                             textFormat: Text.PlainText
-                            text: controller.tenBandEqualizer ? "Ten bands, fine-grained."
+                            text: !controller.hasEqualizer ? "Equalizer unavailable for this connection."
+                                  : controller.tenBandEqualizer ? "Ten bands, fine-grained."
                                   : "Five bands, plus dedicated Clear Bass."
                             color: window.txtDim
                             font.pixelSize: 13
@@ -1727,6 +1737,8 @@ ApplicationWindow {
 
                                 ComboBox {
                                     id: powerCombo
+                                    enabled: controller.connected && controller.featureStatus.autoPowerOff
+                                             && controller.featureStatus.autoPowerOff.availability !== "unsupported"
                                     implicitWidth: 134
                                     implicitHeight: 38
                                     model: ["Off", "5 Minutes", "15 Minutes", "30 Minutes", "1 Hour", "3 Hours"]
@@ -1906,10 +1918,17 @@ ApplicationWindow {
             // ==================================================
             // 6 · SETTINGS
             // ==================================================
-            ViewPage {
+            ScrollView {
+                id: settingsPage
+                clip: true
+                contentWidth: availableWidth
+                contentHeight: settingsColumn.implicitHeight + 72
+
                 ColumnLayout {
-                    anchors.fill: parent
-                    anchors.margins: 36
+                    id: settingsColumn
+                    x: 36
+                    y: 36
+                    width: settingsPage.availableWidth - 72
                     spacing: 22
 
                     ColumnLayout {
@@ -1934,7 +1953,7 @@ ApplicationWindow {
                     // Card 1: System & Interface Preferences
                     Card {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: 180
+                        Layout.preferredHeight: controller.showBleControlSetting ? 260 : 180
 
                         ColumnLayout {
                             anchors.fill: parent
@@ -2137,6 +2156,34 @@ ApplicationWindow {
                                             }
                                         }
                                     }
+                                }
+                            }
+
+                            RowLayout {
+                                visible: controller.showBleControlSetting
+                                Layout.fillWidth: true
+                                spacing: 16
+
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 5
+                                    Text {
+                                        text: "Experimental XM6 BLE control"
+                                        color: window.txt
+                                        font.pixelSize: 14
+                                        font.weight: Font.DemiBold
+                                    }
+                                    Text {
+                                        Layout.fillWidth: true
+                                        text: "Off, ANC and Ambient controls during LE Audio. Applies after restarting Sony Device Center or sonyd."
+                                        color: window.txtDim
+                                        font.pixelSize: 12
+                                        wrapMode: Text.WordWrap
+                                    }
+                                }
+                                NeoSwitch {
+                                    confirmedChecked: controller.bleControlEnabled
+                                    onToggled: controller.setBleControlEnabled(checked)
                                 }
                             }
                         }

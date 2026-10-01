@@ -26,8 +26,8 @@ int apoIndexFromCode(uint8_t c0, uint8_t c1) {
 
 } // namespace
 
-ProtocolV2::ProtocolV2(SonyProtocolSession& session, bool tenBandEqualizer)
-    : _session(session), _tenBandEqualizer(tenBandEqualizer) {}
+ProtocolV2::ProtocolV2(SonyProtocolSession& session, bool tenBandEqualizer, NoiseControlLayout noiseControlLayout)
+    : _session(session), _tenBandEqualizer(tenBandEqualizer), _noiseControlSubtype(static_cast<uint8_t>(noiseControlLayout)) {}
 
 void ProtocolV2::initDevice() {
     // V2 handshake init: 0x00 0x00 -> RET 0x01
@@ -92,17 +92,26 @@ BatteryState ProtocolV2::getBattery() {
     return state;
 }
 
-NoiseControlState ProtocolV2::getNoiseControl() {
+SonyFrame ProtocolV2::queryNoiseControl() {
     // GET: 66 17 -> RET: 67 17 01 <effect> <settingType 0=NC/1=Ambient> <voice> <level>
     auto resp = _session.sendAndAwaitResponse(
-        SonyFrame{ .type = DataType::DataMdr, .payload = {0x66, 0x17} },
+        SonyFrame{ .type = DataType::DataMdr, .payload = {0x66, _noiseControlSubtype} },
         0x67,
-        -1,
+        _noiseControlSubtype,
         std::chrono::milliseconds(1000)
     );
 
-    if (resp.payload.size() < 7 || resp.payload[1] != 0x17 || resp.payload[2] != 1)
+    const auto& payload = resp.payload;
+    const bool validStandard = _noiseControlSubtype == 0x17 && payload.size() >= 7;
+    const bool validBle = _noiseControlSubtype == 0x19 && payload.size() == 9 &&
+        payload[3] <= 1 && payload[4] <= 1 && payload[5] <= 1 && payload[6] <= 20;
+    if ((!validStandard && !validBle) || payload[1] != _noiseControlSubtype || payload[2] != 1)
         throw SonyException(SonyErrorCode::InvalidResponse, "Malformed noise-control response");
+    return resp;
+}
+
+NoiseControlState ProtocolV2::getNoiseControl() {
+    const auto resp = queryNoiseControl();
     NoiseControlState state;
     if (resp.payload.size() >= 7) {
         bool on = resp.payload[3] != 0;
@@ -124,6 +133,8 @@ NoiseControlState ProtocolV2::getNoiseControl() {
 }
 
 void ProtocolV2::setNoiseControl(const NoiseControlState& state) {
+    // XM6 subtype 0x19 adds adaptation settings; retain the device's values.
+    const auto current = _noiseControlSubtype == 0x19 ? queryNoiseControl().payload : std::vector<uint8_t>{};
     uint8_t effect = (state.mode == NoiseControlMode::Off) ? 0 : 1;
     uint8_t settingType = (state.mode == NoiseControlMode::Ambient) ? 1 : 0;
     uint8_t voice = state.focusOnVoice ? 1 : 0;
@@ -131,13 +142,17 @@ void ProtocolV2::setNoiseControl(const NoiseControlState& state) {
 
     std::vector<uint8_t> payload = {
         0x68,
-        0x17,
+        _noiseControlSubtype,
         0x01,
         effect,
         settingType,
         voice,
         level
     };
+
+    if (_noiseControlSubtype == 0x19) {
+        payload.insert(payload.end(), current.begin() + 7, current.end());
+    }
 
     _session.send(SonyFrame{ .type = DataType::DataMdr, .payload = std::move(payload) });
 }

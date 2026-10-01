@@ -33,6 +33,24 @@ This also applies to a disconnected daemon that may be reconnecting. Stop the da
 before starting a direct session. Separate custom endpoints and third-party Bluetooth
 clients are not coordinated by this check.
 
+## Linux XM6 control during LE Audio
+
+Linux WH-1000XM6 BLE control is experimental and **disabled by default**. Enable
+**Settings → Experimental XM6 BLE control**, then restart Sony Device Center
+(or `sonyd` when using the daemon). The GUI, daemon and CLI share this setting in
+`$XDG_CONFIG_HOME/sony-device-center/control.json`, falling back to
+`~/.config/sony-device-center/control.json`:
+
+```json
+{"bleControlEnabled": true}
+```
+
+The headset must be paired and already connected through LE Audio. BLE supports
+ANC, Ambient Sound, voice focus and Off, with readback confirmation. Battery,
+firmware and the active LC3 codec are read from BlueZ when available. EQ, charging
+status and other unverified features remain unavailable. Releasing BLE control
+leaves audio connected. Classic connections retain their existing behavior.
+
 ## Endpoint protection
 
 The default Unix socket is `$XDG_RUNTIME_DIR/sony-device-center.sock`. If that variable

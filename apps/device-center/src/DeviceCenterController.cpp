@@ -4,6 +4,7 @@
 #include <QJsonArray>
 #include "I18nManager.h"
 #include "sony/core/DeviceService.h"
+#include "sony/core/ControlSettings.h"
 #include "sony/core/IpcProtocol.h"
 #include "sony/protocol/DeviceProfileRegistry.h"
 #include "sony/protocol/EqualizerPresets.h"
@@ -15,6 +16,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QSettings>
+#include <QSaveFile>
 #include <QStandardPaths>
 #include <QTextStream>
 #include <QUrl>
@@ -28,6 +30,7 @@ DeviceCenterController::DeviceCenterController(QObject* parent, std::shared_ptr<
     : QObject(parent) {
     QSettings settings("SonyBridge", "SonyDeviceCenter");
     _currentLanguage = settings.value("language", "en").toString();
+    _bleControlEnabled = core::bleControlEnabled();
     _backend = new DeviceBackend(std::move(service));
     _backend->moveToThread(&_worker);
     connect(&_worker, &QThread::started, _backend, &DeviceBackend::start);
@@ -66,6 +69,7 @@ void DeviceCenterController::_applySnapshot(const QByteArray& data) {
     if (s.contains("address")) _deviceAddress = s.value("address").toString();
     if (!s.contains("features")) {
         _batteryLevel = -1; _noiseControlMode = "unknown";
+        _codec = "Unknown"; _firmware = "Unknown";
         emit stateChanged(); return;
     }
     _features = s.value("features").toObject().toVariantMap();
@@ -78,7 +82,9 @@ void DeviceCenterController::_applySnapshot(const QByteArray& data) {
     _isCharging = _connected && battery.value("charging").toBool();
     const auto nc = s.value("noiseControl").toObject();
     _noiseControlMode = _connected && valid("noiseControl") ? nc.value("mode").toString() : "unknown";
-    _ambientLevel = nc.value("ambientLevel").toInt(); _focusOnVoice = nc.value("focusOnVoice").toBool();
+    const int ambientLevel = nc.value("ambientLevel").toInt();
+    if (ambientLevel >= 1 && ambientLevel <= 20) _ambientLevel = ambientLevel;
+    _focusOnVoice = nc.value("focusOnVoice").toBool();
     const auto eq = s.value("equalizer").toObject();
     _equalizerPreset = valid("equalizer") ? eq.value("preset").toInt() : -1;
     _equalizerPresetName = valid("equalizer") ? eq.value("presetName").toString() : "Unknown";
@@ -86,6 +92,7 @@ void DeviceCenterController::_applySnapshot(const QByteArray& data) {
     _dsee = s.value("dsee").toBool(); _speakToChat = s.value("speakToChat").toBool();
     _adaptiveVolume = s.value("adaptiveVolume").toBool(); _autoPowerOff = s.value("autoPowerOff").toInt();
     _codec = _connected && valid("codec") ? s.value("codec").toString("Unknown") : "Unknown";
+    _firmware = _connected && valid("firmware") ? s.value("firmware").toString("Unknown") : "Unknown";
     emit stateChanged(); emit capabilitiesChanged();
 }
 
@@ -147,6 +154,29 @@ bool DeviceCenterController::hasDsee() const { return _capabilities.value("dsee"
 bool DeviceCenterController::hasSpeakToChat() const { return _capabilities.value("speakToChat").toBool(); }
 
 bool DeviceCenterController::hasAdaptiveVolume() const { return _capabilities.value("adaptiveVolume").toBool(); }
+
+bool DeviceCenterController::showBleControlSetting() const {
+#if defined(SONY_HAS_LINUX_BLUETOOTH)
+    return true;
+#else
+    return false;
+#endif
+}
+
+void DeviceCenterController::setBleControlEnabled(bool enabled) {
+    if (!showBleControlSetting() || enabled == _bleControlEnabled) return;
+    const auto path = QString::fromStdString(core::controlSettingsPath());
+    QSaveFile file(path);
+    const auto data = QJsonDocument(QJsonObject{{"bleControlEnabled", enabled}}).toJson();
+    if (path.isEmpty() || !QDir().mkpath(QFileInfo(path).absolutePath()) ||
+        !file.open(QIODevice::WriteOnly) || file.write(data) != data.size() || !file.commit()) {
+        _lastError = "Could not save the BLE control preference";
+        emit stateChanged();
+        return;
+    }
+    _bleControlEnabled = enabled;
+    emit bleControlEnabledChanged();
+}
 
 QVariantList DeviceCenterController::pairedDevices() const { return _pairedDevices; }
 

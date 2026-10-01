@@ -6,6 +6,8 @@
 
 namespace sony::protocol {
 
+enum class NoiseControlLayout : uint8_t { Standard = 0x17, Xm6Ble = 0x19 };
+
 class ProtocolV2 : public IProtocol {
 public:
     // tenBandEqualizer selects the newer 10-band equalizer wire format
@@ -13,7 +15,8 @@ public:
     // as the WH-1000XM6, instead of the legacy 5-band + Clear Bass format
     // (inquired type 0x00) shared with ProtocolV1. See DeviceProfile.h and
     // issue #10.
-    explicit ProtocolV2(SonyProtocolSession& session, bool tenBandEqualizer = false);
+    explicit ProtocolV2(SonyProtocolSession& session, bool tenBandEqualizer = false,
+                        NoiseControlLayout noiseControlLayout = NoiseControlLayout::Standard);
     ~ProtocolV2() override = default;
 
     [[nodiscard]] ProtocolGeneration generation() const noexcept override {
@@ -51,6 +54,8 @@ private:
     SonyProtocolSession& _session;
     std::mutex _mutex;
     bool _tenBandEqualizer;
+    uint8_t _noiseControlSubtype;
+    SonyFrame queryNoiseControl();
 };
 
 } // namespace sony::protocol

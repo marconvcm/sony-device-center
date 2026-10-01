@@ -150,7 +150,7 @@ std::string Logger::describePayload(std::span<const uint8_t> payload) {
         case 0x66:
             return "NCASM_GET";
         case 0x67: {
-            if (payload.size() >= 7 && payload[1] == 0x17) {
+            if (payload.size() >= 7 && (payload[1] == 0x17 || payload[1] == 0x19)) {
                 bool on = (payload[3] != 0);
                 bool ambient = (payload[4] != 0);
                 int level = static_cast<int>(payload[6]);
@@ -161,6 +161,11 @@ std::string Logger::describePayload(std::span<const uint8_t> payload) {
             return "NCASM_RET";
         }
         case 0x68: {
+            if (payload.size() >= 7 && (payload[1] == 0x17 || payload[1] == 0x19)) {
+                if (!payload[3]) return "NCASM_SET mode=Off";
+                if (payload[4]) return "NCASM_SET mode=Ambient level=" + std::to_string(payload[6]);
+                return "NCASM_SET mode=NoiseCancelling";
+            }
             // NCASM_SET: payload[2] is setting type on v2 (0=NC, 1=Ambient)
             if (payload.size() >= 5) {
                 if (payload[2] == 0x01) {
