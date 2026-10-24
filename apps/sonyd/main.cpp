@@ -1,4 +1,5 @@
 #include "sony/core/DeviceService.h"
+#include "sony/core/ControlSettings.h"
 #include "sony/core/IpcServer.h"
 #include "sony/protocol/FrameCodec.h"
 #include "sony/transport/FakeTransport.h"
@@ -151,7 +152,7 @@ int main(int argc, char* argv[]) {
     std::shared_ptr<IDeviceDiscovery> discovery;
 
     if (!simulated) {
-        transport = transport::createPlatformTransport();
+        transport = transport::createPlatformTransport(core::bleControlEnabled());
         discovery = transport::createPlatformDiscovery();
     }
 

@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.14)
 project(sony-core LANGUAGES CXX)
 
 add_library(sony-core
+    src/ControlSettings.cpp
     src/SonyDevice.cpp
     src/DeviceService.cpp
     src/IpcProtocol.cpp

@@ -146,6 +146,25 @@ TEST_CASE("DeviceEventDispatcher parses noise control notifications", "[events]"
     CHECK(receivedNc.mode == NoiseControlMode::NoiseCancelling);
     CHECK(receivedNc.ambientLevel == 0);
     CHECK_FALSE(receivedNc.focusOnVoice);
+
+    // Preserve Classic extension bytes while validating the separate BLE layout.
+    ncOnPayload.push_back(0xff);
+    CHECK(dispatcher.parseNotificationPayload(ncOnPayload, state));
+    const std::vector<uint8_t> bleAmbient{0x69, 0x19, 1, 1, 1, 0, 12, 1, 2};
+    CHECK(dispatcher.parseNotificationPayload(bleAmbient, state));
+    CHECK(state.noiseControl.mode == NoiseControlMode::Ambient);
+    CHECK(state.noiseControl.ambientLevel == 12);
+    auto malformed = bleAmbient;
+    malformed.pop_back();
+    CHECK_FALSE(dispatcher.parseNotificationPayload(malformed, state));
+    malformed = bleAmbient;
+    malformed[2] = 0;
+    CHECK_FALSE(dispatcher.parseNotificationPayload(malformed, state));
+    malformed = bleAmbient;
+    malformed[6] = 21;
+    CHECK_FALSE(dispatcher.parseNotificationPayload(malformed, state));
+    CHECK(state.noiseControl.mode == NoiseControlMode::Ambient);
+    CHECK(state.noiseControl.ambientLevel == 12);
 }
 
 TEST_CASE("DeviceEventDispatcher parses equalizer notifications", "[events]") {

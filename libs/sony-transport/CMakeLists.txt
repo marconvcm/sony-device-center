@@ -32,6 +32,8 @@ if(UNIX AND NOT APPLE)
 
     if(DBUS_FOUND AND BLUETOOTH_LIB)
         target_sources(sony-transport PRIVATE
+            src/LinuxBleTransport.cpp
+            src/BluezGattClient.cpp
             "${SONYBRIDGE_CLIENT_DIR}/linux/LinuxBluetoothConnector.cpp"
             "${SONYBRIDGE_CLIENT_DIR}/linux/DBusHelper.cpp"
         )

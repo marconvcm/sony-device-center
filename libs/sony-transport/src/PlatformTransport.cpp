@@ -9,6 +9,7 @@
 #if defined(SONY_HAS_LINUX_BLUETOOTH)
 #include "LinuxBluetoothConnector.h"
 #include "DBusHelper.h"
+#include "sony/transport/LinuxBleTransport.h"
 
 namespace sony::transport {
 
@@ -34,8 +35,10 @@ public:
 
 } // namespace
 
-std::unique_ptr<ITransport> createPlatformTransport() {
-    return std::make_unique<BluetoothConnectorTransport>(std::make_unique<LinuxBluetoothConnector>());
+std::unique_ptr<ITransport> createPlatformTransport(bool enableBleControl) {
+    auto classic = std::make_unique<BluetoothConnectorTransport>(std::make_unique<LinuxBluetoothConnector>());
+    if (!enableBleControl) return classic;
+    return std::make_unique<LinuxBleTransport>(std::move(classic), createBluezGattClient());
 }
 
 std::unique_ptr<IDeviceDiscovery> createPlatformDiscovery() {
@@ -49,7 +52,7 @@ std::unique_ptr<IDeviceDiscovery> createPlatformDiscovery() {
 
 namespace sony::transport {
 
-std::unique_ptr<ITransport> createPlatformTransport() {
+std::unique_ptr<ITransport> createPlatformTransport(bool /*enableBleControl*/) {
     return std::make_unique<BluetoothConnectorTransport>(std::make_unique<WindowsBluetoothConnector>());
 }
 
@@ -65,7 +68,7 @@ std::unique_ptr<IDeviceDiscovery> createPlatformDiscovery() {
 
 namespace sony::transport {
 
-std::unique_ptr<ITransport> createPlatformTransport() {
+std::unique_ptr<ITransport> createPlatformTransport(bool /*enableBleControl*/) {
     return std::make_unique<BluetoothConnectorTransport>(std::make_unique<MacOSBluetoothConnector>());
 }
 
@@ -80,7 +83,7 @@ std::unique_ptr<IDeviceDiscovery> createPlatformDiscovery() {
 
 namespace sony::transport {
 
-std::unique_ptr<ITransport> createPlatformTransport() {
+std::unique_ptr<ITransport> createPlatformTransport(bool /*enableBleControl*/) {
     return std::make_unique<FakeTransport>();
 }
 

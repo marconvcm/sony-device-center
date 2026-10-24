@@ -76,6 +76,58 @@ TEST_CASE("ProtocolV2: handles noise control query and command", "[protocol][v2]
     }
 }
 
+TEST_CASE("ProtocolV2: Classic noise replies retain extension compatibility", "[protocol][v2]") {
+    ReplyingFakeTransport fake;
+    SonyProtocolSession session(&fake);
+    session.connect("11:22:33:44:55:66");
+    ProtocolV2 v2(session);
+    fake.queueReply({SonyFrame{.type = DataType::Ack, .sequence = 1},
+        SonyFrame{.type = DataType::DataMdr, .sequence = 0,
+                  .payload = {0x67, 0x17, 1, 1, 1, 0, 12, 0xff}}});
+    const auto state = v2.getNoiseControl();
+    REQUIRE(state.mode == NoiseControlMode::Ambient);
+    REQUIRE(state.ambientLevel == 12);
+}
+
+TEST_CASE("ProtocolV2: XM6 BLE noise control preserves adaptation settings", "[protocol][v2][ble]") {
+    ReplyingFakeTransport fake;
+    SonyProtocolSession session(&fake);
+    session.connect("11:22:33:44:55:66");
+    ProtocolV2 v2(session, false, NoiseControlLayout::Xm6Ble);
+    fake.queueReply({
+        SonyFrame{.type=DataType::Ack, .sequence=1},
+        SonyFrame{.type=DataType::DataMdr, .sequence=0, .payload={0x67,0x19,1,1,1,0,12,1,2}}
+    });
+    fake.queueReply({SonyFrame{.type=DataType::Ack, .sequence=0}});
+    v2.setNoiseControl({.mode=NoiseControlMode::Off});
+    std::vector<std::vector<uint8_t>> requests;
+    for (const auto& packet : fake.sentFrames()) {
+        const auto frame = FrameCodec::decode(packet);
+        if (frame.type == DataType::DataMdr) requests.push_back(frame.payload);
+    }
+    REQUIRE(requests == std::vector<std::vector<uint8_t>>{{0x66,0x19},{0x68,0x19,1,0,0,0,1,1,2}});
+}
+
+TEST_CASE("ProtocolV2: XM6 BLE accepts only complete confirmed noise replies", "[protocol][v2][ble]") {
+    ReplyingFakeTransport fake;
+    SonyProtocolSession session(&fake);
+    session.connect("11:22:33:44:55:66");
+    ProtocolV2 v2(session, false, NoiseControlLayout::Xm6Ble);
+    std::vector<uint8_t> reply{0x67,0x19,1,1,1,0,12,0,0};
+    SECTION("Captured Off reply") { reply={0x67,0x19,1,0,0,0,12,0,0}; }
+    SECTION("Captured Ambient reply") {}
+    SECTION("Truncated adaptation") { reply.pop_back(); }
+    SECTION("Unconfirmed change") { reply[2]=0; }
+    fake.queueReply({SonyFrame{.type=DataType::Ack,.sequence=1},
+                    SonyFrame{.type=DataType::DataMdr,.sequence=0,.payload=reply}});
+    if (reply.size()!=9 || reply[2]!=1) REQUIRE_THROWS(v2.getNoiseControl());
+    else {
+        auto state=v2.getNoiseControl();
+        REQUIRE(state.mode == (reply[3] ? NoiseControlMode::Ambient : NoiseControlMode::Off));
+        REQUIRE(state.ambientLevel == (reply[3] ? 12 : 0));
+    }
+}
+
 TEST_CASE("ProtocolV2: handles equalizer queries and settings", "[protocol][v2]")
 {
     ReplyingFakeTransport fake;
