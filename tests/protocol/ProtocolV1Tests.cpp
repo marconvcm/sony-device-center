@@ -184,7 +184,7 @@ TEST_CASE("ProtocolV1: reads the equalizer behind inquired type 0x01", "[protoco
     REQUIRE(eq.bands == std::vector<int>{0, 1, 2, 3, 4});
 }
 
-TEST_CASE("ProtocolV1: writes equalizer presets and custom bands", "[protocol][v1]")
+TEST_CASE("ProtocolV1: writes equalizer presets and 0xff custom-band data", "[protocol][v1]")
 {
     ReplyingFakeTransport fake;
     SonyProtocolSession session(&fake);
@@ -198,7 +198,7 @@ TEST_CASE("ProtocolV1: writes equalizer presets and custom bands", "[protocol][v
     fake.queueReply({ SonyFrame{ .type = DataType::Ack, .sequence = 1 } });
     v1.setEqualizerCustom(5, {-10, 10, 0, 3, -3});
     REQUIRE(FrameCodec::decode(fake.sentFrames()[1]).payload
-            == std::vector<uint8_t>{0x58, 0x01, 0xa0, 0x06, 15, 0, 20, 10, 13, 7});
+            == std::vector<uint8_t>{0x58, 0x01, 0xff, 0x06, 15, 0, 20, 10, 13, 7});
 }
 
 TEST_CASE("ProtocolV1: reads firmware version and codec", "[protocol][v1]")
