@@ -1,0 +1,3 @@
+// Application icon for sony-device-center.exe. Compiled into the executable on
+// Windows; see apps/device-center/CMakeLists.txt.
+IDI_ICON1 ICON "sony-device-center.ico"
