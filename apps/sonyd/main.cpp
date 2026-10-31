@@ -16,6 +16,9 @@
 #include <string>
 #include <thread>
 #include <vector>
+#ifdef __APPLE__
+#include <CoreFoundation/CoreFoundation.h>
+#endif
 
 using namespace sony;
 using namespace sony::core;
@@ -189,12 +192,21 @@ int main(int argc, char* argv[]) {
     }
 
     while (!g_shutdown.load()) {
+#ifdef __APPLE__
+        // Native channel teardown defers releases across a main-run-loop turn
+        // to drain queued IOBluetooth callbacks. A headless daemon must service
+        // that loop too; otherwise every reconnect retains the deferred objects.
+        CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.001, false);
+#endif
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 
     std::cout << "\n[sonyd] Shutdown signal received. Closing IPC server...\n";
     server->stop();
     service->disconnect();
+#ifdef __APPLE__
+    CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.001, false);
+#endif
     std::cout << "[sonyd] Daemon terminated cleanly.\n";
 
     return 0;

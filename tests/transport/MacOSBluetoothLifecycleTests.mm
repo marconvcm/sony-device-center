@@ -79,7 +79,12 @@ struct Fixture {
     FixtureChannel* channel{[[FixtureChannel alloc] init]};
     FixtureRecord* record{[[FixtureRecord alloc] init]};
     Fixture() { device->channel = channel; device->record = record; channel->fixture = state; }
-    ~Fixture() { [device release]; [channel release]; [record release]; }
+    ~Fixture() {
+        [device release]; [channel release]; [record release];
+        // Catch's command-line main has no application loop. Drain the same
+        // deferred native releases that Qt and sonyd service in production.
+        CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.001, false);
+    }
     void configure(MacOSBluetoothConnector& connector, std::chrono::milliseconds timeout = 500ms) {
         MacOSBluetoothConnectorTestAccess::configure(connector, (__bridge void*)device, timeout);
     }
@@ -92,8 +97,13 @@ TEST_CASE("macOS waits for native open completion and releases failed workers", 
     MacOSBluetoothConnector connector;
     fixture.configure(connector);
     SECTION("Delayed success is not reported early") {
+        fixture.state->completeOpen = false;
         auto connection = std::async(std::launch::async, [&] { connector.connect("11:22:33:44:55:66"); });
-        CHECK(connection.wait_for(10ms) == std::future_status::timeout);
+        const auto until = std::chrono::steady_clock::now() + 1s;
+        while (!fixture.state->callback && std::chrono::steady_clock::now() < until) std::this_thread::sleep_for(1ms);
+        REQUIRE(fixture.state->callback.load() != nullptr);
+        CHECK(connection.wait_for(0ms) == std::future_status::timeout);
+        [fixture.callback() rfcommChannelOpenComplete:(IOBluetoothRFCOMMChannel*)fixture.channel status:kIOReturnSuccess];
         REQUIRE_NOTHROW(connection.get());
         CHECK(connector.isConnected());
     }

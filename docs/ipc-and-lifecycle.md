@@ -152,6 +152,8 @@ or call a connector that may have been destroyed. Cancellation wakes pending
 open, write and receive waits. Teardown detaches the delegate and closes the
 channel on its owner thread, with native callback objects retained across a main
 run-loop turn to tolerate callbacks already queued by IOBluetooth.
+The headless macOS daemon also services its main run loop so deferred native
+releases are drained after reconnects instead of accumulating for its lifetime.
 
 The GUI publishes startup before maintenance starts and requests cancellation
 before joining its backend at shutdown. The daemon and protocol session also
