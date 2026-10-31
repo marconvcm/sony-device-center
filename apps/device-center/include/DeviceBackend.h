@@ -2,6 +2,7 @@
 #include <QObject>
 #include <QTimer>
 #include <atomic>
+#include <mutex>
 #include "sony/core/IDeviceService.h"
 #include "sony/core/IpcClient.h"
 #include "sony/core/JsonProtocol.h"
@@ -17,6 +18,9 @@ public:
     void command(QByteArray request, quint64 generation);
     void discover();
     void shutdown();
+    // These two requests are safe from the GUI thread, including during start.
+    void cancelPending() noexcept;
+    void requestStop() noexcept;
 signals:
     void snapshotReady(QByteArray data, quint64 generation);
     void devicesReady(QByteArray data);
@@ -29,6 +33,8 @@ private:
     void publish();
     void subscribe();
     std::shared_ptr<core::IDeviceService> _service;
+    std::mutex _serviceMutex;
+    std::atomic<bool> _stopRequested{false};
     core::IpcClient _ipc;
     bool _usingIpc{false}, _stopped{false}, _incompatible{false};
     QTimer* _timer{nullptr};

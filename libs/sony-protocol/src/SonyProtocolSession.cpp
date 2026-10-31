@@ -47,6 +47,8 @@ void SonyProtocolSession::start() {
 }
 
 void SonyProtocolSession::disconnect() noexcept {
+    _running.store(false);
+    if (_transport) _transport->cancelPending();
     _stopReader();
     if (_transport) {
         _transport->disconnect();

@@ -33,6 +33,21 @@ This also applies to a disconnected daemon that may be reconnecting. Stop the da
 before starting a direct session. Separate custom endpoints and third-party Bluetooth
 clients are not coordinated by this check.
 
+## Linux control socket safety
+
+The native RFCOMM connector closes its previous socket before reconnecting and
+releases sockets after setup failures. Disconnect is idempotent. Sockets use
+close-on-exec, authenticated/encrypted RFCOMM, and 2.5-second send/receive timeouts.
+Interrupted reads/writes retry; receive timeouts remain recoverable. Writes use
+`MSG_NOSIGNAL` so a closed control channel cannot terminate the process via SIGPIPE.
+These changes affect the Sony control channel, not BlueZ audio profiles or PipeWire.
+SDP discovery and connection setup are still synchronous; the I/O timeouts do not
+provide a deadline for the entire connection attempt. Hardware playback continuity
+and reconnect behavior require a physical headset test. IPC accept retries back off
+for 250 ms after descriptor exhaustion (`EMFILE`/`ENFILE`), continuing to service
+existing clients and shutdown without spinning. Discovery checks pairing before
+reading optional device names.
+
 ## Endpoint protection
 
 The default Unix socket is `$XDG_RUNTIME_DIR/sony-device-center.sock`. If that variable
@@ -119,3 +134,47 @@ Run `cmake --build build --parallel` followed by
 `ctest --test-dir build --output-on-failure`. Unix integration tests need permission
 to bind local sockets. Physical-headset, native Windows, and native macOS validation
 must be recorded separately; the simulator does not establish model compatibility.
+
+## macOS RFCOMM ownership and cancellation
+
+Each native session owns its device, channel, delegate and run loop on one
+thread. Opening uses `openRFCOMMChannelAsync` directly, with a ten-second
+application deadline and success gated by `rfcommChannelOpenComplete`. Cached
+Sony V1/V2 service records are required; an absent service fails explicitly and
+should be investigated by pairing/reconnecting in Bluetooth settings. Discovery
+still preserves Sony OUI/name filtering and paired audio/BLE entries.
+
+Writes use `writeAsync`, respect the channel MTU and wait at most 2.5 seconds for
+native completion. Immediate errors, completion errors, remote close and timeout
+are propagated. The native run loop is serviced continuously rather than once
+per second. Callbacks only touch shared session state; they never join a worker
+or call a connector that may have been destroyed. Cancellation wakes pending
+open, write and receive waits. Teardown detaches the delegate and closes the
+channel on its owner thread, with native callback objects retained across a main
+run-loop turn to tolerate callbacks already queued by IOBluetooth.
+
+The GUI publishes startup before maintenance starts and requests cancellation
+before joining its backend at shutdown. The daemon and protocol session also
+request cancellation before joining their workers/readers. Cancellation is a
+thread-safe request, not cross-thread native resource destruction. Other native
+transports retain their existing connection behavior.
+
+## WF-1000XM4 noise control and batteries
+
+The WF-1000XM4 profile selects NCASM subtype `0x15`, including its wind-control
+byte, for both GET and SET. Before changing ANC/Ambient/Off the implementation
+reads and preserves that byte; malformed or missing readback prevents the write.
+Notifications use the same decoder as queried state. The WH-1000XM6 keeps subtype
+`0x19` readback and `0x17` writes; other profiles retain their existing layouts.
+
+Only the WF-1000XM4 opts into collecting left/right (`22 09`) and case (`22 0a`)
+battery records even after an aggregate (`22 00`) reply succeeds. A missing case
+reply does not discard valid earbud readings. Individual values are exposed in
+structured IPC, CLI `battery`/`info`, and the GUI overview, where unknown/stale
+values are hidden or shown as unknown. No IPC version change is required: these
+battery fields already existed in structured snapshots.
+
+Regression tests use the firmware 2.3.1 packet layouts reported in issue #56.
+Native macOS tests use injected device/channel doubles, not a physical headset.
+Hardware verification is still required for the original crash/stall reports,
+WF-1000XM4 audible behavior and preservation of non-default wind settings.

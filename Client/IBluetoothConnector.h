@@ -47,6 +47,9 @@ public:
 	
 	//This function should not block.
 	virtual void disconnect() noexcept = 0;
+	// May be called from another thread to interrupt pending native work.
+	// It must return promptly and must not join or release native objects.
+	virtual void cancelPending() noexcept {}
 	
 	//Cost directive: This function must be as cheap as possible.
 	//!!! Thread-safety: This function must be thread safe. !!!

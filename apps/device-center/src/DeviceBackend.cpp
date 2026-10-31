@@ -5,6 +5,15 @@
 namespace sony::devicecenter {
 DeviceBackend::DeviceBackend(std::shared_ptr<core::IDeviceService> service) : _service(std::move(service)) {}
 DeviceBackend::~DeviceBackend() { shutdown(); }
+void DeviceBackend::cancelPending() noexcept {
+    std::shared_ptr<core::IDeviceService> service;
+    { std::lock_guard lock(_serviceMutex); service = _service; }
+    if (service) service->cancelPending();
+}
+void DeviceBackend::requestStop() noexcept {
+    _stopRequested = true;
+    cancelPending();
+}
 void DeviceBackend::shutdown() {
     _stopped = true;
     if (_timer) _timer->stop();
@@ -18,7 +27,10 @@ void DeviceBackend::start() {
         if (!_service) {
             _usingIpc = _ipc.isDaemonRunning();
             if (!_usingIpc) {
-                _service = std::make_shared<core::DeviceService>(transport::createPlatformTransport(), transport::createPlatformDiscovery());
+                {
+                    std::lock_guard lock(_serviceMutex);
+                    _service = std::make_shared<core::DeviceService>(transport::createPlatformTransport(), transport::createPlatformDiscovery());
+                }
                 _service->startAutoConnect();
             }
         }
@@ -28,7 +40,7 @@ void DeviceBackend::start() {
         _timer->setInterval(_usingIpc ? 1000 : 500);
         connect(_timer, &QTimer::timeout, this, &DeviceBackend::poll);
         _timer->start();
-        poll();
+        // Publish startup before timer-driven connection attempts begin.
     } catch (const std::exception& ex) { emit error(QString::fromUtf8(ex.what()), _generation); }
     emit completed(_generation);
 }
@@ -65,7 +77,7 @@ void DeviceBackend::subscribe() {
     });
 }
 void DeviceBackend::poll() {
-    if (_stopped || _incompatible) return;
+    if (_stopped || _incompatible || _stopRequested) return;
     try {
         if (_service) { _service->tick(); subscribe(); }
         publish();
@@ -77,7 +89,7 @@ void DeviceBackend::poll() {
 }
 void DeviceBackend::command(QByteArray bytes, quint64 generation) {
     _generation = generation;
-    if (_stopped) return;
+    if (_stopped || _stopRequested) return;
     try {
         const auto cmd = Json::parse(bytes.toStdString());
         const auto data = request(cmd.at("method").get<std::string>(), cmd.value("params",Json::object()));

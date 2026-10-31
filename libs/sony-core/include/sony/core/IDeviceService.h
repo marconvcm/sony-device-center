@@ -29,6 +29,7 @@ public:
     virtual std::vector<DiscoveredDevice> discoverDevices() = 0;
     virtual void connect(const transport::DeviceAddress& address, std::string_view name = "") = 0;
     virtual void disconnect() noexcept = 0;
+    virtual void cancelPending() noexcept {}
     [[nodiscard]] virtual bool isConnected() const noexcept = 0;
 
     [[nodiscard]] virtual SonyDevice* activeDevice() noexcept = 0;

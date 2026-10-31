@@ -1,5 +1,6 @@
 #include "sony/protocol/ProtocolV2.h"
 #include "ProtocolHelpers.h"
+#include "NoiseControlCodec.h"
 #include <algorithm>
 
 namespace sony::protocol {
@@ -26,8 +27,9 @@ int apoIndexFromCode(uint8_t c0, uint8_t c1) {
 
 } // namespace
 
-ProtocolV2::ProtocolV2(SonyProtocolSession& session, bool tenBandEqualizer, bool noiseControlType19)
-    : _session(session), _tenBandEqualizer(tenBandEqualizer), _noiseControlType19(noiseControlType19) {}
+ProtocolV2::ProtocolV2(SonyProtocolSession& session, bool tenBandEqualizer, NoiseControlLayout noiseControlLayout, bool detailedBattery)
+    : _session(session), _tenBandEqualizer(tenBandEqualizer),
+      _noiseControlLayout(noiseControlLayout), _detailedBattery(detailedBattery) {}
 
 void ProtocolV2::initDevice() {
     // V2 handshake init: 0x00 0x00 -> RET 0x01
@@ -56,7 +58,7 @@ BatteryState ProtocolV2::getBattery() {
         if (resp.payload.size() >= 4) {
             state.main = static_cast<int>(resp.payload[2]);
             state.charging = (resp.payload[3] == 1);
-            return state;
+            if (!_detailedBattery) return state;
         }
     } catch (const SonyException&) {}
 
@@ -92,37 +94,18 @@ BatteryState ProtocolV2::getBattery() {
     return state;
 }
 
-NoiseControlState ProtocolV2::getNoiseControl() {
-    // GET: 66 17 -> RET: 67 17 01 <effect> <settingType 0=NC/1=Ambient> <voice> <level>
-    // Type 0x19 devices (WH-1000XM6) use the same first seven bytes plus two trailing bytes.
-    const uint8_t inquired = _noiseControlType19 ? 0x19 : 0x17;
+SonyFrame ProtocolV2::_queryNoiseControl() {
+    const auto inquired = static_cast<uint8_t>(_noiseControlLayout);
     auto resp = _session.sendAndAwaitResponse(
         SonyFrame{ .type = DataType::DataMdr, .payload = {0x66, inquired} },
-        0x67,
-        -1,
-        std::chrono::milliseconds(1000)
-    );
-
-    if (resp.payload.size() < 7 || resp.payload[1] != inquired || resp.payload[2] != 1)
+        0x67, inquired, std::chrono::milliseconds(1000));
+    if (!detail::decodeNoiseControl(resp.payload))
         throw SonyException(SonyErrorCode::InvalidResponse, "Malformed noise-control response");
-    NoiseControlState state;
-    if (resp.payload.size() >= 7) {
-        bool on = resp.payload[3] != 0;
-        bool ambient = resp.payload[4] != 0;
-        bool voice = resp.payload[5] != 0;
-        int level = static_cast<int>(resp.payload[6]);
+    return resp;
+}
 
-        if (!on) {
-            state.mode = NoiseControlMode::Off;
-        } else if (ambient) {
-            state.mode = NoiseControlMode::Ambient;
-        } else {
-            state.mode = NoiseControlMode::NoiseCancelling;
-        }
-        state.ambientLevel = ambient ? level : 0;
-        state.focusOnVoice = voice;
-    }
-    return state;
+NoiseControlState ProtocolV2::getNoiseControl() {
+    return *detail::decodeNoiseControl(_queryNoiseControl().payload);
 }
 
 void ProtocolV2::setNoiseControl(const NoiseControlState& state) {
@@ -141,6 +124,13 @@ void ProtocolV2::setNoiseControl(const NoiseControlState& state) {
         level
     };
 
+    if (_noiseControlLayout == NoiseControlLayout::Wf1000Xm4) {
+        // Read before writing: byte 5 is the headset's wind setting. Preserve
+        // it exactly, including non-default values; never invent one on failure.
+        const auto current = _queryNoiseControl();
+        payload[1] = 0x15;
+        payload.insert(payload.begin() + 5, current.payload[5]);
+    }
     _session.send(SonyFrame{ .type = DataType::DataMdr, .payload = std::move(payload) });
 }
 

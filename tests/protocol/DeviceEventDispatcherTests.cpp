@@ -298,3 +298,18 @@ TEST_CASE("DeviceEventDispatcher concurrency and reentrancy safety", "[events][c
 
     CHECK(receivedCount.load() > 0);
 }
+
+TEST_CASE("DeviceEventDispatcher decodes WF-1000XM4 type 0x15 notifications", "[events][wf-xm4]") {
+    DeviceEventDispatcher dispatcher;
+    DeviceState state;
+    CHECK(dispatcher.parseNotificationPayload({0x69,0x15,1,1,1,2,0,20}, state));
+    CHECK(state.noiseControl.mode == NoiseControlMode::Ambient);
+    CHECK(state.noiseControl.ambientLevel == 20);
+    CHECK_FALSE(state.noiseControl.focusOnVoice);
+    CHECK(dispatcher.parseNotificationPayload({0x69,0x15,1,1,0,2,0,1}, state));
+    CHECK(state.noiseControl.mode == NoiseControlMode::NoiseCancelling);
+    CHECK(state.noiseControl.ambientLevel == 0);
+    CHECK_FALSE(dispatcher.parseNotificationPayload({0x69,0x15,1,1,1,2,0}, state));
+    CHECK_FALSE(dispatcher.parseNotificationPayload({0x69,0x15,1,1,1,2,0,21}, state));
+    CHECK(state.noiseControl.mode == NoiseControlMode::NoiseCancelling);
+}

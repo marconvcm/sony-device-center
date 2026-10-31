@@ -30,6 +30,10 @@ void BluetoothConnectorTransport::disconnect() noexcept {
     }
 }
 
+void BluetoothConnectorTransport::cancelPending() noexcept {
+    if (_connector) _connector->cancelPending();
+}
+
 bool BluetoothConnectorTransport::isConnected() const noexcept {
     return _connector && _connector->isConnected();
 }

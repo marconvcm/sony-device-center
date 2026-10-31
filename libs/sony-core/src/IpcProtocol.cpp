@@ -179,6 +179,9 @@ IpcResponse IpcProtocol::execute(const IpcCommand& cmd, IDeviceService& service)
             if (snap->battery.main.has_value()) {
                 oss << "Battery: " << *snap->battery.main << "%\n";
             }
+            if (snap->battery.left) oss << "Left: " << *snap->battery.left << "%\n";
+            if (snap->battery.right) oss << "Right: " << *snap->battery.right << "%\n";
+            if (snap->battery.caseBattery) oss << "Case: " << *snap->battery.caseBattery << "%\n";
             oss << "\nNoise Control:\n  ";
             if (snap->noiseControl.mode == protocol::NoiseControlMode::NoiseCancelling) {
                 oss << "Noise Cancelling\n";

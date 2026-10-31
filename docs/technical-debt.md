@@ -15,8 +15,11 @@ no hardware verification or release publication is implied by the automated test
    that a talking session closes after ~30s. The timeout picker is still a
    nice-to-have (see UI section).
    WH-1000XM6 10-band EQ is implemented, with packet fixtures and contributor
-   hardware verification on firmware 3.1.5 in #44. XM6 noise-control readback,
-   intermittent battery readings, and MDR-1000X connectivity remain unresolved.
+   hardware verification on firmware 3.1.5 in #44. XM6 noise-control readback
+   was added in #74. Intermittent battery readings and MDR-1000X connectivity
+   still need verification. WF-1000XM4 now has a dedicated noise-control layout
+   and detailed battery collection; audible behavior and non-default wind
+   settings need a physical retest on the resulting build.
    ACK receipt still cannot establish that an EQ change had an audible effect.
 2. **Sanitizer validation.** The local ASan build cannot link because
    `/usr/lib64/libasan.so.8.0.0` is missing. Re-run ASan/UBSan in CI or after fixing
@@ -43,8 +46,9 @@ no hardware verification or release publication is implied by the automated test
 - **Long device calls still delay queued operations.** Socket polling is independent,
   but discovery, connect, and maintenance share one serialized executor. A slow
   connection or inquiry delays subsequent status snapshots and writes. Publish a
-  separate immutable service-status cache and make native connection attempts
-  cancellable. Shutdown currently waits for the active native operation to return.
+  separate immutable service-status cache. macOS native opens/writes now use
+  asynchronous APIs, deadlines and cancellation before shutdown joins. Linux SDP
+  and native connection setup still need equivalent deadline/cancellation work.
 - **SDK concurrency contract.** Applications serialize access, but the service still
   exposes `activeDevice()` as a raw pointer and uses a coarse recursive mutex. Move
   callers to typed service operations and immutable complete snapshots before
@@ -90,8 +94,8 @@ no hardware verification or release publication is implied by the automated test
   timeout `0x00` / `0x01` / `0x02` / `0x03` (plus Auto/High/Low sensitivity).
   Surface them in the GUI and IPC later; do not default to `0x03`.
 - Improve per-feature unknown/stale/error presentation beyond the current metadata,
-  battery/noise/codec labels, feature descriptions, and error footer. Show separate
-  left/right/case batteries and richer read-error details where useful.
+  battery/noise/codec labels, feature descriptions, and error footer. Left/right/
+  case batteries now appear in the overview; richer read-error details remain useful.
 - Device actions currently allow one pending operation at a time. Coalesce slider
   drags to the final desired value rather than dropping intermediate actions while
   busy. Keep confirmed state separate from pending input.

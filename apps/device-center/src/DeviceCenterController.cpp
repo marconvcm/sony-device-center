@@ -15,6 +15,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QSettings>
+#include <QSemaphore>
 #include <QStandardPaths>
 #include <QTextStream>
 #include <QUrl>
@@ -48,11 +49,17 @@ DeviceCenterController::DeviceCenterController(QObject* parent, std::shared_ptr<
     _worker.start();
 }
 DeviceCenterController::~DeviceCenterController() {
-    QMetaObject::invokeMethod(_backend, &DeviceBackend::shutdown, Qt::BlockingQueuedConnection);
+    _backend->requestStop();
+    QSemaphore stopped;
+    QMetaObject::invokeMethod(_backend, [this, &stopped] { _backend->shutdown(); stopped.release(); }, Qt::QueuedConnection);
+    // Repeat cancellation to cover a native operation that starts between the
+    // stop request and the worker observing it. No GUI events are re-entered.
+    while (!stopped.tryAcquire(1, 20)) _backend->cancelPending();
     _worker.quit(); _worker.wait();
 }
 void DeviceCenterController::_send(const QString& method, const QJsonObject& params) {
-    if (_busy) return;
+    if (_busy && method != "disconnect") return;
+    if (method == "disconnect") _backend->cancelPending();
     _busy = true; _lastError.clear(); const auto generation = ++_generation;
     emit stateChanged();
     const auto bytes = QJsonDocument(QJsonObject{{"method",method},{"params",params}}).toJson(QJsonDocument::Compact);
@@ -66,6 +73,7 @@ void DeviceCenterController::_applySnapshot(const QByteArray& data) {
     if (s.contains("address")) _deviceAddress = s.value("address").toString();
     if (!s.contains("features")) {
         _batteryLevel = -1; _noiseControlMode = "unknown";
+        _batteryLeft = _batteryRight = _batteryCase = -1;
         emit stateChanged(); return;
     }
     _features = s.value("features").toObject().toVariantMap();
@@ -75,6 +83,9 @@ void DeviceCenterController::_applySnapshot(const QByteArray& data) {
     };
     const auto battery = s.value("battery").toObject();
     _batteryLevel = _connected && valid("battery") ? battery.value("main").toInt(-1) : -1;
+    _batteryLeft = _connected && valid("battery") ? battery.value("left").toInt(-1) : -1;
+    _batteryRight = _connected && valid("battery") ? battery.value("right").toInt(-1) : -1;
+    _batteryCase = _connected && valid("battery") ? battery.value("case").toInt(-1) : -1;
     _isCharging = _connected && battery.value("charging").toBool();
     const auto nc = s.value("noiseControl").toObject();
     _noiseControlMode = _connected && valid("noiseControl") ? nc.value("mode").toString() : "unknown";

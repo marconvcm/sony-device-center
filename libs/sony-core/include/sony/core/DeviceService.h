@@ -26,6 +26,7 @@ public:
     std::vector<DiscoveredDevice> discoverDevices() override;
     void connect(const transport::DeviceAddress& address, std::string_view name = "") override;
     void disconnect() noexcept override;
+    void cancelPending() noexcept override;
     [[nodiscard]] bool isConnected() const noexcept override;
 
     [[nodiscard]] SonyDevice* activeDevice() noexcept override;

@@ -1,261 +1,257 @@
 #include "MacOSBluetoothConnector.h"
+#import <IOBluetooth/IOBluetooth.h>
+#import <Foundation/Foundation.h>
+#import <dispatch/dispatch.h>
+#include <algorithm>
+#include <atomic>
+#include <condition_variable>
+#include <cstring>
+#include <deque>
+#include <limits>
+#include <vector>
 
-MacOSBluetoothConnector::MacOSBluetoothConnector()
-{
-    
-}
-MacOSBluetoothConnector::~MacOSBluetoothConnector()
-{
-    // onclose event
-    if (isConnected()){
-        disconnect();
+struct MacOSBluetoothState {
+    struct Write {
+        std::vector<unsigned char> bytes;
+        bool started{false}, done{false};
+        IOReturn status{kIOReturnNotReady};
+        size_t length{0};
+    };
+    std::mutex mutex;
+    std::condition_variable changed;
+    std::atomic<bool> stop{false}, connected{false};
+    bool openDone{false};
+    IOReturn openStatus{kIOReturnNotReady};
+    SonyProtocolVersion version{SonyProtocolVersion::V1};
+    std::string error;
+    std::deque<unsigned char> received;
+    std::shared_ptr<Write> write;
+
+    void cancel() noexcept {
+        stop = true; connected = false;
+        changed.notify_all();
     }
-}
+};
 
-@interface AsyncCommDelegate : NSObject <IOBluetoothRFCOMMChannelDelegate> {
+@interface SonyRfcommDelegate : NSObject <IOBluetoothRFCOMMChannelDelegate> {
 @public
-    MacOSBluetoothConnector* delegateCPP;
+    std::shared_ptr<MacOSBluetoothState> state;
+}
+@end
+@implementation SonyRfcommDelegate
+- (void)rfcommChannelOpenComplete:(IOBluetoothRFCOMMChannel*)channel status:(IOReturn)status {
+    std::lock_guard lock(state->mutex);
+    state->openDone = true;
+    state->openStatus = status;
+    // A late completion must never revive a cancelled connection.
+    if (!state->stop && status == kIOReturnSuccess) state->connected = true;
+    state->changed.notify_all();
+}
+- (void)rfcommChannelClosed:(IOBluetoothRFCOMMChannel*)channel {
+    // No closeChannel, join, or connector access inside a native callback.
+    state->cancel();
+}
+- (void)rfcommChannelData:(IOBluetoothRFCOMMChannel*)channel data:(void*)data length:(size_t)length {
+    std::lock_guard lock(state->mutex);
+    if (state->stop) return;
+    if (length > 65536 || state->received.size() > 65536 - length) {
+        state->cancel(); return;
+    }
+    const auto* bytes = static_cast<const unsigned char*>(data);
+    state->received.insert(state->received.end(), bytes, bytes + length);
+    state->changed.notify_all();
+}
+- (void)rfcommChannelWriteComplete:(IOBluetoothRFCOMMChannel*)channel refcon:(void*)refcon status:(IOReturn)status {
+    std::lock_guard lock(state->mutex);
+    if (state->write && state->write.get() == refcon) {
+        state->write->status = status;
+        state->write->done = true;
+        if (status != kIOReturnSuccess) state->cancel();
+        state->changed.notify_all();
+    }
 }
 @end
 
-@implementation AsyncCommDelegate {
+namespace {
+using Clock = std::chrono::steady_clock;
+// IOBluetooth may already have queued a callback when setDelegate:nil runs.
+// Keep the callback receiver and its state alive across a main-run-loop turn.
+// See also Chromium's FB13705522 workaround in bluetooth_rfcomm_channel_mac.mm.
+void releaseLater(CFTypeRef object) {
+    if (!object) return;
+    dispatch_async(dispatch_get_main_queue(), ^{ CFRelease(object); });
 }
-- (void)rfcommChannelClosed:(IOBluetoothRFCOMMChannel *)rfcommChannel{
-#ifdef SHC_DEBUG_PROTOCOL
-    fprintf(stderr, "[connect] rfcommChannelClosed\n");
+void pump(const std::shared_ptr<MacOSBluetoothState>& state) {
+    @autoreleasepool {
+        [[NSRunLoop currentRunLoop] runMode:NSDefaultRunLoopMode beforeDate:[NSDate dateWithTimeIntervalSinceNow:0.005]];
+    }
+    // runMode can return immediately when there are no registered sources.
+    std::unique_lock lock(state->mutex);
+    state->changed.wait_for(lock, std::chrono::milliseconds(5), [&] { return state->stop.load(); });
+}
+void runConnection(const std::shared_ptr<MacOSBluetoothState>& state, const std::string& address,
+                   Clock::time_point deadline, const std::function<void*(const std::string&)>& factory) {
+    @autoreleasepool {
+        CFTypeRef retainedDevice = nullptr, retainedChannel = nullptr, retainedDelegate = nullptr;
+        IOBluetoothRFCOMMChannel* channel = nil;
+        try {
+            IOBluetoothDevice* device = factory ? (__bridge IOBluetoothDevice*)factory(address)
+                : [IOBluetoothDevice deviceWithAddressString:[NSString stringWithUTF8String:address.c_str()]];
+            if (!device) throw std::runtime_error("Invalid Bluetooth device address");
+            retainedDevice = CFRetain((__bridge CFTypeRef)device);
+            auto* v1 = [IOBluetoothSDPUUID uuidWithBytes:(void*)SERVICE_UUID_IN_BYTES length:16];
+            auto* v2 = [IOBluetoothSDPUUID uuidWithBytes:(void*)SERVICE_UUID_V2_IN_BYTES length:16];
+            auto* record = [device getServiceRecordForUUID:v1];
+            if (!record) { record = [device getServiceRecordForUUID:v2]; state->version = SonyProtocolVersion::V2; }
+            if (!record) throw std::runtime_error("No cached Sony RFCOMM service; pair the headset in Bluetooth settings");
+            UInt8 channelId = 0;
+            if ([record getRFCOMMChannelID:&channelId] != kIOReturnSuccess)
+                throw std::runtime_error("Sony service has no RFCOMM channel");
+            SonyRfcommDelegate* delegate = [[SonyRfcommDelegate alloc] init];
+            delegate->state = state;
+#if __has_feature(objc_arc)
+            retainedDelegate = CFBridgingRetain(delegate);
+#else
+            retainedDelegate = (CFTypeRef)delegate;
 #endif
-    delegateCPP->disconnect();
+            // This asynchronous API also opens the underlying connection. Do not
+            // precede it with synchronous openConnection on the Qt worker.
+            if (!state->stop) {
+                const auto status = [device openRFCOMMChannelAsync:&channel withChannelID:channelId delegate:delegate];
+                if (channel) retainedChannel = CFRetain((__bridge CFTypeRef)channel);
+                if (status != kIOReturnSuccess) throw std::runtime_error("Cannot start RFCOMM opening (" + std::to_string(status) + ")");
+            }
+            while (!state->stop) {
+                {
+                    std::lock_guard lock(state->mutex);
+                    if (state->openDone && state->openStatus != kIOReturnSuccess)
+                        throw std::runtime_error("RFCOMM opening failed (" + std::to_string(state->openStatus) + ")");
+                }
+                if (!state->connected && Clock::now() >= deadline)
+                    throw std::runtime_error("RFCOMM opening timed out");
+                std::shared_ptr<MacOSBluetoothState::Write> write;
+                {
+                    std::lock_guard lock(state->mutex);
+                    if (state->connected && state->write && !state->write->started) {
+                        write = state->write;
+                        write->started = true;
+                    }
+                }
+                if (write) {
+                    const auto mtu = channel ? [channel getMTU] : 0;
+                    if (!mtu) throw std::runtime_error("Invalid RFCOMM write MTU");
+                    write->length = std::min(write->bytes.size(), static_cast<size_t>(mtu));
+                    const auto status = [channel writeAsync:write->bytes.data() length:static_cast<UInt16>(write->length) refcon:write.get()];
+                    if (status != kIOReturnSuccess) {
+                        std::lock_guard lock(state->mutex);
+                        write->status = status; write->done = true;
+                        state->cancel();
+                    }
+                }
+                pump(state);
+            }
+        } catch (const std::exception& error) {
+            std::lock_guard lock(state->mutex);
+            state->error = error.what();
+            state->cancel();
+        }
+        state->cancel();
+        // Only the native owner accesses or releases these objects. Detach first
+        // so closing cannot recurse into teardown; keep write buffers in state
+        // alive until queued native callbacks have drained.
+        [channel setDelegate:nil];
+        [channel closeChannel];
+        releaseLater(retainedChannel);
+        releaseLater(retainedDelegate);
+        if (retainedDevice) CFRelease(retainedDevice);
+    }
+}
 }
 
-#ifdef SHC_DEBUG_PROTOCOL
-- (void)rfcommChannelOpenComplete:(IOBluetoothRFCOMMChannel *)rfcommChannel status:(IOReturn)error {
-    fprintf(stderr, "[connect] rfcommChannelOpenComplete status=0x%x\n", error);
+MacOSBluetoothConnector::~MacOSBluetoothConnector() { disconnect(); }
+std::shared_ptr<MacOSBluetoothState> MacOSBluetoothConnector::state() const {
+    std::lock_guard lock(_stateMutex);
+    return _state;
 }
-#endif
-
--(void)rfcommChannelData:(IOBluetoothRFCOMMChannel *)rfcommChannel data:(void *)dataPointer length:(size_t)dataLength
-{
-    std::lock_guard<std::mutex> g(delegateCPP->receiveDataMutex);
-    
-    unsigned char* buffer = (unsigned char*)dataPointer;
-    std::vector<unsigned char> vectorBuffer(buffer, buffer+dataLength);
-    
-    delegateCPP->receivedBytes.push_back(vectorBuffer);
-    delegateCPP->receiveDataConditionVariable.notify_one();
+void MacOSBluetoothConnector::cancelPending() noexcept {
+    if (auto current = state()) current->cancel();
 }
-
-
-@end
-
-#ifdef SHC_DEBUG_PROTOCOL
-static void _debugHexDump(const char* label, const char* buf, size_t length)
-{
-    fprintf(stderr, "[%s] ", label);
-    for (size_t i = 0; i < length; i++)
+void MacOSBluetoothConnector::disconnect() noexcept {
+    cancelPending();
+    std::lock_guard lifecycle(_lifecycleMutex);
+    // Native callbacks never call this function, so there is no self-join path.
+    if (_thread.joinable()) _thread.join();
+}
+void MacOSBluetoothConnector::connect(const std::string& address) {
+    std::lock_guard lifecycle(_lifecycleMutex);
+    cancelPending();
+    if (_thread.joinable()) _thread.join();
+    auto current = std::make_shared<MacOSBluetoothState>();
     {
-        fprintf(stderr, "%02x ", (unsigned char)buf[i]);
+        std::lock_guard lock(_stateMutex);
+        _state = current;
     }
-    fprintf(stderr, "\n");
+    const auto deadline = Clock::now() + _connectTimeout;
+    _thread = std::thread(runConnection, current, address, deadline, _deviceFactory);
+    std::unique_lock lock(current->mutex);
+    const bool completed = current->changed.wait_until(lock, deadline, [&] { return current->connected || current->stop; });
+    if (!completed || !current->connected) {
+        const auto message = current->error.empty() ? (completed ? "RFCOMM opening cancelled or closed" : "RFCOMM opening timed out") : current->error;
+        current->cancel();
+        lock.unlock();
+        _thread.join();
+        throw RecoverableException(message, true);
+    }
 }
-#endif
-
-int MacOSBluetoothConnector::send(char* buf, size_t length)
-{
-#ifdef SHC_DEBUG_PROTOCOL
-    _debugHexDump("send", buf, length);
-#endif
-    [(__bridge IOBluetoothRFCOMMChannel*)rfcommchannel writeSync:(void*)buf length:length];
-    return (int)length;
+int MacOSBluetoothConnector::send(char* buffer, size_t length) {
+    if (!length) return 0;
+    std::lock_guard sending(_sendMutex);
+    auto current = state();
+    if (!current || !current->connected) throw RecoverableException("Bluetooth disconnected", true);
+    auto write = std::make_shared<MacOSBluetoothState::Write>();
+    write->bytes.assign(buffer, buffer + length);
+    std::unique_lock lock(current->mutex);
+    current->write = write;
+    current->changed.notify_all();
+    const bool completed = current->changed.wait_for(lock, _writeTimeout, [&] { return write->done || current->stop; });
+    if (!completed || !write->done || write->status != kIOReturnSuccess) {
+        current->cancel();
+        throw RecoverableException(completed ? "Bluetooth write failed or cancelled" : "Bluetooth write timed out", true);
+    }
+    current->write.reset();
+    return static_cast<int>(write->length);
 }
-
-
-void MacOSBluetoothConnector::connectToMac(MacOSBluetoothConnector* macOSBluetoothConnector, std::promise<void> connectPromise)
-{
-    // get device
-    IOBluetoothDevice *device = (__bridge IOBluetoothDevice *)macOSBluetoothConnector->rfcommDevice;
-    // create new channel
-    IOBluetoothRFCOMMChannel *channel = [[IOBluetoothRFCOMMChannel alloc] init];
-
-    // try the v1 service UUID first, then fall back to the v2 (newer-generation) UUID.
-    IOBluetoothSDPUUID *sppServiceUUIDV1 = [IOBluetoothSDPUUID uuidWithBytes:(void*)SERVICE_UUID_IN_BYTES length: 16];
-    IOBluetoothSDPServiceRecord *sppServiceRecord = [device getServiceRecordForUUID:sppServiceUUIDV1];
-    SonyProtocolVersion protocolVersion = SonyProtocolVersion::V1;
-#ifdef SHC_DEBUG_PROTOCOL
-    fprintf(stderr, "[connect] v1 getServiceRecordForUUID -> %s\n", sppServiceRecord == nil ? "nil" : "found");
-#endif
-
-    if (sppServiceRecord == nil) {
-        IOBluetoothSDPUUID *sppServiceUUIDV2 = [IOBluetoothSDPUUID uuidWithBytes:(void*)SERVICE_UUID_V2_IN_BYTES length: 16];
-        sppServiceRecord = [device getServiceRecordForUUID:sppServiceUUIDV2];
-        protocolVersion = SonyProtocolVersion::V2;
-#ifdef SHC_DEBUG_PROTOCOL
-        fprintf(stderr, "[connect] v2 getServiceRecordForUUID -> %s\n", sppServiceRecord == nil ? "nil" : "found");
-#endif
-    }
-
-    if (sppServiceRecord == nil) {
-        RecoverableException exc = RecoverableException("Couldn't find the Sony service record on this device (neither protocol version) - is this a supported headset?", false);
-        std::exception_ptr excPtr = std::make_exception_ptr(exc);
-        connectPromise.set_exception(excPtr);
-        return;
-    }
-
-    // get rfcommChannelID from sppServiceRecord
-    UInt8 rfcommChannelID = 0;
-    IOReturn channelIdStatus = [sppServiceRecord getRFCOMMChannelID:&rfcommChannelID];
-#ifdef SHC_DEBUG_PROTOCOL
-    fprintf(stderr, "[connect] protocolVersion=%s getRFCOMMChannelID -> 0x%x, channelID=%u\n", protocolVersion == SonyProtocolVersion::V2 ? "V2" : "V1", channelIdStatus, (unsigned)rfcommChannelID);
-#endif
-    if (channelIdStatus != kIOReturnSuccess) {
-        RecoverableException exc = RecoverableException("Found the Sony service record, but it has no RFCOMM channel.", false);
-        std::exception_ptr excPtr = std::make_exception_ptr(exc);
-        connectPromise.set_exception(excPtr);
-        return;
-    }
-    // setup delegate
-    AsyncCommDelegate* asyncCommDelegate = [[AsyncCommDelegate alloc] init];
-    asyncCommDelegate->delegateCPP = macOSBluetoothConnector;
-    // try to open channel
-    IOReturn openResult = [device openRFCOMMChannelAsync:&channel withChannelID:rfcommChannelID delegate:asyncCommDelegate];
-#ifdef SHC_DEBUG_PROTOCOL
-    fprintf(stderr, "[connect] openRFCOMMChannelAsync -> 0x%x\n", openResult);
-#endif
-    if ( openResult != kIOReturnSuccess ) {
-        RecoverableException exc = RecoverableException("Could not open the rfcomm.", false);
-        std::exception_ptr excPtr = std::make_exception_ptr(exc);
-        connectPromise.set_exception(excPtr);
-        return;
-    }
-    // store the channel
-    macOSBluetoothConnector->rfcommchannel = (__bridge void*) channel;
-    macOSBluetoothConnector->protocolVersion = protocolVersion;
-
-    macOSBluetoothConnector->running = true;
-
-    // tell the other tread that we are done connecting
-    connectPromise.set_value();
-
-    // keep thread running, until we are disconnected
-    std::unique_lock<std::mutex> lk(macOSBluetoothConnector->disconnectionMutex);
-    while (macOSBluetoothConnector->running) {
-        [[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:.1]];
-
-        macOSBluetoothConnector->disconnectionConditionVariable.wait_for(
-            lk, std::chrono::milliseconds(1000),
-            [&]() { return !macOSBluetoothConnector->running; });
-    }
-
-    lk.unlock();
-}
-void MacOSBluetoothConnector::connect(const std::string& addrStr){
-    // A failed attempt ends its thread without a join. Assigning a new thread
-    // over a joinable one calls std::terminate(), so release the old one first.
-    disconnect();
-    // convert mac address to nsstring
-    NSString *addressNSString = [NSString stringWithCString:addrStr.c_str() encoding:[NSString defaultCStringEncoding]];
-    // get device based on mac address
-    IOBluetoothDevice *device = [IOBluetoothDevice deviceWithAddressString:addressNSString];
-    // if device is not connected
-    if (![device isConnected]) {
-        [device openConnection];
-    }
-    std::promise<void> connectPromise;
-    std::future<void> connectFuture = connectPromise.get_future();
-
-    // store the device in a variable
-    rfcommDevice = (__bridge void*) device;
-    uthread = std::thread(MacOSBluetoothConnector::connectToMac, this, std::move(connectPromise));
-    
-    // wait till the device is connected
-    connectFuture.get();
-}
-
-int MacOSBluetoothConnector::recv(char* buf, size_t length)
-{
-    // wait for newly received data, but time out so an unanswered inquiry (probing an unsupported
-    // feature) or a dropped link doesn't block the caller forever.
-    std::unique_lock<std::mutex> g(receiveDataMutex);
-    bool gotData = receiveDataConditionVariable.wait_for(g, std::chrono::milliseconds(2500),
-        [this]{ return !receivedBytes.empty(); });
-    if (!gotData) {
+int MacOSBluetoothConnector::recv(char* buffer, size_t length) {
+    if (!length) return 0;
+    auto current = state();
+    if (!current) throw RecoverableException("Bluetooth disconnected", true);
+    std::unique_lock lock(current->mutex);
+    if (!current->changed.wait_for(lock, std::chrono::milliseconds(2500), [&] { return current->stop || !current->received.empty(); }))
         throw RecoverableException("recv timed out", false);
+    if (current->stop) throw RecoverableException("Bluetooth disconnected", true);
+    const auto count = std::min(length, current->received.size());
+    std::copy_n(current->received.begin(), count, buffer);
+    current->received.erase(current->received.begin(), current->received.begin() + count);
+    return static_cast<int>(count);
+}
+bool MacOSBluetoothConnector::isConnected() noexcept {
+    auto current = state();
+    return current && current->connected;
+}
+SonyProtocolVersion MacOSBluetoothConnector::getProtocolVersion() noexcept {
+    auto current = state();
+    return current && current->connected ? current->version : SonyProtocolVersion::V1;
+}
+std::vector<BluetoothDevice> MacOSBluetoothConnector::getConnectedDevices() {
+    @autoreleasepool {
+        std::vector<BluetoothDevice> result;
+        // Preserve renamed Sony discovery via the OUI/name filter in sony-transport,
+        // plus paired audio/BLE devices that isConnected does not report as live.
+        for (IOBluetoothDevice* device in [IOBluetoothDevice pairedDevices]) {
+            if (![device addressString]) continue;
+            result.push_back({[device name] ? [[device name] UTF8String] : "Unknown Device",
+                [[device addressString] UTF8String], true, [device isConnected] == YES});
+        }
+        return result;
     }
-
-    // fill the buf with the new data
-    std::vector<unsigned char> receivedVector = receivedBytes.front();
-    receivedBytes.pop_front();
-    
-    size_t lengthCopied = std::min(length, receivedVector.size());
-
-    // copy the first amount of bytes
-    std::memcpy(buf, receivedVector.data(), lengthCopied);
-    
-    // too much data, save it for next time
-    if (receivedVector.size() > length){
-        receivedVector.erase(receivedVector.begin(), receivedVector.begin() + lengthCopied);
-        receivedBytes.push_front(receivedVector);
-    }
-
-#ifdef SHC_DEBUG_PROTOCOL
-    _debugHexDump("recv", buf, lengthCopied);
-#endif
-
-    return (int)lengthCopied;
-}
-
-SonyProtocolVersion MacOSBluetoothConnector::getProtocolVersion() noexcept
-{
-    return protocolVersion;
-}
-
-std::vector<BluetoothDevice> MacOSBluetoothConnector::getConnectedDevices()
-{
-    // create the output vector
-    std::vector<BluetoothDevice> res;
-    // List every paired device, not just ones macOS reports as connected: [isConnected] returns NO for
-    // headsets connected only for audio/BLE (e.g. Sony ULT WEAR), which hid them from the picker. connect()
-    // opens the RFCOMM link on demand, so a paired-but-"disconnected" device still works.
-    // The list includes phones, mice, and other headphones. SonyDeviceDiscovery in sony-transport
-    // keeps only the Sony devices.
-    for (IOBluetoothDevice* device in [IOBluetoothDevice pairedDevices]) {
-        if (![device addressString]) continue;
-        BluetoothDevice dev;
-        dev.mac = [[device addressString] UTF8String];
-        dev.name = [device name] ? [[device name] UTF8String] : "Unknown Device";
-        dev.paired = true;
-        dev.connected = [device isConnected] == YES;
-        res.push_back(dev);
-    }
-    
-    return res;
-}
-
-void MacOSBluetoothConnector::disconnect() noexcept
-{
-    // close connection
-    closeConnection();
-    running = false;
-    // notify the other thread that we are done disconnecting
-    disconnectionConditionVariable.notify_all();
-    // wait for the thread to finish. The channel-closed callback calls this
-    // function on that thread, and a thread cannot join itself.
-    if (uthread.joinable() && uthread.get_id() != std::this_thread::get_id()) {
-        uthread.join();
-    }
-}
-void MacOSBluetoothConnector::closeConnection() {
-    // get the channel
-    IOBluetoothRFCOMMChannel *chan = (__bridge IOBluetoothRFCOMMChannel*) rfcommchannel;
-    [chan setDelegate: nil];
-    // close the channel
-    [chan closeChannel];
-}
-
-
-bool MacOSBluetoothConnector::isConnected() noexcept
-{
-    if (!running)
-        return false;
-    IOBluetoothRFCOMMChannel *chan = (__bridge IOBluetoothRFCOMMChannel*) rfcommchannel;
-    return chan.isOpen;
 }

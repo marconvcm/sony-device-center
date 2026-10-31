@@ -66,6 +66,7 @@ void IpcServer::start() {
 }
 void IpcServer::stop() noexcept {
     _running = false;
+    if (_service) _service->cancelPending();
     _queueCv.notify_all();
     if (_worker.joinable()) _worker.join();
     if (_executor.joinable()) _executor.join();
@@ -112,8 +113,11 @@ void IpcServer::_serverLoop() {
         std::shared_ptr<Job> job; std::future<std::string> result;
     };
     std::vector<Client> clients;
+    Clock::time_point acceptAfter{};
     while (_running) {
-        std::vector<pollfd> fds{{_listenFd, POLLIN, 0}};
+        // A queued connection stays readable after EMFILE/ENFILE. Back off
+        // accepting while continuing to serve existing clients and shutdown.
+        std::vector<pollfd> fds{{_listenFd, static_cast<short>(Clock::now() < acceptAfter ? 0 : POLLIN), 0}};
         for (auto& c : clients) fds.push_back({c.fd, static_cast<short>(c.output.empty() ? POLLIN : POLLOUT), 0});
         int ret = ::poll(fds.data(), fds.size(), 25);
         if (ret < 0 && errno != EINTR) break;
@@ -163,6 +167,8 @@ void IpcServer::_serverLoop() {
                 unixsocket::nonblocking(fd);
                 if (clients.size() >= 16 || !unixsocket::sameUser(fd)) ::close(fd);
                 else clients.push_back(Client{fd});
+            } else if (errno == EMFILE || errno == ENFILE) {
+                acceptAfter = Clock::now() + std::chrono::milliseconds(250);
             }
         }
     }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "IProtocol.h"
+#include "DeviceProfile.h"
 #include "SonyProtocolSession.h"
 #include <mutex>
 
@@ -12,10 +13,11 @@ public:
     // (inquired type 0x04, no separate Clear Bass slot) used by devices such
     // as the WH-1000XM6, instead of the legacy 5-band + Clear Bass format
     // (inquired type 0x00) shared with ProtocolV1. See DeviceProfile.h and
-    // issue #10. noiseControlType19 selects inquired type 0x19 for
-    // noise-control readback (DeviceCapabilities::noiseControlType19).
+    // issue #10. The noise-control layout is selected from the model profile.
+    // detailedBattery collects L/R/case even when the aggregate reply succeeds.
     explicit ProtocolV2(SonyProtocolSession& session, bool tenBandEqualizer = false,
-                        bool noiseControlType19 = false);
+                        NoiseControlLayout noiseControlLayout = NoiseControlLayout::Standard,
+                        bool detailedBattery = false);
     ~ProtocolV2() override = default;
 
     [[nodiscard]] ProtocolGeneration generation() const noexcept override {
@@ -53,7 +55,9 @@ private:
     SonyProtocolSession& _session;
     std::mutex _mutex;
     bool _tenBandEqualizer;
-    bool _noiseControlType19;
+    NoiseControlLayout _noiseControlLayout;
+    bool _detailedBattery;
+    SonyFrame _queryNoiseControl();
 };
 
 } // namespace sony::protocol
