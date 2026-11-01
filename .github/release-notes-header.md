@@ -49,10 +49,13 @@ The recursive `-r` is required for quarantined files inside the bundle.
 ## Known limitations
 
 - **IPC is Unix-socket only.** On Windows `sonyd` cannot serve `sonyctl` or the GUI —
-  it reports that it is listening while nothing is. Both clients fall back to a direct
-  Bluetooth session, which does work.
-- Protocol generation is selected from the Bluetooth device name, not from the SDP
-  service UUID. Connecting by address alone to a Protocol V1 headset is not yet safe.
-- The desktop app reads device state once at startup and does not refresh.
+  both clients use direct Bluetooth sessions. The daemon reports IPC as unsupported.
+- Protocol generation and capabilities are selected from the device profile.
+  Unknown models fall back to V1 with limited capabilities; a Bluetooth connection
+  alone does not establish model support.
+- Original macOS hardware crash/stall reports and WF-1000XM4 audible transitions
+  and non-default wind-control preservation still need physical acceptance testing.
+- Linux SDP discovery and connection setup remain synchronous. Separate Bluetooth
+  applications or direct sessions can compete for the headset's control channel.
 
 ---
