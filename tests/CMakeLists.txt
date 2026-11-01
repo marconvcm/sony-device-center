@@ -88,3 +88,25 @@ target_link_libraries(sony-core-tests PRIVATE Catch2::Catch2WithMain Threads::Th
 # about nine seconds in protocol timeouts. Allow headroom on slower runners
 # (see #62); the protocol's own request deadlines remain unchanged.
 catch_discover_tests(sony-core-tests PROPERTIES TIMEOUT 30)
+
+# Exercise native Linux socket ownership and SIGPIPE without a Bluetooth adapter.
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    find_package(PkgConfig QUIET)
+    if(PkgConfig_FOUND)
+        pkg_check_modules(NATIVE_DBUS QUIET dbus-1)
+    endif()
+    find_library(NATIVE_BLUETOOTH_LIB NAMES bluetooth)
+    if(NATIVE_DBUS_FOUND AND NATIVE_BLUETOOTH_LIB)
+        add_executable(sony-linux-socket-tests
+            transport/LinuxBluetoothConnectorTests.cpp
+            "${SONYBRIDGE_CLIENT_DIR}/linux/LinuxBluetoothConnector.cpp")
+        target_compile_features(sony-linux-socket-tests PRIVATE cxx_std_20)
+        target_include_directories(sony-linux-socket-tests PRIVATE
+            "${SONYBRIDGE_CLIENT_DIR}" ${NATIVE_DBUS_INCLUDE_DIRS})
+        target_link_libraries(sony-linux-socket-tests PRIVATE ${NATIVE_BLUETOOTH_LIB})
+        target_link_options(sony-linux-socket-tests PRIVATE
+            "-Wl,--wrap=socket,--wrap=connect,--wrap=setsockopt")
+        add_test(NAME LinuxBluetoothSocketSafety COMMAND sony-linux-socket-tests)
+        set_tests_properties(LinuxBluetoothSocketSafety PROPERTIES TIMEOUT 10)
+    endif()
+endif()

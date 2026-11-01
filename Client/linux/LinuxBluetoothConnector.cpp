@@ -23,16 +23,15 @@ LinuxBluetoothConnector::LinuxBluetoothConnector()
 }
 LinuxBluetoothConnector::~LinuxBluetoothConnector()
 {
-  //onclose event
-  if (isConnected())
-  {
-    disconnect();
-  }
+  disconnect();
 }
 
 int LinuxBluetoothConnector::recv(char *buf, size_t length)
 {
-  ssize_t bytesRead = ::read(this->_socket, buf, length);
+  ssize_t bytesRead;
+  do {
+    bytesRead = ::read(this->_socket, buf, length);
+  } while (bytesRead < 0 && errno == EINTR);
   if (bytesRead < 0)
   {
     // A recv timeout (SO_RCVTIMEO) is expected while probing optional features: report it as recoverable
@@ -48,59 +47,74 @@ int LinuxBluetoothConnector::recv(char *buf, size_t length)
 
 int LinuxBluetoothConnector::send(char *buf, size_t length)
 {
-
-  size_t written = ::write(this->_socket, buf, length);
-  // printf("length: %ld, written: %ld\n", length, written);
-  // for (int i = 0; i < written; i++)
-  // {
-  //   std::cout << std::setfill('0') << std::setw(2) << std::hex << (0xff & (unsigned int)buf[i]) << " ";
-  // }
-  // std::cout << '\n';
-  return written;
+  ssize_t written;
+  do {
+    // A closed control channel must never terminate the app with SIGPIPE.
+    written = ::send(this->_socket, buf, length, MSG_NOSIGNAL);
+  } while (written < 0 && errno == EINTR);
+  if (written < 0) {
+    throw RecoverableException(std::string("Couldn't send: ") + strerror(errno), true);
+  }
+  return static_cast<int>(written);
 }
 
 void LinuxBluetoothConnector::connect(const std::string &addrStr)
 {
-  struct sockaddr_rc addr = {0};
+  disconnect();
+  struct sockaddr_rc addr{};
+  if (str2ba(addrStr.c_str(), &addr.rc_bdaddr) != 0) {
+    throw RecoverableException("Invalid Bluetooth address", true);
+  }
   int status;
-  const char *dest = addrStr.c_str();
 
   // allocate a socket
-  this->_socket = ::socket(AF_BLUETOOTH, SOCK_STREAM, BTPROTO_RFCOMM);
-
-  uint32_t linkmode = RFCOMM_LM_AUTH | RFCOMM_LM_ENCRYPT;
-  int sl = sizeof(linkmode);
-  setsockopt(this->_socket, SOL_RFCOMM, RFCOMM_LM, &linkmode, sl);
-
-  // Bound recv so capability probing can't block forever (matches the 2.5s macOS timeout).
-  struct timeval recvTimeout = {2, 500000};
-  setsockopt(this->_socket, SOL_SOCKET, SO_RCVTIMEO, &recvTimeout, sizeof(recvTimeout));
-
-  // set the connection parameters (who to connect to)
-  addr.rc_family = AF_BLUETOOTH;
-  // try the v1 service UUID first, then fall back to the v2 (newer-generation) UUID.
-  uint8_t channel = sdp_getServiceChannel(addrStr.c_str(), SERVICE_UUID_IN_BYTES);
-  this->_protocolVersion = SonyProtocolVersion::V1;
-  if (channel == 0)
-  {
-    channel = sdp_getServiceChannel(addrStr.c_str(), SERVICE_UUID_V2_IN_BYTES);
-    this->_protocolVersion = SonyProtocolVersion::V2;
+  this->_socket = ::socket(AF_BLUETOOTH, SOCK_STREAM | SOCK_CLOEXEC, BTPROTO_RFCOMM);
+  if (this->_socket < 0) {
+    throw RecoverableException("Couldn't create Bluetooth socket", true);
   }
-  if (channel == 0)
-  {
-    throw RecoverableException("Couldn't find the Sony service record on this device (neither protocol version) - is this a supported headset?", true);
-  }
-  addr.rc_channel = channel;
-  str2ba(dest, &addr.rc_bdaddr);
+  try {
 
-  // connect to server
-  status = ::connect(this->_socket, (struct sockaddr *)&addr, sizeof(addr));
+    uint32_t linkmode = RFCOMM_LM_AUTH | RFCOMM_LM_ENCRYPT;
+    int sl = sizeof(linkmode);
+    if (setsockopt(this->_socket, SOL_RFCOMM, RFCOMM_LM, &linkmode, sl) < 0) {
+      throw RecoverableException("Couldn't secure Bluetooth socket", true);
+    }
 
-  if (status < 0)
-  {
-    throw RecoverableException("Error: could not connect to bluetooth socket", true);
+    // Bound recv so capability probing can't block forever (matches the 2.5s macOS timeout).
+    struct timeval recvTimeout = {2, 500000};
+    if (setsockopt(this->_socket, SOL_SOCKET, SO_RCVTIMEO, &recvTimeout, sizeof(recvTimeout)) < 0 ||
+        setsockopt(this->_socket, SOL_SOCKET, SO_SNDTIMEO, &recvTimeout, sizeof(recvTimeout)) < 0) {
+      throw RecoverableException("Couldn't set Bluetooth I/O deadlines", true);
+    }
+
+    // set the connection parameters (who to connect to)
+    addr.rc_family = AF_BLUETOOTH;
+    // try the v1 service UUID first, then fall back to the v2 (newer-generation) UUID.
+    uint8_t channel = sdp_getServiceChannel(addrStr.c_str(), SERVICE_UUID_IN_BYTES);
+    this->_protocolVersion = SonyProtocolVersion::V1;
+    if (channel == 0)
+    {
+      channel = sdp_getServiceChannel(addrStr.c_str(), SERVICE_UUID_V2_IN_BYTES);
+      this->_protocolVersion = SonyProtocolVersion::V2;
+    }
+    if (channel == 0)
+    {
+      throw RecoverableException("Couldn't find the Sony service record on this device (neither protocol version) - is this a supported headset?", true);
+    }
+    addr.rc_channel = channel;
+
+    // connect to server
+    status = ::connect(this->_socket, (struct sockaddr *)&addr, sizeof(addr));
+
+    if (status < 0)
+    {
+      throw RecoverableException("Error: could not connect to bluetooth socket", true);
+    }
+    this->_connected = true;
+  } catch (...) {
+    disconnect();
+    throw;
   }
-  this->_connected = true;
 }
 
 std::vector<BluetoothDevice> LinuxBluetoothConnector::getConnectedDevices()
@@ -141,6 +155,7 @@ void LinuxBluetoothConnector::disconnect() noexcept
   if (this->_socket != -1)
   {
     ::close(this->_socket);
+    this->_socket = -1;
   }
   this->_connected = false;
 }

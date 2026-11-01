@@ -33,6 +33,18 @@ This also applies to a disconnected daemon that may be reconnecting. Stop the da
 before starting a direct session. Separate custom endpoints and third-party Bluetooth
 clients are not coordinated by this check.
 
+## Linux control socket safety
+
+The native RFCOMM connector closes its previous socket before reconnecting and
+releases sockets after setup failures. Disconnect is idempotent. Sockets use
+close-on-exec, authenticated/encrypted RFCOMM, and 2.5-second send/receive timeouts.
+Interrupted reads/writes retry; receive timeouts remain recoverable. Writes use
+`MSG_NOSIGNAL` so a closed control channel cannot terminate the process via SIGPIPE.
+These changes affect the Sony control channel, not BlueZ audio profiles or PipeWire.
+SDP discovery and connection setup are still synchronous; the I/O timeouts do not
+provide a deadline for the entire connection attempt. Hardware playback continuity
+and reconnect behavior require a physical headset test.
+
 ## Endpoint protection
 
 The default Unix socket is `$XDG_RUNTIME_DIR/sony-device-center.sock`. If that variable
