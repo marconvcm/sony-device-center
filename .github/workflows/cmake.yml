@@ -131,9 +131,9 @@ jobs:
 
       - name: Build tests with sanitizers
         run: |
-          cmake --build build-asan --target sony-protocol-tests sony-transport-tests sony-core-tests
+          cmake --build build-asan --target sony-protocol-tests sony-transport-tests sony-core-tests sony-linux-socket-tests sony-ipc-accept-tests
 
-      # Only the three library test targets are built above, so the app-level
+      # Only library and native regression targets are built above, so app-level
       # tests have no binary to start. The regular matrix job covers them.
       - name: Run tests with sanitizers
         env:

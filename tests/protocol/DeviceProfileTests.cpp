@@ -9,6 +9,7 @@ TEST_CASE("DeviceProfileRegistry: identifies model from advertised device names"
     REQUIRE(DeviceProfileRegistry::identifyModel("Sony WH-1000XM3") == SonyModel::WH1000XM3);
 
     REQUIRE(DeviceProfileRegistry::identifyModel("WH-1000XM4") == SonyModel::WH1000XM4);
+    REQUIRE(DeviceProfileRegistry::identifyModel("WH-1000XM4C") == SonyModel::WH1000XM4);
     REQUIRE(DeviceProfileRegistry::identifyModel("LE_WH-1000XM4") == SonyModel::WH1000XM4);
     REQUIRE(DeviceProfileRegistry::identifyModel("wh-1000xm4") == SonyModel::WH1000XM4);
 
@@ -164,4 +165,11 @@ TEST_CASE("Equalizer preset lookup is case-insensitive and accepts aliases", "[p
     CHECK(equalizerPresetFromName("treble") == 0x15);
     CHECK(equalizerPresetFromName("Bass Boost") == 0x16);
     CHECK(equalizerPresetFromName("nonsense") == -1);
+}
+
+TEST_CASE("DeviceProfileRegistry scopes noise layouts to verified models", "[protocol][profile]") {
+    CHECK(DeviceProfileRegistry::getProfileForDevice("WF-1000XM4").capabilities.noiseControlLayout == NoiseControlLayout::Wf1000Xm4);
+    CHECK(DeviceProfileRegistry::getProfileForDevice("WH-1000XM6").capabilities.noiseControlLayout == NoiseControlLayout::Wh1000Xm6);
+    for (auto name : {"WH-1000XM4", "WH-1000XM5", "WF-1000XM5", "Unknown"})
+        CHECK(DeviceProfileRegistry::getProfileForDevice(name).capabilities.noiseControlLayout == NoiseControlLayout::Standard);
 }

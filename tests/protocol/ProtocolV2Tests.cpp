@@ -232,7 +232,7 @@ TEST_CASE("ProtocolV2: reads noise control via inquired type 0x19 (WH-1000XM6)",
     SonyProtocolSession session(&fake);
     session.connect("11:22:33:44:55:66");
 
-    ProtocolV2 v2(session, true, true);
+    ProtocolV2 v2(session, true, NoiseControlLayout::Wh1000Xm6);
 
     // Captured from a WH-1000XM6 (firmware 3.1.5) in Ambient, level 10.
     fake.queueReply({ SonyFrame{ .type = DataType::Ack, .sequence = 0 },
@@ -246,4 +246,77 @@ TEST_CASE("ProtocolV2: reads noise control via inquired type 0x19 (WH-1000XM6)",
 
     auto sent = FrameCodec::decode(fake.sentFrames().front());
     REQUIRE(sent.payload == std::vector<uint8_t>{0x66, 0x19});
+}
+
+TEST_CASE("ProtocolV2: WF-1000XM4 preserves wind control in type 0x15 writes", "[protocol][v2][wf-xm4]") {
+    for (auto mode : {NoiseControlMode::Ambient, NoiseControlMode::NoiseCancelling, NoiseControlMode::Off}) {
+        for (uint8_t wind : {0, 1, 2}) {
+            ReplyingFakeTransport fake;
+            SonyProtocolSession session(&fake);
+            session.connect("11:22:33:44:55:66");
+            ProtocolV2 v2(session, false, NoiseControlLayout::Wf1000Xm4);
+            fake.queueReply({SonyFrame{.type=DataType::Ack, .sequence=0},
+                SonyFrame{.type=DataType::DataMdr, .sequence=1, .payload={0x67,0x15,1,1,1,wind,0,20}}});
+            fake.queueReply({SonyFrame{.type=DataType::Ack, .sequence=1}});
+            v2.setNoiseControl({.mode=mode, .ambientLevel=mode == NoiseControlMode::Ambient ? 20 : 0, .focusOnVoice=false});
+            std::vector<std::vector<uint8_t>> requests;
+            for (const auto& raw : fake.sentFrames()) {
+                const auto frame = FrameCodec::decode(raw);
+                if (frame.type == DataType::DataMdr) requests.push_back(frame.payload);
+            }
+            REQUIRE(requests.size() == 2);
+            CHECK(requests[0] == std::vector<uint8_t>{0x66,0x15});
+            CHECK(requests[1] == std::vector<uint8_t>{0x68,0x15,1,
+                static_cast<uint8_t>(mode != NoiseControlMode::Off),
+                static_cast<uint8_t>(mode == NoiseControlMode::Ambient),wind,0,
+                static_cast<uint8_t>(mode == NoiseControlMode::Ambient ? 20 : 1)});
+        }
+    }
+}
+
+TEST_CASE("ProtocolV2: WF-1000XM4 validates readback before any write", "[protocol][v2][wf-xm4]") {
+    ReplyingFakeTransport fake;
+    SonyProtocolSession session(&fake);
+    session.connect("11:22:33:44:55:66");
+    ProtocolV2 v2(session, false, NoiseControlLayout::Wf1000Xm4);
+    SECTION("Readback separates wind from voice and level") {
+        fake.queueReply({SonyFrame{.type=DataType::Ack, .sequence=0},
+            SonyFrame{.type=DataType::DataMdr, .sequence=1, .payload={0x67,0x15,1,1,1,2,0,20}}});
+        auto state = v2.getNoiseControl();
+        CHECK(state.mode == NoiseControlMode::Ambient);
+        CHECK(state.ambientLevel == 20);
+        CHECK_FALSE(state.focusOnVoice);
+    }
+    SECTION("Truncated readback prevents SET") {
+        fake.queueReply({SonyFrame{.type=DataType::Ack, .sequence=0},
+            SonyFrame{.type=DataType::DataMdr, .sequence=1, .payload={0x67,0x15,1,1,1,2,0}}});
+        CHECK_THROWS_AS(v2.setNoiseControl({.mode=NoiseControlMode::Ambient,.ambientLevel=2}), SonyException);
+        for (const auto& raw : fake.sentFrames()) {
+            const auto frame = FrameCodec::decode(raw);
+            if (!frame.payload.empty()) CHECK(frame.payload[0] != 0x68);
+        }
+    }
+}
+
+TEST_CASE("ProtocolV2: WF-1000XM4 collects TWS records after an aggregate reply", "[protocol][v2][wf-xm4]") {
+    ReplyingFakeTransport fake;
+    SonyProtocolSession session(&fake);
+    session.connect("11:22:33:44:55:66");
+    ProtocolV2 v2(session, false, NoiseControlLayout::Wf1000Xm4, true);
+    fake.queueReply({SonyFrame{.type=DataType::Ack, .sequence=0},
+        SonyFrame{.type=DataType::DataMdr, .sequence=1, .payload={0x23,0,100,0}}});
+    fake.queueReply({SonyFrame{.type=DataType::Ack, .sequence=1},
+        SonyFrame{.type=DataType::DataMdr, .sequence=0, .payload={0x23,9,92,0,90,1}}});
+    SECTION("Case available") {
+        fake.queueReply({SonyFrame{.type=DataType::Ack, .sequence=0},
+            SonyFrame{.type=DataType::DataMdr, .sequence=1, .payload={0x23,10,80,0}}});
+        CHECK(v2.getBattery().caseBattery == 80);
+    }
+    SECTION("Missing case does not discard earbud readings") {
+        fake.queueReply({SonyFrame{.type=DataType::Ack, .sequence=0}});
+        const auto state = v2.getBattery();
+        CHECK(state.left == 92); CHECK(state.right == 90);
+        CHECK(state.main == 90); CHECK(state.charging);
+        CHECK_FALSE(state.caseBattery);
+    }
 }

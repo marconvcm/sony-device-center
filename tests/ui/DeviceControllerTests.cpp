@@ -1,13 +1,16 @@
 #include <QtTest>
 #include "DeviceCenterController.h"
+#include "DeviceBackend.h"
 #include "sony/core/DeviceService.h"
 #include "../support/ReplyTransport.h"
 #include <chrono>
+#include <condition_variable>
 using namespace sony;
 using namespace sony::devicecenter;
 class SlowService : public core::IDeviceService {
 public:
-    void tick() override { std::this_thread::sleep_for(std::chrono::milliseconds(200)); }
+    std::atomic<int> ticks{0};
+    void tick() override { ++ticks; std::this_thread::sleep_for(std::chrono::milliseconds(200)); }
     std::vector<core::DiscoveredDevice> discoverDevices() override { return {}; }
     void connect(const transport::DeviceAddress&, std::string_view) override {}
     void disconnect() noexcept override {}
@@ -15,9 +18,58 @@ public:
     core::SonyDevice* activeDevice() noexcept override { return nullptr; }
     protocol::DeviceStateSnapshot snapshot() const override { return std::make_shared<const protocol::DeviceState>(); }
 };
+class CancellableService : public SlowService {
+public:
+    std::atomic<bool> entered{false};
+    std::mutex mutex;
+    std::condition_variable changed;
+    bool cancelled{false};
+    void tick() override {
+        std::unique_lock lock(mutex);
+        entered = true;
+        changed.wait_for(lock, std::chrono::seconds(2), [this] { return cancelled; });
+    }
+    void cancelPending() noexcept override {
+        std::lock_guard lock(mutex);
+        cancelled = true;
+        changed.notify_all();
+    }
+};
 class DeviceControllerTests : public QObject {
     Q_OBJECT
 private slots:
+    void twsBatteryReadingsAreExposedAndCleared() {
+        auto transport = std::make_shared<ReplyTransport>();
+        auto service = std::make_shared<core::DeviceService>(transport);
+        service->connect(transport::DeviceAddress("11:22:33:44:55:66"), "WF-1000XM4");
+        DeviceCenterController controller(nullptr, service);
+        QTRY_VERIFY_WITH_TIMEOUT(!controller.busy(), 2000);
+        QCOMPARE(controller.batteryLeft(), 81);
+        QCOMPARE(controller.batteryRight(), 79);
+        QCOMPARE(controller.batteryCase(), 85);
+        controller.disconnectDevice();
+        QTRY_VERIFY_WITH_TIMEOUT(!controller.busy(), 2000);
+        QCOMPARE(controller.batteryLeft(), -1);
+        QCOMPARE(controller.batteryRight(), -1);
+        QCOMPARE(controller.batteryCase(), -1);
+    }
+    void destructionCancelsPendingBackendWork() {
+        auto service = std::make_shared<CancellableService>();
+        auto controller = std::make_unique<DeviceCenterController>(nullptr, service);
+        QTRY_VERIFY_WITH_TIMEOUT(service->entered.load(), 1500);
+        QElapsedTimer elapsed; elapsed.start();
+        controller.reset();
+        QVERIFY(elapsed.elapsed() < 500);
+    }
+    void startupCompletesBeforeBluetoothMaintenance() {
+        auto service = std::make_shared<SlowService>();
+        DeviceBackend backend(service);
+        QSignalSpy completed(&backend, &DeviceBackend::completed);
+        backend.start();
+        QCOMPARE(completed.count(), 1);
+        QCOMPARE(service->ticks.load(), 0);
+        backend.shutdown();
+    }
     void startupDoesNotBlockGui() {
         auto service = std::make_shared<SlowService>();
         QElapsedTimer elapsed; elapsed.start();

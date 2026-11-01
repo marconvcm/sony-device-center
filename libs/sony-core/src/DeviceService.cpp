@@ -73,6 +73,12 @@ void DeviceService::disconnect() noexcept {
     }
 }
 
+void DeviceService::cancelPending() noexcept {
+    // Do not acquire the service mutex: tick/connect may hold it while waiting
+    // for exactly the native operation being cancelled. Transport is immutable.
+    if (_transport) _transport->cancelPending();
+}
+
 bool DeviceService::isConnected() const noexcept {
     std::lock_guard lock(_mutex);
     return _device && _device->isConnected();

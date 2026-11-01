@@ -150,10 +150,11 @@ std::string Logger::describePayload(std::span<const uint8_t> payload) {
         case 0x66:
             return "NCASM_GET";
         case 0x67: {
-            if (payload.size() >= 7 && (payload[1] == 0x17 || payload[1] == 0x19)) {
+            const bool windLayout = payload.size() >= 8 && payload[1] == 0x15;
+            if (windLayout || (payload.size() >= 7 && (payload[1] == 0x17 || payload[1] == 0x19))) {
                 bool on = (payload[3] != 0);
                 bool ambient = (payload[4] != 0);
-                int level = static_cast<int>(payload[6]);
+                int level = static_cast<int>(payload[windLayout ? 7 : 6]);
                 if (!on) return "NCASM_RET mode=Off";
                 if (ambient) return "NCASM_RET mode=Ambient level=" + std::to_string(level);
                 return "NCASM_RET mode=NoiseCancelling";

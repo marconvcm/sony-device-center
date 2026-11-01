@@ -7,6 +7,7 @@
 #include "../support/ReplyTransport.h"
 #include <future>
 #include <fstream>
+#include <condition_variable>
 #ifndef _WIN32
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -17,6 +18,41 @@ using namespace sony;
 using namespace sony::core;
 using namespace sony::transport;
 using Json = JsonProtocol::Json;
+
+TEST_CASE("Service cancellation reaches native connect without waiting for the service mutex", "[core][recovery][cancel]") {
+    class PendingTransport : public FakeTransport {
+    public:
+        std::atomic<bool> entered{false};
+        std::mutex mutex;
+        std::condition_variable changed;
+        bool cancelled{false};
+        void connect(const DeviceAddress&) override {
+            std::unique_lock lock(mutex);
+            entered = true;
+            changed.wait_for(lock, std::chrono::seconds(2), [this] { return cancelled; });
+            throw SonyException(SonyErrorCode::Disconnected, "Cancelled native open");
+        }
+        void cancelPending() noexcept override {
+            std::lock_guard lock(mutex);
+            cancelled = true;
+            changed.notify_all();
+        }
+    };
+    auto transport = std::make_shared<PendingTransport>();
+    DeviceService service(transport);
+    auto connection = std::async(std::launch::async, [&] {
+        try { service.connect(DeviceAddress("11:22:33:44:55:66"), "WH-1000XM4"); }
+        catch (const SonyException&) { return true; }
+        return false;
+    });
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(1);
+    while (!transport->entered && std::chrono::steady_clock::now() < deadline)
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    REQUIRE(transport->entered);
+    service.cancelPending();
+    CHECK(connection.wait_for(std::chrono::milliseconds(200)) == std::future_status::ready);
+    CHECK(connection.get());
+}
 
 TEST_CASE("Lifecycle retries with backoff and rediscovers without a restart", "[core][recovery]") {
     auto now = DeviceService::Clock::time_point{};

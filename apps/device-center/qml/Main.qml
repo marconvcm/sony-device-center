@@ -897,6 +897,15 @@ ApplicationWindow {
                                 font.weight: Font.DemiBold
                                 font.letterSpacing: -0.7
                             }
+                            Text {
+                                textFormat: Text.PlainText
+                                visible: controller.batteryLeft >= 0 || controller.batteryRight >= 0 || controller.batteryCase >= 0
+                                text: "L " + (controller.batteryLeft >= 0 ? controller.batteryLeft + "%" : "—")
+                                    + " · R " + (controller.batteryRight >= 0 ? controller.batteryRight + "%" : "—")
+                                    + " · Case " + (controller.batteryCase >= 0 ? controller.batteryCase + "%" : "—")
+                                color: window.txtDim
+                                font.pixelSize: 12
+                            }
                         }
 
                         Item { Layout.fillWidth: true }

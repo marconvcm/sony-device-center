@@ -30,6 +30,7 @@ public:
             else reply = {0x23,p[1],85,0};
         }
         if (p[0] == 0x66) reply = {0x67,p[1],1,1,0,0,0};
+        if (p[0] == 0x66 && p[1] == 0x15) reply = {0x67,0x15,1,1,0,2,0,1};
         if (p[0] == 0x56) reply = {0x57,0,0,6,10,11,12,13,14,15};
         if (p[0] == 0xe6) reply = {0xe7,1,0};
         if (!reply.empty()) notify(reply);
