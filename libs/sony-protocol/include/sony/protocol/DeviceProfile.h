@@ -21,6 +21,7 @@ enum class SonyModel
     WH1000XM4,
     WH1000XM5,
     WH1000XM6,
+    WHXB910N,
 
     WF1000XM4,
     WF1000XM5,
@@ -31,7 +32,7 @@ enum class SonyModel
     LinkBudsS
 };
 
-enum class NoiseControlLayout : uint8_t { Standard = 0x17, Wf1000Xm4 = 0x15, Wh1000Xm6 = 0x19 };
+enum class NoiseControlLayout : uint8_t { Standard = 0x17, Wf1000Xm4 = 0x15, Wh1000Xm6 = 0x19, WhXb910N = 0x16 };
 
 struct DeviceCapabilities
 {
@@ -53,6 +54,8 @@ struct DeviceCapabilities
     NoiseControlLayout noiseControlLayout = NoiseControlLayout::Standard;
 
     bool dsee = false;
+    // Most V2 models use 0x01; WH-XB910N confirms 0x00.
+    uint8_t dseeInquiredType = 0x01;
 
     bool speakToChat = false;
     bool adaptiveVolume = false;
@@ -80,6 +83,7 @@ struct DeviceProfile
         case SonyModel::WH1000XM4: return "WH-1000XM4";
         case SonyModel::WH1000XM5: return "WH-1000XM5";
         case SonyModel::WH1000XM6: return "WH-1000XM6";
+        case SonyModel::WHXB910N: return "WH-XB910N";
         case SonyModel::WF1000XM4: return "WF-1000XM4";
         case SonyModel::WF1000XM5: return "WF-1000XM5";
         case SonyModel::WF1000XM6: return "WF-1000XM6";

@@ -185,6 +185,34 @@ const std::vector<DeviceProfile>& getStaticProfiles() {
             }
         },
 
+        // WH-XB910N. Live-device protocol captures: DaanHessen/sonyctl
+        // docs/protocol.md (2026-09-14). Uses MDR 0x0C command table despite
+        // V2 transport; NC subtype 0x16 is eight bytes, DSEE subtype is 0x00.
+        DeviceProfile{
+            .model = SonyModel::WHXB910N,
+            .protocol = SonyProtocolVersion::V2,
+            .capabilities = DeviceCapabilities{
+                .battery = true,
+                .dualBattery = false,
+                .noiseCancelling = true,
+                .ambientSound = true,
+                .focusOnVoice = true,
+                .equalizer = true,
+                .clearBass = true,
+                .tenBandEqualizer = false,
+                .noiseControlLayout = NoiseControlLayout::WhXb910N,
+                .dsee = true,
+                .dseeInquiredType = 0x00,
+                // Generic app commands are unverified/unsupported on this model.
+                .speakToChat = false,
+                .adaptiveVolume = false,
+                .autoPowerOff = false,
+                .firmwareInfo = false,
+                .codecInfo = false,
+                .wearSensor = false,
+                .multipoint = false
+            }
+        },
         // WH-CH720N (V2 protocol, over-ear, EQ, DSEE, multipoint)
         DeviceProfile{
             .model = SonyModel::WHCH720N,
@@ -289,6 +317,9 @@ SonyModel DeviceProfileRegistry::identifyModel(std::string_view deviceName) noex
         return SonyModel::WF1000XM6;
     }
 
+    if (upper.find("WH-XB910N") != std::string::npos || upper.find("WHXB910N") != std::string::npos) {
+        return SonyModel::WHXB910N;
+    }
     if (upper.find("WH-CH720N") != std::string::npos || upper.find("CH720N") != std::string::npos) {
         return SonyModel::WHCH720N;
     }

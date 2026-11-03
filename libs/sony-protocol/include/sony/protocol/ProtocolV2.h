@@ -17,7 +17,7 @@ public:
     // detailedBattery collects L/R/case even when the aggregate reply succeeds.
     explicit ProtocolV2(SonyProtocolSession& session, bool tenBandEqualizer = false,
                         NoiseControlLayout noiseControlLayout = NoiseControlLayout::Standard,
-                        bool detailedBattery = false);
+                        bool detailedBattery = false, uint8_t dseeInquiredType = 0x01);
     ~ProtocolV2() override = default;
 
     [[nodiscard]] ProtocolGeneration generation() const noexcept override {
@@ -57,6 +57,7 @@ private:
     bool _tenBandEqualizer;
     NoiseControlLayout _noiseControlLayout;
     bool _detailedBattery;
+    uint8_t _dseeInquiredType;
     SonyFrame _queryNoiseControl();
 };
 

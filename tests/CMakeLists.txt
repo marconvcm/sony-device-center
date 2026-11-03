@@ -45,6 +45,7 @@ add_executable(sony-protocol-tests
     protocol/SonyProtocolSessionTests.cpp
     protocol/ProtocolV1Tests.cpp
     protocol/ProtocolV2Tests.cpp
+    protocol/WHXB910NTests.cpp
     protocol/DeviceProfileTests.cpp
     protocol/CapabilityDiscoveryTests.cpp
     protocol/DeviceStateTests.cpp
