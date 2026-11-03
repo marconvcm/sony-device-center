@@ -12,6 +12,11 @@ inline std::optional<NoiseControlState> decodeNoiseControl(std::span<const uint8
         if (p.size() != 8) return {};
         voice = 6; level = 7; // byte 5 is wind control, not voice focus
         if (p[3] > 1 || p[4] > 1 || p[voice] > 1 || p[level] > 20) return {};
+    } else if (p[1] == 0x16) {
+        // WH-XB910N: 67/69 16 01 <on> <ambient> 02 <voice> <level>.
+        if (p.size() != 8 || p[5] != 0x02) return {};
+        voice = 6; level = 7;
+        if (p[3] > 1 || p[4] > 1 || p[voice] > 1 || p[level] > 20) return {};
     } else if (p[1] != 0x17 && p[1] != 0x19) return {};
     NoiseControlState result;
     result.mode = p[3] ? (p[4] ? NoiseControlMode::Ambient : NoiseControlMode::NoiseCancelling) : NoiseControlMode::Off;

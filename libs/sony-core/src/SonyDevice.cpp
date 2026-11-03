@@ -3,6 +3,8 @@
 #include "sony/protocol/ProtocolV1.h"
 #include "sony/protocol/ProtocolV2.h"
 #include "sony/transport/Logger.h"
+#include <chrono>
+#include <thread>
 
 namespace sony::core {
 
@@ -60,6 +62,10 @@ void SonyDevice::connect(const transport::DeviceAddress& address, std::string_vi
             _state.features[name].availability = supported ? "unknown" : "unsupported";
     }
     _transport->connect(address);
+    // The WH-XB910N RFCOMM socket may return ENOTCONN immediately after
+    // connect(). The 400ms settle time was measured on real hardware.
+    if (_profile.model == protocol::SonyModel::WHXB910N)
+        std::this_thread::sleep_for(std::chrono::milliseconds(400));
     _setupSession();
 
     if (_protocol) {
@@ -137,7 +143,8 @@ void SonyDevice::_setupSession() {
     } else {
         _protocol = std::make_unique<protocol::ProtocolV2>(*_session, _capabilities.tenBandEqualizer,
                                                            _capabilities.noiseControlLayout,
-            _profile.model == protocol::SonyModel::WF1000XM4);
+            _profile.model == protocol::SonyModel::WF1000XM4,
+            _capabilities.dseeInquiredType);
     }
 
     _session->onNotification([this](const protocol::SonyFrame& frame) {

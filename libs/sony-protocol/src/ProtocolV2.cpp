@@ -27,9 +27,11 @@ int apoIndexFromCode(uint8_t c0, uint8_t c1) {
 
 } // namespace
 
-ProtocolV2::ProtocolV2(SonyProtocolSession& session, bool tenBandEqualizer, NoiseControlLayout noiseControlLayout, bool detailedBattery)
+ProtocolV2::ProtocolV2(SonyProtocolSession& session, bool tenBandEqualizer, NoiseControlLayout noiseControlLayout,
+                       bool detailedBattery, uint8_t dseeInquiredType)
     : _session(session), _tenBandEqualizer(tenBandEqualizer),
-      _noiseControlLayout(noiseControlLayout), _detailedBattery(detailedBattery) {}
+      _noiseControlLayout(noiseControlLayout), _detailedBattery(detailedBattery),
+      _dseeInquiredType(dseeInquiredType) {}
 
 void ProtocolV2::initDevice() {
     // V2 handshake init: 0x00 0x00 -> RET 0x01
@@ -124,7 +126,16 @@ void ProtocolV2::setNoiseControl(const NoiseControlState& state) {
         level
     };
 
-    if (_noiseControlLayout == NoiseControlLayout::Wf1000Xm4) {
+    if (_noiseControlLayout == NoiseControlLayout::WhXb910N) {
+        // Hardware-verified six-state-byte payload, subtype 0x16.
+        // Byte 5 (0x02) is mandatory: not the standard V2 voice flag.
+        // Limit the ambient level to Sony's UI range: a value >20 can be
+        // stored by this model and leave it in an undefined state.
+        const bool ambient = state.mode == NoiseControlMode::Ambient;
+        payload = {0x68, 0x16, 0x01, effect, settingType, 0x02,
+                   static_cast<uint8_t>(ambient ? voice : 0),
+                   static_cast<uint8_t>(std::clamp(state.ambientLevel, 1, 20))};
+    } else if (_noiseControlLayout == NoiseControlLayout::Wf1000Xm4) {
         // Read before writing: byte 5 is the headset's wind setting. Preserve
         // it exactly, including non-default values; never invent one on failure.
         const auto current = _queryNoiseControl();
@@ -215,11 +226,11 @@ void ProtocolV2::setEqualizerCustom(int clearBass, const std::vector<int>& bands
 }
 
 bool ProtocolV2::getDsee() {
-    // GET: e6 01 -> RET: e7 01 <enabled 0/1>
+    // WH-XB910N uses subtype 0x00; other V2 devices use 0x01.
     auto resp = _session.sendAndAwaitResponse(
-        SonyFrame{ .type = DataType::DataMdr, .payload = {0xe6, 0x01} },
+        SonyFrame{ .type = DataType::DataMdr, .payload = {0xe6, _dseeInquiredType} },
         0xe7,
-        0x01,
+        _dseeInquiredType,
         std::chrono::milliseconds(1000)
     );
     if (resp.payload.size() >= 3) {
@@ -229,10 +240,10 @@ bool ProtocolV2::getDsee() {
 }
 
 void ProtocolV2::setDsee(bool enabled) {
-    // SET: e8 01 <enabled 0/1>
+    // WH-XB910N uses subtype 0x00; other V2 devices use 0x01.
     std::vector<uint8_t> payload = {
         0xe8,
-        0x01,
+        _dseeInquiredType,
         static_cast<uint8_t>(enabled ? 0x01 : 0x00)
     };
     _session.send(SonyFrame{ .type = DataType::DataMdr, .payload = std::move(payload) });
