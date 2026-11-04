@@ -104,7 +104,16 @@ that is the only way this table improves. `sonyctl -v info` output is ideal.
        gcc-c++ cmake git \
        bluez-libs-devel dbus-devel glfw-devel \
        qt6-qtbase-devel qt6-qtdeclarative-devel
+
+   # Arch
+   sudo pacman -S --needed \
+       base-devel cmake git \
+       bluez-libs dbus glfw \
+       qt6-base qt6-declarative
    ```
+   On Arch, `packaging/arch/PKGBUILD` builds and installs this as a proper
+   pacman package instead (`cd packaging/arch && makepkg -si`) — see
+   [`packaging/README.md`](packaging/README.md#arch-linux-pkgbuild).
 
 2. **Install submodules**:
    ```bash
