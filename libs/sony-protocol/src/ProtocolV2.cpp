@@ -27,9 +27,10 @@ int apoIndexFromCode(uint8_t c0, uint8_t c1) {
 
 } // namespace
 
-ProtocolV2::ProtocolV2(SonyProtocolSession& session, bool tenBandEqualizer, NoiseControlLayout noiseControlLayout, bool detailedBattery)
+ProtocolV2::ProtocolV2(SonyProtocolSession& session, bool tenBandEqualizer, NoiseControlLayout noiseControlLayout, bool detailedBattery, bool bleNoiseControl)
     : _session(session), _tenBandEqualizer(tenBandEqualizer),
-      _noiseControlLayout(noiseControlLayout), _detailedBattery(detailedBattery) {}
+      _noiseControlLayout(noiseControlLayout), _detailedBattery(detailedBattery),
+      _bleNoiseControl(bleNoiseControl) {}
 
 void ProtocolV2::initDevice() {
     // V2 handshake init: 0x00 0x00 -> RET 0x01
@@ -109,6 +110,8 @@ NoiseControlState ProtocolV2::getNoiseControl() {
 }
 
 void ProtocolV2::setNoiseControl(const NoiseControlState& state) {
+    // BLE writes retain the XM6 adaptation bytes returned by the headset.
+    const auto current = _bleNoiseControl ? _queryNoiseControl().payload : std::vector<uint8_t>{};
     uint8_t effect = (state.mode == NoiseControlMode::Off) ? 0 : 1;
     uint8_t settingType = (state.mode == NoiseControlMode::Ambient) ? 1 : 0;
     uint8_t voice = state.focusOnVoice ? 1 : 0;
@@ -130,6 +133,10 @@ void ProtocolV2::setNoiseControl(const NoiseControlState& state) {
         const auto current = _queryNoiseControl();
         payload[1] = 0x15;
         payload.insert(payload.begin() + 5, current.payload[5]);
+    }
+    if (_bleNoiseControl) {
+        payload[1] = 0x19;
+        payload.insert(payload.end(), current.begin() + 7, current.end());
     }
     _session.send(SonyFrame{ .type = DataType::DataMdr, .payload = std::move(payload) });
 }

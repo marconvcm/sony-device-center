@@ -22,6 +22,7 @@ class DeviceCenterController : public QObject {
     Q_PROPERTY(QString lastError READ lastError NOTIFY stateChanged)
     Q_PROPERTY(QString connectionState READ connectionState NOTIFY stateChanged)
     Q_PROPERTY(QString codec READ codec NOTIFY stateChanged)
+    Q_PROPERTY(QString firmware READ firmware NOTIFY stateChanged)
     Q_PROPERTY(QVariantMap featureStatus READ featureStatus NOTIFY stateChanged)
     Q_PROPERTY(QString deviceName READ deviceName NOTIFY stateChanged)
     Q_PROPERTY(QString deviceAddress READ deviceAddress NOTIFY stateChanged)
@@ -56,6 +57,8 @@ class DeviceCenterController : public QObject {
     Q_PROPERTY(QVariantList pairedDevices READ pairedDevices NOTIFY pairedDevicesChanged)
 
     Q_PROPERTY(bool autostart READ autostart WRITE setAutostart NOTIFY autostartChanged)
+    Q_PROPERTY(bool showBleControlSetting READ showBleControlSetting CONSTANT)
+    Q_PROPERTY(bool bleControlEnabled READ bleControlEnabled WRITE setBleControlEnabled NOTIFY bleControlEnabledChanged)
     Q_PROPERTY(QString appVersion READ appVersion CONSTANT)
     Q_PROPERTY(QString currentLanguage READ currentLanguage WRITE setLanguage NOTIFY languageChanged)
     Q_PROPERTY(QVariantList availableLanguages READ availableLanguages CONSTANT)
@@ -68,6 +71,7 @@ public:
     QString lastError() const { return _lastError; }
     QString connectionState() const { return _connectionState; }
     QString codec() const { return _codec; }
+    QString firmware() const { return _firmware; }
     QVariantMap featureStatus() const { return _features; }
     Q_INVOKABLE void clearError() { _lastError.clear(); emit stateChanged(); }
     [[nodiscard]] QString deviceName() const;
@@ -100,6 +104,10 @@ public:
     [[nodiscard]] bool hasSpeakToChat() const;
     [[nodiscard]] bool hasAdaptiveVolume() const;
 
+    bool showBleControlSetting() const;
+    bool bleControlEnabled() const { return _bleControlEnabled; }
+    Q_INVOKABLE void setBleControlEnabled(bool enabled);
+
     [[nodiscard]] QVariantList pairedDevices() const;
 
     [[nodiscard]] bool autostart() const;
@@ -131,6 +139,7 @@ signals:
     void capabilitiesChanged();
     void pairedDevicesChanged();
     void autostartChanged();
+    void bleControlEnabledChanged();
     void languageChanged();
 
 private:
@@ -140,7 +149,8 @@ private:
     DeviceBackend* _backend{nullptr};
     quint64 _generation{0};
     bool _busy{true};
-    QString _lastError, _connectionState{"searching"}, _codec{"Unknown"};
+    bool _bleControlEnabled{false};
+    QString _lastError, _connectionState{"searching"}, _codec{"Unknown"}, _firmware{"Unknown"};
     QVariantMap _features;
     QJsonObject _capabilities;
 
