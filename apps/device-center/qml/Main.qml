@@ -24,13 +24,16 @@ ApplicationWindow {
             wrapMode: Text.Wrap
             color: controller.lastError.length ? window.danger : window.txtDim
             text: controller.lastError.length ? controller.lastError :
-                controller.busy ? "Working…" : "Connection: " + controller.connectionState
+                controller.busy ? window.tr("Working…") : window.tr("Connection: ") + window.tr(controller.connectionState)
         }
     }
 
     property int navIndex: 0
 
-    // Reactive i18n helper
+    // Reactive i18n helper. Works on keys from the I18nManager catalogue;
+    // UI strings introduced with the inline-string internationalisation use
+    // the English source text as the key, so the English catalogue needs no
+    // duplicate entries (translate() falls back to returning the key).
     function tr(key) {
         var _ = controller.currentLanguage
         return controller.t(key)
@@ -888,7 +891,7 @@ ApplicationWindow {
 
                         ColumnLayout {
                             spacing: 5
-                            Eyebrow { text: controller.connected ? "Connected Device" : "Offline" }
+                            Eyebrow { text: controller.connected ? window.tr("Connected Device") : window.tr("Offline") }
                             Text {
                                 textFormat: Text.PlainText
                                 text: controller.deviceName
@@ -902,7 +905,7 @@ ApplicationWindow {
                                 visible: controller.batteryLeft >= 0 || controller.batteryRight >= 0 || controller.batteryCase >= 0
                                 text: "L " + (controller.batteryLeft >= 0 ? controller.batteryLeft + "%" : "—")
                                     + " · R " + (controller.batteryRight >= 0 ? controller.batteryRight + "%" : "—")
-                                    + " · Case " + (controller.batteryCase >= 0 ? controller.batteryCase + "%" : "—")
+                                    + window.tr(" · Case ") + (controller.batteryCase >= 0 ? controller.batteryCase + "%" : "—")
                                 color: window.txtDim
                                 font.pixelSize: 12
                             }
@@ -913,10 +916,10 @@ ApplicationWindow {
                         // Compact status chips
                         Repeater {
                             model: [
-                                { k: "Codec", v: controller.codec },
-                                { k: "Battery", v: controller.batteryLevel >= 0 ? controller.batteryLevel + "%" : "Unknown" },
-                                { k: "Mode", v: controller.noiseControlMode === "unknown" ? "Unknown" : controller.noiseControlMode === "cancelling" ? "ANC"
-                                              : controller.noiseControlMode === "ambient" ? "Ambient" : "Off" }
+                                { k: window.tr("Codec"), v: window.tr(controller.codec) },
+                                { k: window.tr("Battery"), v: controller.batteryLevel >= 0 ? controller.batteryLevel + "%" : window.tr("Unknown") },
+                                { k: window.tr("Mode"), v: controller.noiseControlMode === "unknown" ? window.tr("Unknown") : controller.noiseControlMode === "cancelling" ? window.tr("ANC")
+                                              : controller.noiseControlMode === "ambient" ? window.tr("Ambient") : window.tr("Off") }
                             ]
 
                             delegate: Rectangle {
@@ -1052,9 +1055,9 @@ ApplicationWindow {
                                 textFormat: Text.PlainText
                                 Layout.alignment: Qt.AlignHCenter
                                 Layout.topMargin: 10
-                                text: controller.noiseControlMode === "unknown" ? "Unknown" : controller.noiseControlMode === "cancelling" ? "Noise Cancelling"
-                                    : controller.noiseControlMode === "ambient" ? "Ambient Sound"
-                                    : "Processing Off"
+                                text: controller.noiseControlMode === "unknown" ? window.tr("Unknown") : controller.noiseControlMode === "cancelling" ? window.tr("Noise Cancelling")
+                                    : controller.noiseControlMode === "ambient" ? window.tr("Ambient Sound")
+                                    : window.tr("Processing Off")
                                 color: window.txt
                                 font.pixelSize: 18
                                 font.weight: Font.DemiBold
@@ -1065,9 +1068,9 @@ ApplicationWindow {
                                 textFormat: Text.PlainText
                                 Layout.alignment: Qt.AlignHCenter
                                 Layout.topMargin: 2
-                                text: controller.noiseControlMode === "unknown" ? "Unknown" : controller.noiseControlMode === "cancelling" ? "The outside world is sealed out"
-                                    : controller.noiseControlMode === "ambient" ? "Level " + controller.ambientLevel + " · hearing your surroundings"
-                                    : "Straight signal, no processing"
+                                text: controller.noiseControlMode === "unknown" ? window.tr("Unknown") : controller.noiseControlMode === "cancelling" ? window.tr("The outside world is sealed out")
+                                    : controller.noiseControlMode === "ambient" ? window.tr("Level ") + controller.ambientLevel + window.tr(" · hearing your surroundings")
+                                    : window.tr("Straight signal, no processing")
                                 color: window.txtFaint
                                 font.pixelSize: 12
                             }
@@ -1079,7 +1082,7 @@ ApplicationWindow {
                                 spacing: 11
 
                                 PillButton {
-                                    text: "Noise Cancelling"
+                                    text: window.tr("Noise Cancelling")
                                     glyphPath: window.icons.shield
                                     tint: window.accent
                                     active: controller.noiseControlMode === "cancelling"
@@ -1087,7 +1090,7 @@ ApplicationWindow {
                                 }
 
                                 PillButton {
-                                    text: "Ambient"
+                                    text: window.tr("Ambient")
                                     glyphPath: window.icons.mic
                                     tint: window.ambientWarm
                                     active: controller.noiseControlMode === "ambient"
@@ -1095,7 +1098,7 @@ ApplicationWindow {
                                 }
 
                                 PillButton {
-                                    text: "Off"
+                                    text: window.tr("Off")
                                     glyphPath: window.icons.power
                                     tint: window.txtDim
                                     active: controller.noiseControlMode === "off"
@@ -1108,7 +1111,7 @@ ApplicationWindow {
                                 Layout.alignment: Qt.AlignHCenter
                                 Layout.topMargin: 12
                                 compact: true
-                                text: "EQ · " + controller.equalizerPresetName
+                                text: window.tr("EQ · ") + window.tr(controller.equalizerPresetName)
                                 glyphPath: window.icons.sliders
                                 onClicked: window.navIndex = 2
                             }
@@ -1128,10 +1131,10 @@ ApplicationWindow {
 
                     ColumnLayout {
                         spacing: 5
-                        Eyebrow { text: "Isolation" }
+                        Eyebrow { text: window.tr("Isolation") }
                         Text {
                             textFormat: Text.PlainText
-                            text: "Noise Control"
+                            text: window.tr("Noise Control")
                             color: window.txt
                             font.pixelSize: 28
                             font.weight: Font.DemiBold
@@ -1139,7 +1142,7 @@ ApplicationWindow {
                         }
                         Text {
                             textFormat: Text.PlainText
-                            text: "Choose how much of the world gets through."
+                            text: window.tr("Choose how much of the world gets through.")
                             color: window.txtDim
                             font.pixelSize: 13
                         }
@@ -1236,14 +1239,14 @@ ApplicationWindow {
                                         spacing: 2
                                         Text {
                                             textFormat: Text.PlainText
-                                            text: modeCard.modelData.label
+                                            text: window.tr(modeCard.modelData.label)
                                             color: window.txt
                                             font.pixelSize: 15
                                             font.weight: Font.DemiBold
                                         }
                                         Text {
                                             textFormat: Text.PlainText
-                                            text: modeCard.modelData.desc
+                                            text: window.tr(modeCard.modelData.desc)
                                             color: window.txtFaint
                                             font.pixelSize: 12
                                         }
@@ -1272,10 +1275,10 @@ ApplicationWindow {
                                 Layout.fillWidth: true
                                 ColumnLayout {
                                     spacing: 2
-                                    Eyebrow { text: "Ambient" }
+                                    Eyebrow { text: window.tr("Ambient") }
                                     Text {
                                         textFormat: Text.PlainText
-                                        text: "Sound Level"
+                                        text: window.tr("Sound Level")
                                         color: window.txt
                                         font.pixelSize: 15
                                         font.weight: Font.DemiBold
@@ -1316,14 +1319,14 @@ ApplicationWindow {
                                     spacing: 2
                                     Text {
                                         textFormat: Text.PlainText
-                                        text: "Focus on Voice"
+                                        text: window.tr("Focus on Voice")
                                         color: window.txt
                                         font.pixelSize: 13
                                         font.weight: Font.Medium
                                     }
                                     Text {
                                         textFormat: Text.PlainText
-                                        text: "Lift human speech, filter the low rumble"
+                                        text: window.tr("Lift human speech, filter the low rumble")
                                         color: window.txtFaint
                                         font.pixelSize: 11
                                     }
@@ -1352,10 +1355,10 @@ ApplicationWindow {
 
                     ColumnLayout {
                         spacing: 5
-                        Eyebrow { text: "Signature" }
+                        Eyebrow { text: window.tr("Signature") }
                         Text {
                             textFormat: Text.PlainText
-                            text: "Equalizer"
+                            text: window.tr("Equalizer")
                             color: window.txt
                             font.pixelSize: 28
                             font.weight: Font.DemiBold
@@ -1363,8 +1366,8 @@ ApplicationWindow {
                         }
                         Text {
                             textFormat: Text.PlainText
-                            text: controller.tenBandEqualizer ? "Ten bands, fine-grained."
-                                  : "Five bands, plus dedicated Clear Bass."
+                            text: controller.tenBandEqualizer ? window.tr("Ten bands, fine-grained.")
+                                  : window.tr("Five bands, plus dedicated Clear Bass.")
                             color: window.txtDim
                             font.pixelSize: 13
                         }
@@ -1421,7 +1424,7 @@ ApplicationWindow {
                                     textFormat: Text.PlainText
                                     id: chipText
                                     anchors.centerIn: parent
-                                    text: chip.modelData.name
+                                    text: window.tr(chip.modelData.name)
                                     color: chip.current ? window.txt : window.txtDim
                                     font.pixelSize: 12
                                     font.weight: chip.current ? Font.DemiBold : Font.Normal
@@ -1443,7 +1446,7 @@ ApplicationWindow {
 
                             RowLayout {
                                 Layout.fillWidth: true
-                                Eyebrow { text: controller.tenBandEqualizer ? "10-Band" : "5-Band · ±10 dB" }
+                                Eyebrow { text: controller.tenBandEqualizer ? window.tr("10-Band") : window.tr("5-Band · ±10 dB") }
                                 Item { Layout.fillWidth: true }
                                 Text {
                                     textFormat: Text.PlainText
@@ -1530,14 +1533,14 @@ ApplicationWindow {
                                 spacing: 2
                                 Text {
                                     textFormat: Text.PlainText
-                                    text: "Clear Bass"
+                                    text: window.tr("Clear Bass")
                                     color: window.txt
                                     font.pixelSize: 15
                                     font.weight: Font.DemiBold
                                 }
                                 Text {
                                     textFormat: Text.PlainText
-                                    text: "Sub-bass weight, no distortion"
+                                    text: window.tr("Sub-bass weight, no distortion")
                                     color: window.txtFaint
                                     font.pixelSize: 11
                                 }
@@ -1582,10 +1585,10 @@ ApplicationWindow {
 
                     ColumnLayout {
                         spacing: 5
-                        Eyebrow { text: "Behaviour" }
+                        Eyebrow { text: window.tr("Behaviour") }
                         Text {
                             textFormat: Text.PlainText
-                            text: "Sound & Device Features"
+                            text: window.tr("Sound & Device Features")
                             color: window.txt
                             font.pixelSize: 28
                             font.weight: Font.DemiBold
@@ -1593,7 +1596,7 @@ ApplicationWindow {
                         }
                         Text {
                             textFormat: Text.PlainText
-                            text: "Upscaling, speak-to-chat, and power discipline."
+                            text: window.tr("Upscaling, speak-to-chat, and power discipline.")
                             color: window.txtDim
                             font.pixelSize: 13
                         }
@@ -1659,7 +1662,7 @@ ApplicationWindow {
                                         spacing: 3
                                         Text {
                                             textFormat: Text.PlainText
-                                            text: featCard.modelData.title
+                                            text: window.tr(featCard.modelData.title)
                                             color: window.txt
                                             font.pixelSize: 15
                                             font.weight: Font.DemiBold
@@ -1667,7 +1670,7 @@ ApplicationWindow {
                                         Text {
                                             textFormat: Text.PlainText
                                             Layout.fillWidth: true
-                                            text: !featCard.supported ? "Not supported" : !featCard.known ? "State unknown — waiting for device" : featCard.modelData.desc
+                                            text: !featCard.supported ? window.tr("Not supported") : !featCard.known ? window.tr("State unknown — waiting for device") : window.tr(featCard.modelData.desc)
                                             color: window.txtFaint
                                             font.pixelSize: 11
                                             wrapMode: Text.WordWrap
@@ -1719,7 +1722,7 @@ ApplicationWindow {
                                     spacing: 3
                                     Text {
                                         textFormat: Text.PlainText
-                                        text: "Auto Power-Off"
+                                        text: window.tr("Auto Power-Off")
                                         color: window.txt
                                         font.pixelSize: 15
                                         font.weight: Font.DemiBold
@@ -1727,7 +1730,7 @@ ApplicationWindow {
                                     Text {
                                         textFormat: Text.PlainText
                                         Layout.fillWidth: true
-                                        text: "Shut down after idle or removal"
+                                        text: window.tr("Shut down after idle or removal")
                                         color: window.txtFaint
                                         font.pixelSize: 11
                                         wrapMode: Text.WordWrap
@@ -1738,7 +1741,7 @@ ApplicationWindow {
                                     id: powerCombo
                                     implicitWidth: 134
                                     implicitHeight: 38
-                                    model: ["Off", "5 Minutes", "15 Minutes", "30 Minutes", "1 Hour", "3 Hours"]
+                                    model: [window.tr("Off"), window.tr("5 Minutes"), window.tr("15 Minutes"), window.tr("30 Minutes"), window.tr("1 Hour"), window.tr("3 Hours")]
                                     currentIndex: controller.featureStatus.autoPowerOff && controller.featureStatus.autoPowerOff.availability === "valid" ? controller.autoPowerOff : -1
                                     Connections {
                                         target: controller
@@ -1796,10 +1799,10 @@ ApplicationWindow {
 
                     ColumnLayout {
                         spacing: 5
-                        Eyebrow { text: "Easy Switch" }
+                        Eyebrow { text: window.tr("Easy Switch") }
                         Text {
                             textFormat: Text.PlainText
-                            text: "Paired Devices"
+                            text: window.tr("Paired Devices")
                             color: window.txt
                             font.pixelSize: 28
                             font.weight: Font.DemiBold
@@ -1807,7 +1810,7 @@ ApplicationWindow {
                         }
                         Text {
                             textFormat: Text.PlainText
-                            text: "Hand the connection to another set without re-pairing."
+                            text: window.tr("Hand the connection to another set without re-pairing.")
                             color: window.txtDim
                             font.pixelSize: 13
                         }
@@ -2223,7 +2226,7 @@ ApplicationWindow {
 
                                     ColumnLayout {
                                         spacing: 2
-                                        Eyebrow { text: "Protocol Core" }
+                                        Eyebrow { text: window.tr("Protocol Core") }
                                         Text {
                                             textFormat: Text.PlainText
                                             text: "MDR V1 & V2 (C++20)"
@@ -2235,7 +2238,7 @@ ApplicationWindow {
 
                                     ColumnLayout {
                                         spacing: 2
-                                        Eyebrow { text: "Framework" }
+                                        Eyebrow { text: window.tr("Framework") }
                                         Text {
                                             textFormat: Text.PlainText
                                             text: "Qt 6 Quick / QML"
@@ -2247,10 +2250,10 @@ ApplicationWindow {
 
                                     ColumnLayout {
                                         spacing: 2
-                                        Eyebrow { text: "License" }
+                                        Eyebrow { text: window.tr("License") }
                                         Text {
                                             textFormat: Text.PlainText
-                                            text: "MIT Open Source"
+                                            text: window.tr("MIT Open Source")
                                             color: window.txt
                                             font.pixelSize: 12
                                             font.weight: Font.Medium
@@ -2300,7 +2303,7 @@ ApplicationWindow {
                                         }
                                         Text {
                                             textFormat: Text.PlainText
-                                            text: "GitHub & Sponsorship"
+                                            text: window.tr("GitHub & Sponsorship")
                                             color: window.txtDim
                                             font.pixelSize: 12
                                         }

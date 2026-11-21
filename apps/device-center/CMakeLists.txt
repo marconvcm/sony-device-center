@@ -39,6 +39,13 @@ add_executable(sony-device-center
 
 target_compile_features(sony-device-center PRIVATE cxx_std_20)
 
+if(MSVC)
+    # I18nManager.cpp stores translations as UTF-8 literals. Without /utf-8
+    # MSVC would read the file in the system code page, and every non-Latin
+    # string in the language catalogue would come out as mojibake.
+    target_compile_options(sony-device-center PRIVATE /utf-8)
+endif()
+
 target_compile_definitions(sony-device-center
     PRIVATE
         SONY_DEVICE_CENTER_VERSION="${SonyDeviceCenter_VERSION}")
